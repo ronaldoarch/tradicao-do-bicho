@@ -20,11 +20,26 @@ export default function ModalitySelection({
 
   useEffect(() => {
     loadModalidades()
+    
+    // Recarrega quando a janela ganha foco (útil após editar no admin)
+    const handleFocus = () => {
+      loadModalidades()
+    }
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [])
 
   const loadModalidades = async () => {
     try {
-      const response = await fetch('/api/modalidades', { cache: 'no-store' })
+      const response = await fetch('/api/modalidades', { 
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      })
       const data = await response.json()
       if (data.modalidades && data.modalidades.length > 0) {
         setModalidades(data.modalidades)
