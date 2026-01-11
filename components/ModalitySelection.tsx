@@ -57,7 +57,7 @@ export default function ModalitySelection({
             <button
               key={modality.id}
               onClick={() => onModalitySelect(modality.id.toString())}
-              className={`flex min-h-[72px] flex-row items-center justify-between rounded-lg border-2 py-3 px-4 text-left transition-all ${
+              className={`flex min-h-[72px] flex-row items-center justify-between rounded-xl border-2 py-3 px-4 text-left transition-all ${
                 isSelected
                   ? 'border-blue bg-blue/5'
                   : 'border-gray-200 bg-white hover:border-blue/30'
