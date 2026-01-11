@@ -3,8 +3,14 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 let extracoes: any[] = [
-  { id: 1, name: 'Extração Principal', active: true, time: '14:00' },
-  { id: 2, name: 'Extração Secundária', active: true, time: '18:00' },
+  { id: 1, name: 'FEDERAL 20h', active: true, time: '20:00' },
+  { id: 2, name: 'BANDEIRANTES 16h', active: true, time: '16:00' },
+  { id: 3, name: 'LBR 15h', active: true, time: '15:00' },
+  { id: 4, name: 'PONTO-TARDE 15h', active: true, time: '15:00' },
+  { id: 5, name: 'PTV-RIO 16h20', active: true, time: '16:20' },
+  { id: 6, name: 'LOOK 16h20', active: true, time: '16:20' },
+  { id: 7, name: 'SALVAÇÃO 13h40', active: true, time: '13:40' },
+  { id: 8, name: 'LOTERIA FEDERAL 21h', active: true, time: '21:00' },
 ]
 
 export async function GET() {
