@@ -1,24 +1,25 @@
 import { Modality, SpecialQuotation, Position, Location } from '@/types/bet'
 
 export const MODALITIES: Modality[] = [
-  // Coluna Esquerda (ordem do original)
+  // Grid CSS preenche linha por linha, então intercalamos para aparecer em colunas:
+  // Linha 1: Grupo | Milhar
+  // Linha 2: Dupla de Grupo | Milhar/Centena
+  // etc.
   { id: 1, name: 'Grupo', value: '1x R$ 18.00', hasLink: false },
-  { id: 2, name: 'Dupla de Grupo', value: '1x R$ 16.00', hasLink: false },
-  { id: 3, name: 'Terno de Grupo', value: '1x R$ 150.00', hasLink: false },
-  { id: 4, name: 'Quadra de Grupo', value: '1x R$ 1000.00', hasLink: false },
-  { id: 5, name: 'Quina de Grupo', value: '1x R$ 5000.00', hasLink: false },
-  { id: 6, name: 'Duque de Dezena', value: '1x R$ 300.00', hasLink: false },
-  { id: 7, name: 'Terno de Dezena', value: '1x R$ 5000.00', hasLink: false },
-  { id: 8, name: 'Passe vai', value: '1x R$ 90.00', hasLink: false },
-  
-  // Coluna Direita (ordem do original)
   { id: 9, name: 'Milhar', value: '1x R$ 6000.00', hasLink: true },
+  { id: 2, name: 'Dupla de Grupo', value: '1x R$ 16.00', hasLink: false },
   { id: 10, name: 'Milhar/Centena', value: '1x R$ 3300.00', hasLink: false },
+  { id: 3, name: 'Terno de Grupo', value: '1x R$ 150.00', hasLink: false },
   { id: 11, name: 'Centena', value: '1x R$ 600.00', hasLink: false },
+  { id: 4, name: 'Quadra de Grupo', value: '1x R$ 1000.00', hasLink: false },
   { id: 12, name: 'Dezena', value: '1x R$ 60.00', hasLink: false },
+  { id: 5, name: 'Quina de Grupo', value: '1x R$ 5000.00', hasLink: false },
   { id: 13, name: 'Milhar Invertida', value: '1x R$ 6000.00', hasLink: false },
+  { id: 6, name: 'Duque de Dezena', value: '1x R$ 300.00', hasLink: false },
   { id: 14, name: 'Centena Invertida', value: '1x R$ 600.00', hasLink: false },
+  { id: 7, name: 'Terno de Dezena', value: '1x R$ 5000.00', hasLink: false },
   { id: 15, name: 'Dezena Invertida', value: '1x R$ 60.00', hasLink: false },
+  { id: 8, name: 'Passe vai', value: '1x R$ 90.00', hasLink: false },
   { id: 16, name: 'Passe vai e vem', value: '1x R$ 90.00', hasLink: false },
 ]
 
