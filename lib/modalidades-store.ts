@@ -2,7 +2,11 @@ import { MODALITIES as MODALITIES_DATA } from '@/data/modalities'
 import { Modality } from '@/types/bet'
 
 // Store compartilhado para modalidades (em produção, usar banco de dados)
-let modalidades: Modality[] = [...MODALITIES_DATA]
+// Inicializa todas as modalidades como ativas por padrão
+let modalidades: Modality[] = MODALITIES_DATA.map((m) => ({
+  ...m,
+  active: m.active !== undefined ? m.active : true, // Por padrão, todas são ativas
+}))
 
 export function getModalidades(): Modality[] {
   return modalidades

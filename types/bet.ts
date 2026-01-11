@@ -10,6 +10,7 @@ export interface Modality {
   name: string
   value: string
   hasLink?: boolean
+  active?: boolean
 }
 
 export interface SpecialQuotation {

@@ -73,49 +73,55 @@ export default function ModalitySelection({
       ) : (
         <>
           {/* Selected Summary */}
-          {selectedModality && (
-            <div className="mb-6">
-              <p className="mb-2 text-sm font-semibold text-gray-700">Modalidade selecionada:</p>
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                {(() => {
-                  const modality = modalidades.find((m) => m.id.toString() === selectedModality)
-                  return modality ? (
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-gray-950">{modality.name}</span>
-                      <span className="font-bold text-blue">{modality.value}</span>
-                    </div>
-                  ) : null
-                })()}
+          {selectedModality && (() => {
+            const modality = modalidades.find(
+              (m) => m.id.toString() === selectedModality && m.active !== false
+            )
+            // Se a modalidade selecionada foi desativada, não mostra o resumo
+            if (!modality) {
+              return null
+            }
+            return (
+              <div className="mb-6">
+                <p className="mb-2 text-sm font-semibold text-gray-700">Modalidade selecionada:</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-gray-950">{modality.name}</span>
+                    <span className="font-bold text-blue">{modality.value}</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           {/* Modalities Grid - 2 columns fixed */}
           <div className="mb-6 grid grid-cols-1 gap-2 md:grid-cols-2">
-            {modalidades.map((modality) => {
-          const isSelected = selectedModality === modality.id.toString()
-          return (
-            <button
-              key={modality.id}
-              onClick={() => onModalitySelect(modality.id.toString())}
-              className={`flex min-h-[72px] flex-row items-center justify-between rounded-xl border-2 py-3 px-4 text-left transition-all ${
-                isSelected
-                  ? 'border-blue bg-blue/5'
-                  : 'border-gray-200 bg-white hover:border-blue/30'
-              }`}
-            >
-              <h3 className="text-base font-bold text-blue leading-tight">{modality.name}</h3>
-              <div className="flex items-center gap-1">
-                <div className="inline-flex items-center gap-1 rounded-full border-2 border-blue bg-blue px-3 py-1.5">
-                  <span className="text-sm font-bold text-white leading-tight">{modality.value}</span>
-                  {modality.hasLink && (
-                    <span className="text-red-500 text-sm leading-none">🔥</span>
-                  )}
-                </div>
-              </div>
-            </button>
-          )
-        })}
+            {modalidades
+              .filter((modality) => modality.active !== false) // Mostra apenas modalidades ativas
+              .map((modality) => {
+                const isSelected = selectedModality === modality.id.toString()
+                return (
+                  <button
+                    key={modality.id}
+                    onClick={() => onModalitySelect(modality.id.toString())}
+                    className={`flex min-h-[72px] flex-row items-center justify-between rounded-xl border-2 py-3 px-4 text-left transition-all ${
+                      isSelected
+                        ? 'border-blue bg-blue/5'
+                        : 'border-gray-200 bg-white hover:border-blue/30'
+                    }`}
+                  >
+                    <h3 className="text-base font-bold text-blue leading-tight">{modality.name}</h3>
+                    <div className="flex items-center gap-1">
+                      <div className="inline-flex items-center gap-1 rounded-full border-2 border-blue bg-blue px-3 py-1.5">
+                        <span className="text-sm font-bold text-white leading-tight">{modality.value}</span>
+                        {modality.hasLink && (
+                          <span className="text-red-500 text-sm leading-none">🔥</span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
           </div>
         </>
       )}
