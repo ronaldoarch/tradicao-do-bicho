@@ -28,7 +28,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Determinar diretório baseado no tipo
-    const uploadDir = type === 'logo' ? 'logos' : 'banners'
+    let uploadDir = 'banners'
+    if (type === 'logo') {
+      uploadDir = 'logos'
+    } else if (type === 'story') {
+      uploadDir = 'stories'
+    }
     const uploadPath = join(process.cwd(), 'public', 'uploads', uploadDir)
 
     // Criar diretório se não existir

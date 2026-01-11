@@ -51,8 +51,11 @@ export function addStory(story: any): any {
   const newStory = {
     id: stories.length > 0 ? Math.max(...stories.map((s) => s.id)) + 1 : 1,
     ...story,
+    title: story.title || '',
+    alt: story.alt || '',
     active: story.active !== undefined ? story.active : true,
-    order: story.order || stories.length + 1,
+    order: story.order || (stories.length > 0 ? Math.max(...stories.map((s) => s.order)) + 1 : 1),
+    createdAt: new Date().toISOString(),
   }
   stories.push(newStory)
   return newStory
