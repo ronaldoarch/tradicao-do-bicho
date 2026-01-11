@@ -63,7 +63,7 @@ export default function ModalitySelection({
                   : 'border-gray-200 bg-white hover:border-blue/30'
               }`}
             >
-              <h3 className="text-sm font-semibold text-gray-950 leading-tight">{modality.name}</h3>
+              <h3 className="text-base font-bold text-blue leading-tight">{modality.name}</h3>
               <div className="flex items-center gap-1">
                 <div className="inline-flex items-center gap-1 rounded-md border-2 border-blue bg-blue px-2 py-1">
                   <span className="text-sm font-bold text-white leading-tight">{modality.value}</span>
