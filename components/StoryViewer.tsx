@@ -33,7 +33,15 @@ export default function StoryViewer({ stories, initialIndex, isOpen, onClose }: 
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
-          handleNext()
+          // Avança para próximo story
+          setCurrentIndex((current) => {
+            if (current < stories.length - 1) {
+              return current + 1
+            } else {
+              onClose()
+              return current
+            }
+          })
           return 0
         }
         return prev + 2 // Incrementa a cada 100ms (total 5s para completar)
@@ -41,7 +49,7 @@ export default function StoryViewer({ stories, initialIndex, isOpen, onClose }: 
     }, 100)
 
     return () => clearInterval(interval)
-  }, [isOpen, initialIndex])
+  }, [isOpen, initialIndex, stories.length, onClose])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
