@@ -1,9 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { useConfiguracoes } from '@/hooks/useConfiguracoes'
+import ProfileModal from './ProfileModal'
 
 export default function Header() {
   const { configuracoes } = useConfiguracoes()
+  const [profileModalOpen, setProfileModalOpen] = useState(false)
 
   return (
     <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-blue px-4 py-3 text-white lg:px-8">
@@ -60,8 +63,8 @@ export default function Header() {
         <div className="relative cursor-pointer flex items-center">
           <span className="iconify i-fluent:alert-16-regular text-2xl text-white opacity-50"></span>
         </div>
-        <a
-          href="/perfil"
+        <button
+          onClick={() => setProfileModalOpen(true)}
           className="flex cursor-pointer items-center gap-0.5 rounded-xl border border-white/20 bg-transparent px-3 py-2 text-white lg:gap-2 hover:bg-white/10 transition-colors"
         >
           <span className="iconify i-material-symbols:person-outline-rounded" style={{ fontSize: '20px' }}></span>
@@ -69,8 +72,11 @@ export default function Header() {
             <span className="font-semibold">R$ 5,20</span>
           </span>
           <span className="iconify i-mdi:chevron-down"></span>
-        </a>
+        </button>
       </div>
+
+      {/* Profile Modal */}
+      <ProfileModal isOpen={profileModalOpen} onClose={() => setProfileModalOpen(false)} />
     </header>
   )
 }
