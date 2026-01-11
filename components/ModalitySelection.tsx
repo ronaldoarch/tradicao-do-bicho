@@ -88,8 +88,9 @@ export default function ModalitySelection({
         <>
           {/* Selected Summary */}
           {selectedModality && (() => {
+            // modalidades já está filtrado para apenas ativas, então só precisa encontrar pelo ID
             const modality = modalidades.find(
-              (m) => m.id.toString() === selectedModality && m.active !== false
+              (m) => m.id.toString() === selectedModality
             )
             // Se a modalidade selecionada foi desativada, não mostra o resumo
             if (!modality) {
