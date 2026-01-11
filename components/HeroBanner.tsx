@@ -91,99 +91,104 @@ export default function HeroBanner() {
                 backgroundRepeat: 'no-repeat',
               }}
             >
-              {/* Overlay escuro para melhorar legibilidade do texto quando há imagem */}
-              {banner.bannerImage && (
-                <div className="absolute inset-0 bg-black/20 z-0"></div>
+              {/* Se houver imagem de banner, mostra apenas a imagem sem elementos decorativos */}
+              {banner.bannerImage ? (
+                // Banner com imagem - apenas a imagem, sem conteúdo sobreposto
+                <div className="relative w-full h-full min-h-[400px] lg:min-h-[500px]"></div>
+              ) : (
+                // Banner sem imagem - mostra conteúdo padrão
+                <>
+                  {/* Overlay escuro para melhorar legibilidade do texto quando há imagem */}
+                  <div className="absolute inset-0 bg-black/20 z-0"></div>
+                  
+                  {/* Conteúdo do Banner */}
+                  <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between px-4 py-8 lg:px-12 lg:py-16">
+                    {/* Lado Esquerdo */}
+                    <div className="flex flex-col items-start gap-6 lg:w-1/2">
+                      <div className="relative">
+                        <div className="absolute -top-2 -left-2 bg-red-600 text-white px-3 py-1 rounded-lg transform -rotate-2 text-sm font-bold">
+                          {banner.badge}
+                        </div>
+                        <div className="flex items-center gap-3 mt-8">
+                          {banner.logoImage ? (
+                            <img
+                              src={banner.logoImage}
+                              alt={configuracoes.nomePlataforma}
+                              className="h-12 w-auto lg:h-16"
+                            />
+                          ) : (
+                            <span className="text-4xl">🦁</span>
+                          )}
+                          <span className="text-3xl font-bold text-blue lg:text-4xl">{configuracoes.nomePlataforma}</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-blue rounded-2xl p-6 shadow-xl">
+                        <h2 className="text-2xl lg:text-4xl font-extrabold text-white mb-2">
+                          {banner.title}{' '}
+                          <span className="text-yellow relative">
+                            {banner.highlight}
+                            <span className="absolute bottom-0 left-0 right-0 h-1 bg-red-600"></span>
+                          </span>
+                        </h2>
+                      </div>
+
+                      <button className="bg-blue text-white px-8 py-4 rounded-xl font-semibold hover:bg-blue-scale-70 transition-colors">
+                        {banner.button}
+                      </button>
+
+                      <div className="relative mt-4">
+                        <div
+                          className={`h-32 w-48 transform -rotate-12 opacity-80 ${banner.bonusBgClass} rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg`}
+                        >
+                          {banner.bonus}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Lado Direito - Mascote e Celular */}
+                    <div className="relative lg:w-1/2 flex justify-center items-center mt-8 lg:mt-0">
+                      <div className="relative">
+                        {/* Mascote Leão - Placeholder */}
+                        <div className="relative z-10">
+                          <div className="h-64 lg:h-96 w-64 lg:w-96 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold text-6xl shadow-2xl">
+                            🦁
+                          </div>
+                        </div>
+
+                        {/* Celular com App */}
+                        <div className="absolute top-20 right-0 lg:right-20 bg-white rounded-2xl shadow-2xl p-4 transform rotate-12">
+                          <div className="w-48 h-80 bg-gradient-to-br from-blue to-purple-600 rounded-xl p-3">
+                            <h3 className="text-white text-sm font-bold mb-2">Aposte na sua sorte</h3>
+                            <div className="bg-white/10 rounded-lg p-2 mb-2">
+                              <p className="text-white text-xs">Palpites: 1621</p>
+                            </div>
+                            <div className="bg-white/10 rounded-lg p-2 mb-4">
+                              <p className="text-white text-xs">Resultado: 2948, 9154, 1621, 4959, 4513, 3195, 045</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button className="flex-1 bg-green-500 text-white text-xs py-2 rounded">Repetir</button>
+                              <button className="flex-1 bg-purple-500 text-white text-xs py-2 rounded">Ver Detalhes</button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Nota de 100 reais - Placeholder */}
+                        <div className="absolute bottom-0 right-0 transform rotate-12">
+                          <div className="h-32 w-48 bg-blue-700 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                            R$ 100
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Texto de regras */}
+                  <div className="absolute bottom-4 right-4 lg:right-12 text-xs text-white drop-shadow-lg z-10">
+                    *Confira as regras.
+                  </div>
+                </>
               )}
-              
-              {/* Conteúdo do Banner */}
-              <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between px-4 py-8 lg:px-12 lg:py-16">
-                {/* Lado Esquerdo */}
-                <div className="flex flex-col items-start gap-6 lg:w-1/2">
-                  <div className="relative">
-                    <div className="absolute -top-2 -left-2 bg-red-600 text-white px-3 py-1 rounded-lg transform -rotate-2 text-sm font-bold">
-                      {banner.badge}
-                    </div>
-                    <div className="flex items-center gap-3 mt-8">
-                      {banner.logoImage ? (
-                        <img
-                          src={banner.logoImage}
-                          alt={configuracoes.nomePlataforma}
-                          className="h-12 w-auto lg:h-16"
-                        />
-                      ) : (
-                        <span className="text-4xl">🦁</span>
-                      )}
-                      <span className="text-3xl font-bold text-blue lg:text-4xl">{configuracoes.nomePlataforma}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-blue rounded-2xl p-6 shadow-xl">
-                    <h2 className="text-2xl lg:text-4xl font-extrabold text-white mb-2">
-                      {banner.title}{' '}
-                      <span className="text-yellow relative">
-                        {banner.highlight}
-                        <span className="absolute bottom-0 left-0 right-0 h-1 bg-red-600"></span>
-                      </span>
-                    </h2>
-                  </div>
-
-                  <button className="bg-blue text-white px-8 py-4 rounded-xl font-semibold hover:bg-blue-scale-70 transition-colors">
-                    {banner.button}
-                  </button>
-
-                  <div className="relative mt-4">
-                    <div
-                      className={`h-32 w-48 transform -rotate-12 opacity-80 ${banner.bonusBgClass} rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg`}
-                    >
-                      {banner.bonus}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Lado Direito - Mascote e Celular (oculto quando há imagem de banner) */}
-                {!banner.bannerImage && (
-                  <div className="relative lg:w-1/2 flex justify-center items-center mt-8 lg:mt-0">
-                    <div className="relative">
-                      {/* Mascote Leão - Placeholder */}
-                      <div className="relative z-10">
-                        <div className="h-64 lg:h-96 w-64 lg:w-96 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold text-6xl shadow-2xl">
-                          🦁
-                        </div>
-                      </div>
-
-                      {/* Celular com App */}
-                      <div className="absolute top-20 right-0 lg:right-20 bg-white rounded-2xl shadow-2xl p-4 transform rotate-12">
-                        <div className="w-48 h-80 bg-gradient-to-br from-blue to-purple-600 rounded-xl p-3">
-                          <h3 className="text-white text-sm font-bold mb-2">Aposte na sua sorte</h3>
-                          <div className="bg-white/10 rounded-lg p-2 mb-2">
-                            <p className="text-white text-xs">Palpites: 1621</p>
-                          </div>
-                          <div className="bg-white/10 rounded-lg p-2 mb-4">
-                            <p className="text-white text-xs">Resultado: 2948, 9154, 1621, 4959, 4513, 3195, 045</p>
-                          </div>
-                          <div className="flex gap-2">
-                            <button className="flex-1 bg-green-500 text-white text-xs py-2 rounded">Repetir</button>
-                            <button className="flex-1 bg-purple-500 text-white text-xs py-2 rounded">Ver Detalhes</button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Nota de 100 reais - Placeholder */}
-                      <div className="absolute bottom-0 right-0 transform rotate-12">
-                        <div className="h-32 w-48 bg-blue-700 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg">
-                          R$ 100
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Texto de regras */}
-              <div className="absolute bottom-4 right-4 lg:right-12 text-xs text-white drop-shadow-lg z-10">
-                *Confira as regras.
-              </div>
             </div>
           </SwiperSlide>
         ))}
