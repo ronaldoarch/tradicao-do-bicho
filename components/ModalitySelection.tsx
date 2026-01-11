@@ -1,6 +1,7 @@
 'use client'
 
-import { MODALITIES } from '@/data/modalities'
+import { useEffect, useState } from 'react'
+import { MODALITIES as DEFAULT_MODALITIES } from '@/data/modalities'
 import { Modality } from '@/types/bet'
 
 interface ModalitySelectionProps {
@@ -14,6 +15,27 @@ export default function ModalitySelection({
   onModalitySelect,
   onSpecialQuotationsClick,
 }: ModalitySelectionProps) {
+  const [modalidades, setModalidades] = useState<Modality[]>(DEFAULT_MODALITIES)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadModalidades()
+  }, [])
+
+  const loadModalidades = async () => {
+    try {
+      const response = await fetch('/api/modalidades', { cache: 'no-store' })
+      const data = await response.json()
+      if (data.modalidades && data.modalidades.length > 0) {
+        setModalidades(data.modalidades)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar modalidades:', error)
+      // Mantém os dados padrão em caso de erro
+    } finally {
+      setLoading(false)
+    }
+  }
   return (
     <div>
       {/* Header with title and special quotations button */}
@@ -31,27 +53,31 @@ export default function ModalitySelection({
         </button>
       </div>
 
-      {/* Selected Summary */}
-      {selectedModality && (
-        <div className="mb-6">
-          <p className="mb-2 text-sm font-semibold text-gray-700">Modalidade selecionada:</p>
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-            {(() => {
-              const modality = MODALITIES.find((m) => m.id.toString() === selectedModality)
-              return modality ? (
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-gray-950">{modality.name}</span>
-                  <span className="font-bold text-blue">{modality.value}</span>
-                </div>
-              ) : null
-            })()}
-          </div>
-        </div>
-      )}
+      {loading ? (
+        <div className="text-center py-8 text-gray-600">Carregando modalidades...</div>
+      ) : (
+        <>
+          {/* Selected Summary */}
+          {selectedModality && (
+            <div className="mb-6">
+              <p className="mb-2 text-sm font-semibold text-gray-700">Modalidade selecionada:</p>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                {(() => {
+                  const modality = modalidades.find((m) => m.id.toString() === selectedModality)
+                  return modality ? (
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-gray-950">{modality.name}</span>
+                      <span className="font-bold text-blue">{modality.value}</span>
+                    </div>
+                  ) : null
+                })()}
+              </div>
+            </div>
+          )}
 
-      {/* Modalities Grid - 2 columns fixed */}
-      <div className="mb-6 grid grid-cols-1 gap-2 md:grid-cols-2">
-        {MODALITIES.map((modality) => {
+          {/* Modalities Grid - 2 columns fixed */}
+          <div className="mb-6 grid grid-cols-1 gap-2 md:grid-cols-2">
+            {modalidades.map((modality) => {
           const isSelected = selectedModality === modality.id.toString()
           return (
             <button
@@ -75,7 +101,9 @@ export default function ModalitySelection({
             </button>
           )
         })}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
