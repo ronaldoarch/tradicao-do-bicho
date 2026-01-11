@@ -43,6 +43,16 @@ export default function ModalitySelection({
       const data = await response.json()
       if (data.modalidades && data.modalidades.length > 0) {
         setModalidades(data.modalidades)
+        
+        // Se a modalidade selecionada foi desativada, limpa a seleção
+        if (selectedModality) {
+          const selectedMod = data.modalidades.find(
+            (m: Modality) => m.id.toString() === selectedModality && m.active !== false
+          )
+          if (!selectedMod) {
+            onModalitySelect('') // Limpa a seleção
+          }
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar modalidades:', error)
