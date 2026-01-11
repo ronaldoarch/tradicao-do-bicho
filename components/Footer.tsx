@@ -31,8 +31,18 @@ export default function Footer() {
       <div className="flex w-full flex-col gap-10 p-8">
         <div className="flex w-full justify-center gap-4 lg:justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-4xl">🦁</span>
-            <span className="text-3xl font-bold text-white lg:text-4xl">{configuracoes.nomePlataforma}</span>
+            {configuracoes.logoSite ? (
+              <img
+                src={configuracoes.logoSite}
+                alt={configuracoes.nomePlataforma}
+                className="h-12 w-auto lg:h-16"
+              />
+            ) : (
+              <>
+                <span className="text-4xl">🦁</span>
+                <span className="text-3xl font-bold text-white lg:text-4xl">{configuracoes.nomePlataforma}</span>
+              </>
+            )}
           </div>
           <div className="hidden items-center gap-8 lg:flex">
             <a href={`https://wa.me/${configuracoes.whatsappSuporte}`} target="_blank" rel="noopener noreferrer">
