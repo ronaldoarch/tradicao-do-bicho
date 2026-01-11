@@ -26,12 +26,12 @@ export default function AdminLayout({
   return (
     <div className="flex min-h-screen bg-gray-100">
       {/* Sidebar */}
-      <aside className="w-64 bg-blue text-white shadow-lg">
+      <aside className="relative w-64 bg-blue text-white shadow-lg flex flex-col">
         <div className="p-6 border-b border-blue-700">
           <h1 className="text-2xl font-bold">🦁 Lot Bicho</h1>
           <p className="text-sm text-blue-200 mt-1">Painel Administrativo</p>
         </div>
-        <nav className="p-4">
+        <nav className="p-4 flex-1">
           <ul className="space-y-2">
             {menuItems.map((item) => (
               <li key={item.href}>
@@ -50,7 +50,7 @@ export default function AdminLayout({
             ))}
           </ul>
         </nav>
-        <div className="absolute bottom-0 w-64 p-4 border-t border-blue-700">
+        <div className="p-4 border-t border-blue-700">
           <Link
             href="/"
             className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-blue-700 text-white transition-colors"
