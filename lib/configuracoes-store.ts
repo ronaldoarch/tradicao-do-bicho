@@ -4,6 +4,7 @@ let configuracoes = {
   numeroSuporte: '(00) 00000-0000',
   emailSuporte: 'suporte@lotbicho.com',
   whatsappSuporte: '5500000000000',
+  logoSite: '', // Logo do site (aparece no header)
 }
 
 export function getConfiguracoes() {

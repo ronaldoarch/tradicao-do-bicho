@@ -10,8 +10,18 @@ export default function Header() {
       <div className="flex items-center gap-4">
         <a href="/" className="flex items-center gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-2xl lg:text-3xl">🦁</span>
-            <span className="text-xl font-bold text-white lg:text-2xl">{configuracoes.nomePlataforma}</span>
+            {configuracoes.logoSite ? (
+              <img
+                src={configuracoes.logoSite}
+                alt={configuracoes.nomePlataforma}
+                className="h-8 w-auto lg:h-10"
+              />
+            ) : (
+              <span className="text-2xl lg:text-3xl">🦁</span>
+            )}
+            {!configuracoes.logoSite && (
+              <span className="text-xl font-bold text-white lg:text-2xl">{configuracoes.nomePlataforma}</span>
+            )}
           </div>
         </a>
       </div>

@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 
 interface Configuracoes {
   nomePlataforma: string
   numeroSuporte: string
   emailSuporte: string
   whatsappSuporte: string
+  logoSite: string
 }
 
 export default function ConfiguracoesPage() {
@@ -15,9 +17,11 @@ export default function ConfiguracoesPage() {
     numeroSuporte: '(00) 00000-0000',
     emailSuporte: 'suporte@lotbicho.com',
     whatsappSuporte: '5500000000000',
+    logoSite: '',
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
 
   useEffect(() => {
     loadConfig()
@@ -32,6 +36,34 @@ export default function ConfiguracoesPage() {
       console.error('Erro ao carregar configurações:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleFileUpload = async (file: File) => {
+    setUploadingLogo(true)
+
+    try {
+      const uploadFormData = new FormData()
+      uploadFormData.append('file', file)
+      uploadFormData.append('type', 'logo')
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: uploadFormData,
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setConfig({ ...config, logoSite: data.url })
+      } else {
+        alert(data.error || 'Erro ao fazer upload')
+      }
+    } catch (error) {
+      console.error('Erro ao fazer upload:', error)
+      alert('Erro ao fazer upload do arquivo')
+    } finally {
+      setUploadingLogo(false)
     }
   }
 
@@ -68,6 +100,56 @@ export default function ConfiguracoesPage() {
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Configurações Gerais</h1>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-md p-6 space-y-6">
+        {/* Upload de Logo do Site */}
+        <div className="border-b border-gray-200 pb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Logo do Site (Header)</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Esta logo aparece no cabeçalho do site, no lugar do nome da plataforma.
+          </p>
+          <div className="space-y-4">
+            {config.logoSite && (
+              <div className="relative w-32 h-32 border-2 border-gray-300 rounded-lg overflow-hidden bg-white">
+                <Image
+                  src={config.logoSite}
+                  alt="Logo do site"
+                  fill
+                  className="object-contain p-2"
+                />
+                <button
+                  type="button"
+                  onClick={() => setConfig({ ...config, logoSite: '' })}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            <div>
+              <input
+                type="file"
+                id="logo-site-upload"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    handleFileUpload(file)
+                  }
+                }}
+                className="hidden"
+                disabled={uploadingLogo}
+              />
+              <label
+                htmlFor="logo-site-upload"
+                className={`inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg cursor-pointer ${
+                  uploadingLogo ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                }`}
+              >
+                {uploadingLogo ? 'Enviando...' : config.logoSite ? 'Trocar Logo' : 'Upload Logo do Site'}
+              </label>
+            </div>
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Nome da Plataforma</label>
           <input

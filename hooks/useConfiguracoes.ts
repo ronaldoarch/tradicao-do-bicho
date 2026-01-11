@@ -7,6 +7,7 @@ interface Configuracoes {
   numeroSuporte: string
   emailSuporte: string
   whatsappSuporte: string
+  logoSite: string
 }
 
 export function useConfiguracoes() {
@@ -15,6 +16,7 @@ export function useConfiguracoes() {
     numeroSuporte: '(00) 00000-0000',
     emailSuporte: 'suporte@lotbicho.com',
     whatsappSuporte: '5500000000000',
+    logoSite: '',
   })
   const [loading, setLoading] = useState(true)
 
