@@ -1,3 +1,5 @@
+import { Location } from '@/types/bet'
+
 export interface ResultData {
   position: string
   milhar: string
@@ -15,13 +17,13 @@ export const SAMPLE_RESULTS: ResultData[] = [
   { position: '7°', milhar: '0469', grupo: '18', animal: 'Porco' },
 ]
 
-export const LOCATIONS = [
-  'Rio de Janeiro',
-  'São Paulo',
-  'Belo Horizonte',
-  'Brasília',
-  'Goiás',
-  'Distrito Federal',
+export const LOCATIONS: Location[] = [
+  { id: 'rj', name: 'Rio de Janeiro', flag: '🏖️' },
+  { id: 'sp', name: 'São Paulo', flag: '🏙️' },
+  { id: 'bh', name: 'Belo Horizonte', flag: '⛰️' },
+  { id: 'bsb', name: 'Brasília', flag: '🏛️' },
+  { id: 'go', name: 'Goiás', flag: '🌾' },
+  { id: 'df', name: 'Distrito Federal', flag: '🏛️' },
 ]
 
 export const DRAW_TIMES = [
