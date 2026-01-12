@@ -80,8 +80,8 @@ export default function ResultadosPage() {
                       className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue focus:outline-none"
                     >
                       {LOCATIONS.map((loc) => (
-                        <option key={loc} value={loc}>
-                          {loc}
+                        <option key={loc.id} value={loc.name}>
+                          {loc.flag} {loc.name}
                         </option>
                       ))}
                     </select>
