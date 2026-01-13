@@ -182,8 +182,14 @@ export async function GET(req: NextRequest) {
   const uf = resolveUF(locationFilter)
 
   try {
-    const res = await fetch(buildUrl(uf), { cache: 'no-store' })
+    let res = await fetch(buildUrl(uf), { cache: 'no-store' })
+    // Se a rota /estado/UF falhar, tenta rota geral sem UF para não quebrar
+    if (!res.ok && uf) {
+      console.warn(`Upstream ${uf} falhou (${res.status}). Tentando rota geral /resultados`)
+      res = await fetch(buildUrl(undefined), { cache: 'no-store' })
+    }
     if (!res.ok) throw new Error(`Upstream status ${res.status}`)
+
     const data = await res.json()
     const rawResults = data?.resultados ?? data?.results ?? []
     let results = normalizeResults(rawResults)
