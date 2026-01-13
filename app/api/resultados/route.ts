@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ResultadosResponse, ResultadoItem } from '@/types/resultados'
-import { SAMPLE_RESULTS } from '@/data/results'
 import { toIsoDate } from '@/lib/resultados-helpers'
 
 const SOURCE_URL = process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'
@@ -53,17 +52,20 @@ export async function GET(req: NextRequest) {
     }
 
     const payload: ResultadosResponse = {
-      results: results.length ? results : normalizeResults(SAMPLE_RESULTS),
+      results,
       updatedAt: data?.updatedAt || new Date().toISOString(),
     }
 
     return NextResponse.json(payload, { status: 200, headers: { 'Cache-Control': 'no-cache' } })
   } catch (error) {
     console.error('Erro ao buscar resultados externos:', error)
-    const payload: ResultadosResponse = {
-      results: normalizeResults(SAMPLE_RESULTS),
-      updatedAt: new Date().toISOString(),
-    }
-    return NextResponse.json(payload, { status: 200 })
+    return NextResponse.json(
+      {
+        results: [],
+        updatedAt: new Date().toISOString(),
+        error: 'Falha ao buscar resultados externos',
+      } satisfies ResultadosResponse & { error: string },
+      { status: 502 }
+    )
   }
 }

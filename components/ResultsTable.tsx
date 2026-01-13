@@ -26,7 +26,7 @@ export default function ResultsTable({
   location = 'Rio de Janeiro',
   drawTime = 'PT-RIO 9h20',
   results,
-  fallbackToSample = true,
+  fallbackToSample = false,
 }: ResultsTableProps) {
   const baseRows: (ResultadoItem | ResultData)[] =
     results && results.length > 0 ? results : fallbackToSample ? SAMPLE_RESULTS : []
