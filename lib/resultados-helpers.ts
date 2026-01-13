@@ -9,6 +9,51 @@ export interface GroupedResults {
 
 export const getDefaultDateISO = () => new Date().toISOString().split('T')[0]
 
+const UF_ALIASES: Record<string, string> = {
+  rj: 'RJ',
+  'rio de janeiro': 'RJ',
+  sp: 'SP',
+  'sao paulo': 'SP',
+  'são paulo': 'SP',
+  ba: 'BA',
+  bahia: 'BA',
+  go: 'GO',
+  goias: 'GO',
+  'goiás': 'GO',
+  pb: 'PB',
+  paraiba: 'PB',
+  'paraíba': 'PB',
+  ce: 'CE',
+  ceara: 'CE',
+  'ceará': 'CE',
+  mg: 'MG',
+  minas: 'MG',
+  pr: 'PR',
+  parana: 'PR',
+  'paraná': 'PR',
+  sc: 'SC',
+  'santa catarina': 'SC',
+  rs: 'RS',
+  'rio grande do sul': 'RS',
+  df: 'DF',
+  brasilia: 'DF',
+  'brasília': 'DF',
+  'distrito federal': 'DF',
+  federal: 'BR',
+  nacional: 'BR',
+  'para todos': 'BR',
+}
+
+function normalizeText(value: string) {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+export function resolveUf(location?: string | null) {
+  if (!location) return undefined
+  const key = normalizeText(location)
+  return UF_ALIASES[key] ?? (key.length === 2 ? key.toUpperCase() : undefined)
+}
+
 export function toIsoDate(value?: string) {
   if (!value) return ''
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
@@ -73,11 +118,14 @@ export function groupResultsByDrawTime(
   location: string,
   selectedDate: string
 ): GroupedResults[] {
+  const filterUf = resolveUf(location)
   const locationLc = (location || '').toLowerCase()
   const groups = new Map<string, ResultadoItem[]>()
 
   results.forEach((item) => {
-    const locationMatch = !locationLc || (item.location || '').toLowerCase().includes(locationLc)
+    const itemUf = resolveUf(item.estado || item.location)
+    const locationMatch =
+      filterUf ? itemUf === filterUf : !locationLc || (item.location || '').toLowerCase().includes(locationLc)
     const dateMatch = matchesDate(item.date, selectedDate)
     if (!locationMatch || !dateMatch) return
 

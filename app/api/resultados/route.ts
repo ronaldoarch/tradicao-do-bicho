@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
         .filter((r) => (r.estado || r.location || '').toUpperCase().includes(uf))
         .map((r) => ({
           ...r,
-          location: r.location || uf,
+          location: r.location || r.estado || locationFilter || uf,
           estado: r.estado || uf,
         }))
     } else if (locationFilter) {
