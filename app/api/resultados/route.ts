@@ -151,6 +151,15 @@ function normalizeResults(raw: any[]): ResultadoItem[] {
   }))
 }
 
+function orderByPosition(items: ResultadoItem[]) {
+  const getOrder = (value?: string) => {
+    if (!value) return Number.MAX_SAFE_INTEGER
+    const match = value.match(/(\d+)/)
+    return match ? parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER
+  }
+  return [...items].sort((a, b) => getOrder(a.position) - getOrder(b.position))
+}
+
 function matchesDateFilter(value: string | undefined, filter: string) {
   if (!filter) return true
   if (!value) return false
@@ -189,7 +198,14 @@ export async function GET(req: NextRequest) {
     const data = await res.json()
     const rawResults = data?.resultados ?? data?.results ?? []
     let results = normalizeResults(rawResults)
-    // Sem filtros de data/estado na API: deixamos o frontend agrupar/filtrar se necessário.
+
+    // Filtro apenas por data (frontend não precisa se quiser tudo)
+    if (dateFilter) {
+      results = results.filter((r) => matchesDateFilter(r.date, dateFilter))
+    }
+
+    // Limitar até 10 posições após ordenar pelo prêmio/posição
+    results = orderByPosition(results).slice(0, 10)
 
     const payload: ResultadosResponse = {
       results,
