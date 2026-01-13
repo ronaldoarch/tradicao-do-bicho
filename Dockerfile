@@ -8,8 +8,10 @@ RUN mkdir -p /app/public/uploads/banners /app/public/uploads/logos /app/public/u
 # Copiar arquivos de dependências
 COPY package.json package-lock.json* ./
 
-# Instalar dependências do sistema necessárias (openssl etc.)
-RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+# Instalar dependências do sistema necessárias (openssl, curl)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Instalar dependências sem rodar scripts (evita prisma generate antes do schema)
 RUN npm ci --ignore-scripts
