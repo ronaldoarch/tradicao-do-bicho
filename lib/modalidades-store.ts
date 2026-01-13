@@ -13,7 +13,16 @@ export async function getModalidades(): Promise<Modality[]> {
     return await getModalidades()
   }
   
-  return modalidades.map((m) => ({
+  // Remover duplicados por nome (caso tenham sido inseridos múltiplos)
+  const uniqueByName = new Map<string, typeof modalidades[number]>()
+  modalidades.forEach((m) => {
+    const key = m.name.toLowerCase()
+    if (!uniqueByName.has(key)) {
+      uniqueByName.set(key, m)
+    }
+  })
+
+  return Array.from(uniqueByName.values()).map((m) => ({
     id: m.id,
     name: m.name,
     value: m.value,

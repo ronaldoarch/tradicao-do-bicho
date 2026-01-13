@@ -6,6 +6,21 @@ const RAW_SOURCE =
   process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'
 const SOURCE_ROOT = RAW_SOURCE.replace(/\/api\/resultados$/, '')
 
+const UF_NAME_MAP: Record<string, string> = {
+  RJ: 'Rio de Janeiro',
+  SP: 'São Paulo',
+  BA: 'Bahia',
+  PB: 'Paraíba',
+  GO: 'Goiás',
+  DF: 'Distrito Federal',
+  CE: 'Ceará',
+  MG: 'Minas Gerais',
+  PR: 'Paraná',
+  SC: 'Santa Catarina',
+  RS: 'Rio Grande do Sul',
+  BR: 'Nacional',
+}
+
 const LOTERIA_UF_MAP: Record<string, string> = {
   'pt rio de janeiro': 'RJ',
   'pt-rio de janeiro': 'RJ',
@@ -138,24 +153,31 @@ function inferUfFromName(name?: string | null) {
 }
 
 function normalizeResults(raw: any[]): ResultadoItem[] {
-  return raw.map((r: any, idx: number) => ({
-    position: r.position || r.premio || r.colocacao || `${idx + 1}°`,
-    milhar: r.milhar || r.numero || r.milharNumero || r.valor || '',
-    grupo: r.grupo || r.grupoNumero || '',
-    animal: r.animal || r.nomeAnimal || '',
-    drawTime: r.horario || r.drawTime || r.concurso || '',
-    horario: r.horario || undefined,
-    loteria: r.loteria || r.nomeLoteria || r.concurso || r.horario || '',
-    location: r.local || r.estado || r.cidade || r.uf || '',
-    date: r.data || r.date || r.dia || r.data_extração || r.dataExtracao || '',
-    dataExtracao: r.data_extração || r.dataExtracao || r.data || r.date || '',
-    estado: r.estado || inferUfFromName(r.estado) || inferUfFromName(r.loteria) || inferUfFromName(r.local) || undefined,
-    posicao: r.posicao || (r.colocacao && parseInt(String(r.colocacao).replace(/\D/g, ''), 10)) || undefined,
-    colocacao: r.colocacao || r.position || r.premio || `${idx + 1}°`,
-    timestamp: r.timestamp || r.createdAt || r.updatedAt || undefined,
-    fonte: r.fonte || r.origem || undefined,
-    urlOrigem: r.url_origem || r.urlOrigem || r.link || undefined,
-  }))
+  return raw.map((r: any, idx: number) => {
+    const estado =
+      r.estado || inferUfFromName(r.estado) || inferUfFromName(r.loteria) || inferUfFromName(r.local) || undefined
+    const locationResolved = UF_NAME_MAP[estado || ''] || r.local || r.estado || r.cidade || r.uf || ''
+    const dateValue = r.data || r.date || r.dia || r.data_extração || r.dataExtracao || ''
+
+    return {
+      position: r.position || r.premio || r.colocacao || `${idx + 1}°`,
+      milhar: r.milhar || r.numero || r.milharNumero || r.valor || '',
+      grupo: r.grupo || r.grupoNumero || '',
+      animal: r.animal || r.nomeAnimal || '',
+      drawTime: r.horario || r.drawTime || r.concurso || '',
+      horario: r.horario || undefined,
+      loteria: r.loteria || r.nomeLoteria || r.concurso || r.horario || '',
+      location: locationResolved,
+      date: dateValue,
+      dataExtracao: dateValue,
+      estado,
+      posicao: r.posicao || (r.colocacao && parseInt(String(r.colocacao).replace(/\D/g, ''), 10)) || undefined,
+      colocacao: r.colocacao || r.position || r.premio || `${idx + 1}°`,
+      timestamp: r.timestamp || r.createdAt || r.updatedAt || undefined,
+      fonte: r.fonte || r.origem || undefined,
+      urlOrigem: r.url_origem || r.urlOrigem || r.link || undefined,
+    }
+  })
 }
 
 function orderByPosition(items: ResultadoItem[]) {
@@ -175,7 +197,6 @@ function matchesDateFilter(value: string | undefined, filter: string) {
   const isoValue = toIsoDate(value)
   const isoFilter = toIsoDate(filter)
 
-  // Se a fonte não traz ano (ex.: 13/01), comparar só dia/mês
   const dayMonth = (v: string) => {
     const m = v.match(/(\d{2})\/(\d{2})/)
     return m ? `${m[1]}/${m[2]}` : undefined
@@ -184,40 +205,94 @@ function matchesDateFilter(value: string | undefined, filter: string) {
   const dmFilter = dayMonth(isoFilter)
 
   return (
-    value.includes(filter) ||
+    isoValue === isoFilter ||
     isoValue.startsWith(isoFilter) ||
     isoFilter.startsWith(isoValue) ||
-    value.includes(isoFilter) ||
     (!!dmValue && !!dmFilter && dmValue === dmFilter)
   )
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const dateFilter = searchParams.get('date') // mantido apenas para futura compatibilidade, não filtramos
-  const locationFilter = searchParams.get('location') // mantido apenas para futura compatibilidade, não filtramos
+  const dateFilter = searchParams.get('date')
+  const locationFilter = searchParams.get('location')
   const uf = resolveUF(locationFilter)
 
+  const fetchWithTimeout = async (url: string, timeoutMs = 15000) => {
+    const controller = new AbortController()
+    const id = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      return await fetch(url, { cache: 'no-store', signal: controller.signal })
+    } finally {
+      clearTimeout(id)
+    }
+  }
+
   try {
-    // Sempre buscamos a rota geral para não perder resultados por filtros do upstream
-    let res = await fetch(buildUrl(undefined), { cache: 'no-store' })
+    // Nova fonte principal: resultados organizados
+    const res = await fetchWithTimeout(`${SOURCE_ROOT}/api/resultados/organizados`)
     if (!res.ok) throw new Error(`Upstream status ${res.status}`)
 
     const data = await res.json()
-    const rawResults = data?.resultados ?? data?.results ?? []
-    let results = normalizeResults(rawResults)
+    const organizados = data?.organizados || {}
 
-    // Filtro apenas por data (frontend não precisa se quiser tudo)
+    let results: ResultadoItem[] = []
+    Object.entries(organizados).forEach(([tabela, horarios]) => {
+      Object.entries(horarios as Record<string, any[]>).forEach(([horario, lista]) => {
+        const arr = (lista || []).map((item: any, idx: number) => {
+          const estado =
+            item.estado || inferUfFromName(item.estado) || inferUfFromName(tabela) || inferUfFromName(item.local)
+          const locationResolved = UF_NAME_MAP[estado || ''] || tabela || item.local || ''
+          const dateValue = item.data_extracao || item.dataExtracao || item.data || item.date || ''
+          return {
+            position: item.colocacao || `${item.posicao || idx + 1}°`,
+            posicao:
+              item.posicao || (item.colocacao && parseInt(String(item.colocacao).replace(/\D/g, ''), 10)) || idx + 1,
+            milhar: item.numero || item.milhar || '',
+            grupo: item.grupo || '',
+            animal: item.animal || '',
+            drawTime: horario,
+            horario,
+            loteria: tabela,
+            location: locationResolved,
+            date: dateValue,
+            dataExtracao: dateValue,
+            estado,
+            timestamp: item.timestamp || undefined,
+            fonte: item.fonte || item.origem || undefined,
+            urlOrigem: item.url_origem || item.urlOrigem || item.link || undefined,
+          } as ResultadoItem
+        })
+        results = results.concat(arr)
+      })
+    })
+
+    // Filtro por data (usa dataExtracao/data_extracao)
     if (dateFilter) {
-      results = results.filter((r) => matchesDateFilter(r.date, dateFilter))
+      results = results.filter((r) => matchesDateFilter(r.dataExtracao || r.date, dateFilter))
+    }
+    // Filtro por UF ou nome
+    if (uf) {
+      results = results.filter((r) => (r.estado || '').toUpperCase() === uf)
+    } else if (locationFilter) {
+      const lf = normalizeText(locationFilter)
+      results = results.filter((r) => normalizeText(r.location || '').includes(lf))
     }
 
-    // Limitar até 10 posições após ordenar pelo prêmio/posição
-    results = orderByPosition(results).slice(0, 10)
+    // Ordenar e limitar em 7 posições por sorteio
+    const grouped: Record<string, ResultadoItem[]> = {}
+    results.forEach((r) => {
+      const key = `${r.loteria || ''}|${r.drawTime || ''}|${r.date || ''}`
+      grouped[key] = grouped[key] || []
+      grouped[key].push(r)
+    })
+    results = Object.values(grouped)
+      .map((arr) => orderByPosition(arr).slice(0, 7))
+      .flat()
 
     const payload: ResultadosResponse = {
       results,
-      updatedAt: data?.updatedAt || new Date().toISOString(),
+      updatedAt: data?.ultima_verificacao || data?.updatedAt || new Date().toISOString(),
     }
 
     return NextResponse.json(payload, { status: 200, headers: { 'Cache-Control': 'no-cache' } })

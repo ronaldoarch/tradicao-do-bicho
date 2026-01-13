@@ -70,11 +70,13 @@ export function toIsoDate(value?: string) {
 export function formatDateLabel(value?: string) {
   if (!value) return ''
   const iso = toIsoDate(value)
-  const parsed = new Date(iso)
-  if (!isNaN(parsed.getTime())) {
-    return parsed.toLocaleDateString('pt-BR')
+  const parts = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (parts) {
+    const [, y, m, d] = parts
+    return `${d}/${m}/${y}`
   }
-  return value
+  const parsed = new Date(iso)
+  return !isNaN(parsed.getTime()) ? parsed.toLocaleDateString('pt-BR') : value
 }
 
 function matchesDate(resultDate?: string, selectedDate?: string) {

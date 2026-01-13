@@ -22,17 +22,17 @@ export default function PromotionalBanner() {
         
         {/* Right Side - Animal Illustrations */}
         <div className="flex shrink-0 items-center justify-center gap-4 md:gap-6">
-          {/* Placeholder para ilustrações de animais */}
-          <div className="flex items-center gap-2">
-            <div className="text-6xl md:text-7xl">🐷</div>
-            <div className="text-6xl md:text-7xl">🐯</div>
-            <div className="text-6xl md:text-7xl">🐵</div>
+          {/* Shapes no lugar dos emojis */}
+          <div className="flex items-center gap-3">
+            <div className="h-16 w-16 md:h-20 md:w-20 rounded-full bg-gradient-to-br from-white/80 to-white/30 shadow-lg border border-white/40"></div>
+            <div className="h-16 w-16 md:h-20 md:w-20 rounded-full bg-gradient-to-br from-blue-100/80 to-blue-200/40 shadow-lg border border-white/40"></div>
+            <div className="h-16 w-16 md:h-20 md:w-20 rounded-full bg-gradient-to-br from-orange-100/80 to-yellow-200/60 shadow-lg border border-white/40"></div>
           </div>
-          
-          {/* Moedas e elementos decorativos */}
+
+          {/* Elementos decorativos */}
           <div className="flex flex-col items-center gap-2">
-            <div className="text-4xl">🪙</div>
-            <div className="text-3xl">🍀</div>
+            <div className="h-10 w-10 rounded-full bg-yellow-200/70 shadow-md border border-white/40"></div>
+            <div className="h-8 w-8 rounded-full bg-green-200/80 shadow-md border border-white/40"></div>
           </div>
         </div>
       </div>

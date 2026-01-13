@@ -15,7 +15,7 @@ export default function ModalitySelection({
   onModalitySelect,
   onSpecialQuotationsClick,
 }: ModalitySelectionProps) {
-  const [modalidades, setModalidades] = useState<Modality[]>(DEFAULT_MODALITIES)
+  const [modalidades, setModalidades] = useState<Modality[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

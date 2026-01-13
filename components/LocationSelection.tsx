@@ -50,7 +50,6 @@ export default function LocationSelection({
                   : 'border-gray-200 bg-white hover:border-blue/50'
               }`}
             >
-              <span className="text-3xl">{loc.flag}</span>
               <span className="font-semibold text-gray-950">{loc.name}</span>
             </button>
           ))}

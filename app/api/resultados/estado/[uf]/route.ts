@@ -6,6 +6,21 @@ const RAW_SOURCE =
   process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'
 const SOURCE_ROOT = RAW_SOURCE.replace(/\/api\/resultados$/, '')
 
+const UF_NAME_MAP: Record<string, string> = {
+  RJ: 'Rio de Janeiro',
+  SP: 'São Paulo',
+  BA: 'Bahia',
+  PB: 'Paraíba',
+  GO: 'Goiás',
+  DF: 'Distrito Federal',
+  CE: 'Ceará',
+  MG: 'Minas Gerais',
+  PR: 'Paraná',
+  SC: 'Santa Catarina',
+  RS: 'Rio Grande do Sul',
+  BR: 'Nacional',
+}
+
 const LOTERIA_UF_MAP: Record<string, string> = {
   'pt rio de janeiro': 'RJ',
   'pt-rio de janeiro': 'RJ',
@@ -141,10 +156,9 @@ function matchesDateFilter(value: string | undefined, filter: string) {
   const dmFilter = dayMonth(isoFilter)
 
   return (
-    value.includes(filter) ||
+    isoValue === isoFilter ||
     isoValue.startsWith(isoFilter) ||
     isoFilter.startsWith(isoValue) ||
-    value.includes(isoFilter) ||
     (!!dmValue && !!dmFilter && dmValue === dmFilter)
   )
 }
@@ -160,24 +174,31 @@ function orderByPosition(items: ResultadoItem[]) {
 }
 
 function normalizeResults(raw: any[]): ResultadoItem[] {
-  return raw.map((r: any, idx: number) => ({
-    position: r.position || r.premio || r.colocacao || `${idx + 1}°`,
-    milhar: r.milhar || r.numero || r.milharNumero || r.valor || '',
-    grupo: r.grupo || r.grupoNumero || '',
-    animal: r.animal || r.nomeAnimal || '',
-    drawTime: r.horario || r.drawTime || r.concurso || '',
-    loteria: r.loteria || r.nomeLoteria || r.concurso || r.horario || '',
-    location: r.local || r.estado || r.cidade || r.uf || '',
-    date: r.data || r.date || r.dia || r.data_extração || r.dataExtracao || '',
-    dataExtracao: r.data_extração || r.dataExtracao || r.data || r.date || '',
-    estado: r.estado || inferUfFromName(r.estado) || inferUfFromName(r.loteria) || inferUfFromName(r.local) || undefined,
-    posicao: r.posicao || (r.colocacao && parseInt(String(r.colocacao).replace(/\D/g, ''), 10)) || undefined,
-    colocacao: r.colocacao || r.position || r.premio || `${idx + 1}°`,
-    horario: r.horario || undefined,
-    timestamp: r.timestamp || r.createdAt || r.updatedAt || undefined,
-    fonte: r.fonte || r.origem || undefined,
-    urlOrigem: r.url_origem || r.urlOrigem || r.link || undefined,
-  }))
+  return raw.map((r: any, idx: number) => {
+    const estado =
+      r.estado || inferUfFromName(r.estado) || inferUfFromName(r.loteria) || inferUfFromName(r.local) || undefined
+    const locationResolved = UF_NAME_MAP[estado || ''] || r.local || r.estado || r.cidade || r.uf || ''
+    const dateValue = r.data || r.date || r.dia || r.data_extração || r.dataExtracao || ''
+
+    return {
+      position: r.position || r.premio || r.colocacao || `${idx + 1}°`,
+      milhar: r.milhar || r.numero || r.milharNumero || r.valor || '',
+      grupo: r.grupo || r.grupoNumero || '',
+      animal: r.animal || r.nomeAnimal || '',
+      drawTime: r.horario || r.drawTime || r.concurso || '',
+      loteria: r.loteria || r.nomeLoteria || r.concurso || r.horario || '',
+      location: locationResolved,
+      date: dateValue,
+      dataExtracao: dateValue,
+      estado,
+      posicao: r.posicao || (r.colocacao && parseInt(String(r.colocacao).replace(/\D/g, ''), 10)) || undefined,
+      colocacao: r.colocacao || r.position || r.premio || `${idx + 1}°`,
+      horario: r.horario || undefined,
+      timestamp: r.timestamp || r.createdAt || r.updatedAt || undefined,
+      fonte: r.fonte || r.origem || undefined,
+      urlOrigem: r.url_origem || r.urlOrigem || r.link || undefined,
+    }
+  })
 }
 
 export async function GET(req: NextRequest, { params }: { params: { uf: string } }) {
@@ -204,7 +225,7 @@ export async function GET(req: NextRequest, { params }: { params: { uf: string }
       })
     }
 
-    results = orderByPosition(results).slice(0, 10)
+    results = orderByPosition(results).slice(0, 7)
 
     return NextResponse.json({
       uf: ufParam,

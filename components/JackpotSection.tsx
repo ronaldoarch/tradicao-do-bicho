@@ -70,12 +70,12 @@ export default function JackpotSection() {
       >
         {/* Conteúdo esquerdo */}
         <div className="flex flex-col justify-center px-8 py-8 lg:max-h-[325px] lg:w-[509px]">
-          {/* Coins Mobile - Placeholder */}
+          {/* Coins Mobile - Shapes */}
           <div className="mb-4 flex items-center justify-center lg:hidden">
             <div className="relative flex gap-2">
-              <div className="h-12 w-12 rounded-full bg-yellow shadow-lg">🪙</div>
-              <div className="h-12 w-12 rounded-full bg-yellow shadow-lg">🪙</div>
-              <div className="h-12 w-12 rounded-full bg-yellow shadow-lg">🪙</div>
+              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500 shadow-lg border border-yellow-100/60"></div>
+              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500 shadow-lg border border-yellow-100/60"></div>
+              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500 shadow-lg border border-yellow-100/60"></div>
             </div>
           </div>
 
@@ -235,10 +235,9 @@ export default function JackpotSection() {
                 Último ganhador (1º lugar)
               </span>
               <div className="flex gap-3 lg:items-center" style={{ gap: '10px' }}>
-                <div className="flex justify-center">
-                  <span className="hidden text-2xl lg:block">🏆</span>
-                  <span className="block text-4xl lg:hidden">🏆</span>
-                </div>
+              <div className="flex justify-center">
+                <span className="iconify i-fluent:award-24-regular text-2xl lg:text-3xl text-[#FFA100]"></span>
+              </div>
                 <div className="flex flex-col items-start gap-3 lg:flex-row lg:items-center" style={{ gap: '10px' }}>
                   <span
                     className="font-sora font-extrabold uppercase text-white"
@@ -271,13 +270,13 @@ export default function JackpotSection() {
           </div>
         </div>
 
-        {/* Coins Desktop - Placeholder */}
+        {/* Coins Desktop - Shapes */}
         <div className="hidden h-full w-full items-center justify-center lg:flex">
           <div className="inset-0 flex items-center justify-center">
             <div className="absolute flex gap-4">
-              <div className="h-24 w-24 rounded-full bg-yellow shadow-2xl text-4xl flex items-center justify-center">🪙</div>
-              <div className="h-24 w-24 rounded-full bg-yellow shadow-2xl text-4xl flex items-center justify-center">🪙</div>
-              <div className="h-24 w-24 rounded-full bg-yellow shadow-2xl text-4xl flex items-center justify-center">🪙</div>
+              <div className="h-24 w-24 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500 shadow-2xl border border-yellow-100/60"></div>
+              <div className="h-24 w-24 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500 shadow-2xl border border-yellow-100/60"></div>
+              <div className="h-24 w-24 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500 shadow-2xl border border-yellow-100/60"></div>
             </div>
           </div>
         </div>

@@ -84,7 +84,7 @@ export default function ResultadosPage() {
                 >
                   {LOCATIONS.map((location) => (
                     <option key={location.id} value={location.name}>
-                      {location.flag} {location.name}
+                      {location.name}
                     </option>
                   ))}
                 </select>
