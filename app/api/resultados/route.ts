@@ -177,40 +177,19 @@ function matchesDateFilter(value: string | undefined, filter: string) {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const dateFilter = searchParams.get('date')
-  const locationFilter = searchParams.get('location')
+  const dateFilter = searchParams.get('date') // mantido apenas para futura compatibilidade, não filtramos
+  const locationFilter = searchParams.get('location') // mantido apenas para futura compatibilidade, não filtramos
   const uf = resolveUF(locationFilter)
 
   try {
-    let res = await fetch(buildUrl(uf), { cache: 'no-store' })
-    // Se a rota /estado/UF falhar, tenta rota geral sem UF para não quebrar
-    if (!res.ok && uf) {
-      console.warn(`Upstream ${uf} falhou (${res.status}). Tentando rota geral /resultados`)
-      res = await fetch(buildUrl(undefined), { cache: 'no-store' })
-    }
+    // Sempre buscamos a rota geral para não perder resultados por filtros do upstream
+    let res = await fetch(buildUrl(undefined), { cache: 'no-store' })
     if (!res.ok) throw new Error(`Upstream status ${res.status}`)
 
     const data = await res.json()
     const rawResults = data?.resultados ?? data?.results ?? []
     let results = normalizeResults(rawResults)
-
-    if (dateFilter) {
-      results = results.filter((r) => matchesDateFilter(r.date, dateFilter))
-    }
-    if (uf) {
-      // Endpoint /estado/<UF> já retorna filtrado; apenas normalizamos os campos.
-      results = results.map((r) => ({
-        ...r,
-        location: r.location || r.estado || locationFilter || uf,
-        estado: r.estado || inferUfFromName(r.loteria) || inferUfFromName(r.location) || uf,
-      }))
-    } else if (locationFilter) {
-      results = results.map((r) => ({
-        ...r,
-        location: r.location || r.estado || locationFilter,
-        estado: r.estado || inferUfFromName(r.loteria) || inferUfFromName(r.location) || undefined,
-      }))
-    }
+    // Sem filtros de data/estado na API: deixamos o frontend agrupar/filtrar se necessário.
 
     const payload: ResultadosResponse = {
       results,
