@@ -15,11 +15,12 @@ export default function AdminDashboard() {
     // Carregar estatísticas
     const loadStats = async () => {
       try {
-        const [usuarios, saques, promocoes, banners] = await Promise.all([
+    const [usuarios, saques, promocoes, banners, gateways] = await Promise.all([
           fetch('/api/admin/usuarios').then((r) => r.json()).catch(() => ({ total: 0 })),
           fetch('/api/admin/saques').then((r) => r.json()).catch(() => ({ total: 0 })),
           fetch('/api/admin/promocoes').then((r) => r.json()).catch(() => ({ total: 0 })),
           fetch('/api/admin/banners').then((r) => r.json()).catch(() => ({ total: 0 })),
+          fetch('/api/admin/gateways').then((r) => r.json()).catch(() => ({ total: 0 })),
         ])
 
         setStats({
@@ -27,6 +28,7 @@ export default function AdminDashboard() {
           saques: saques.total || 0,
           promocoes: promocoes.total || 0,
           banners: banners.total || 0,
+          gateways: gateways.total || 0,
         })
       } catch (error) {
         console.error('Erro ao carregar estatísticas:', error)
@@ -41,6 +43,7 @@ export default function AdminDashboard() {
     { label: 'Saques Pendentes', value: stats.saques, icon: '💳', href: '/admin/saques', color: 'bg-yellow' },
     { label: 'Promoções Ativas', value: stats.promocoes, icon: '🎁', href: '/admin/promocoes', color: 'bg-green-600' },
     { label: 'Banners', value: stats.banners, icon: '🖼️', href: '/admin/banners', color: 'bg-purple-600' },
+    { label: 'Gateways', value: stats.gateways ?? 0, icon: '🔌', href: '/admin/gateways', color: 'bg-sky-600' },
   ]
 
   return (

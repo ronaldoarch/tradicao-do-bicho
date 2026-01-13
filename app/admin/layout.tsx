@@ -20,6 +20,7 @@ export default function AdminLayout({
     { href: '/admin/usuarios', label: 'Usuários', icon: '👥' },
     { href: '/admin/saques', label: 'Saques', icon: '💳' },
     { href: '/admin/promocoes', label: 'Promoções', icon: '🎁' },
+    { href: '/admin/gateways', label: 'Gateways', icon: '🔌' },
     { href: '/admin/temas', label: 'Temas', icon: '🎨' },
     { href: '/admin/configuracoes', label: 'Configurações', icon: '⚙️' },
   ]
