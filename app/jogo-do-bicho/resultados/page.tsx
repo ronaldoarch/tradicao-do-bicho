@@ -1,21 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import BottomNav from '@/components/BottomNav'
 import ResultsTable from '@/components/ResultsTable'
 import { LOCATIONS } from '@/data/results'
+import { useResultados } from '@/hooks/useResultados'
 
 export default function ResultadosPage() {
   const [selectedDate, setSelectedDate] = useState('2026-01-10')
   const [selectedLocation, setSelectedLocation] = useState('Rio de Janeiro')
   const [activeTab, setActiveTab] = useState<'bicho' | 'loteria'>('bicho')
+  const { results, loading } = useResultados()
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('pt-BR')
   }
+
+  const filteredResults = useMemo(() => {
+    const lf = selectedLocation.toLowerCase()
+    return results.filter((r) => {
+      const locationMatch = r.location ? r.location.toLowerCase().includes(lf) : true
+      const dateMatch = r.date ? r.date.startsWith(selectedDate) || r.date.includes(selectedDate) : true
+      return locationMatch && dateMatch
+    })
+  }, [results, selectedLocation, selectedDate])
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-scale-100">
@@ -95,8 +106,16 @@ export default function ResultadosPage() {
             </p>
 
             {/* Results Table */}
-            {activeTab === 'bicho' && (
-              <ResultsTable date={formatDate(selectedDate)} location={selectedLocation} />
+            {activeTab === 'bicho' && !loading && (
+              <ResultsTable
+                date={formatDate(selectedDate)}
+                location={selectedLocation}
+                drawTime={filteredResults[0]?.drawTime || 'Resultado recente'}
+                results={filteredResults}
+              />
+            )}
+            {activeTab === 'bicho' && loading && (
+              <div className="py-6 text-gray-600">Carregando resultados...</div>
             )}
 
             {/* Play Now Button */}

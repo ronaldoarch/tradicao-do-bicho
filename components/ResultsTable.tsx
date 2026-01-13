@@ -1,15 +1,22 @@
 'use client'
 
 import { SAMPLE_RESULTS, ResultData } from '@/data/results'
+import { ResultadoItem } from '@/types/resultados'
 
 interface ResultsTableProps {
   date?: string
   location?: string
   drawTime?: string
+  results?: ResultadoItem[]
 }
 
-export default function ResultsTable({ date = '10/01/2026', location = 'Rio de Janeiro', drawTime = 'PT-RIO 9h20' }: ResultsTableProps) {
-  const results: ResultData[] = SAMPLE_RESULTS
+export default function ResultsTable({
+  date = '10/01/2026',
+  location = 'Rio de Janeiro',
+  drawTime = 'PT-RIO 9h20',
+  results,
+}: ResultsTableProps) {
+  const rows: (ResultadoItem | ResultData)[] = results && results.length > 0 ? results : SAMPLE_RESULTS
 
   return (
     <div className="overflow-x-auto rounded-xl bg-white">
@@ -30,7 +37,7 @@ export default function ResultsTable({ date = '10/01/2026', location = 'Rio de J
           </tr>
         </thead>
         <tbody>
-          {results.map((result, index) => (
+          {rows.map((result, index) => (
             <tr
               key={index}
               className="border-b border-gray-100 hover:bg-blue/5 transition-colors"
