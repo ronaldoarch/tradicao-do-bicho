@@ -9,6 +9,9 @@ import {
   setTemaAtivo,
 } from '@/lib/temas-store'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -72,7 +75,16 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Tema não encontrado' }, { status: 404 })
     }
 
-    return NextResponse.json({ tema: temaAtualizado })
+    return NextResponse.json(
+      { tema: temaAtualizado },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      }
+    )
   } catch (error) {
     console.error('Erro ao atualizar tema:', error)
     return NextResponse.json({ error: 'Erro ao atualizar tema' }, { status: 500 })
@@ -111,7 +123,16 @@ export async function PATCH(request: NextRequest) {
       if (!tema) {
         return NextResponse.json({ error: 'Tema não encontrado' }, { status: 404 })
       }
-      return NextResponse.json({ tema })
+      return NextResponse.json(
+        { tema },
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
+        }
+      )
     }
 
     return NextResponse.json({ error: 'Ação inválida' }, { status: 400 })

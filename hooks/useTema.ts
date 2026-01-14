@@ -31,8 +31,15 @@ export function useTema() {
     }
     window.addEventListener('focus', handleFocus)
     
+    // Escuta evento customizado quando tema é atualizado
+    const handleTemaUpdated = () => {
+      loadTema()
+    }
+    window.addEventListener('tema-updated', handleTemaUpdated)
+    
     return () => {
       window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('tema-updated', handleTemaUpdated)
     }
   }, [])
 

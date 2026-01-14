@@ -78,6 +78,8 @@ export default function TemasPage() {
           setEditingTema(null)
           resetForm()
           loadTemas()
+          // Dispara evento para recarregar tema no frontend
+          window.dispatchEvent(new Event('tema-updated'))
         } else {
           alert('Erro ao atualizar tema')
         }
@@ -144,6 +146,8 @@ export default function TemasPage() {
       if (response.ok) {
         alert('Tema ativado com sucesso!')
         loadTemas()
+        // Dispara evento para recarregar tema no frontend
+        window.dispatchEvent(new Event('tema-updated'))
       } else {
         alert('Erro ao ativar tema')
       }
