@@ -13,13 +13,26 @@ interface BetConfirmationProps {
 
 export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, onBack }: BetConfirmationProps) {
   const selectedGroups = betData.animalBets || []
+  const numberBets = betData.numberBets || []
   const flatSelectedIds = selectedGroups.flat()
   const selectedAnimals = ANIMALS.filter((animal) => flatSelectedIds.includes(animal.id))
 
+  // Detecta se é modalidade numérica
+  const isNumberModality = betData.modalityName && [
+    'Milhar',
+    'Centena',
+    'Dezena',
+    'Milhar Invertida',
+    'Centena Invertida',
+    'Dezena Invertida',
+    'Milhar/Centena',
+  ].includes(betData.modalityName)
+
   const calculateTotal = () => {
     let total = betData.amount
+    const qtdPalpites = isNumberModality ? numberBets.length : selectedGroups.length
     if (betData.divisionType === 'each') {
-      total = total * selectedGroups.length
+      total = total * qtdPalpites
     }
     if (betData.useBonus && betData.bonusAmount > 0) {
       total = Math.max(0, total - betData.bonusAmount)
@@ -29,9 +42,11 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
 
   const total = calculateTotal()
 
-  const selectedModality = betData.modality
-    ? MODALITIES.find((m) => m.id.toString() === betData.modality)
-    : null
+  const selectedModality = betData.modalityName
+    ? { name: betData.modalityName, value: MODALITIES.find((m) => m.name === betData.modalityName)?.value || '' }
+    : betData.modality
+      ? MODALITIES.find((m) => m.id.toString() === betData.modality)
+      : null
 
   return (
     <div>
@@ -49,19 +64,34 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
           </div>
         )}
 
-        {/* Animals */}
-        <div>
-          <h3 className="mb-2 font-semibold text-gray-700">Palpites de animais:</h3>
-          <div className="space-y-2">
-            {selectedGroups.map((grp, idx) => (
-              <div key={idx} className="flex flex-wrap gap-2">
-                <span className="rounded-lg bg-amber-200 px-3 py-1 text-sm font-semibold text-gray-900">
-                  {grp.map((n) => String(n).padStart(2, '0')).join('-')}
-                </span>
-              </div>
-            ))}
+        {/* Animals or Numbers */}
+        {isNumberModality ? (
+          <div>
+            <h3 className="mb-2 font-semibold text-gray-700">Palpites numéricos:</h3>
+            <div className="space-y-2">
+              {numberBets.map((num, idx) => (
+                <div key={idx} className="flex flex-wrap gap-2">
+                  <span className="rounded-lg bg-amber-200 px-3 py-1 text-sm font-semibold text-gray-900">
+                    {num}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div>
+            <h3 className="mb-2 font-semibold text-gray-700">Palpites de animais:</h3>
+            <div className="space-y-2">
+              {selectedGroups.map((grp, idx) => (
+                <div key={idx} className="flex flex-wrap gap-2">
+                  <span className="rounded-lg bg-amber-200 px-3 py-1 text-sm font-semibold text-gray-900">
+                    {grp.map((n) => String(n).padStart(2, '0')).join('-')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Position */}
         {betData.position && (

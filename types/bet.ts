@@ -42,6 +42,7 @@ export interface BetData {
   modality: string | null
   modalityName?: string | null
   animalBets: number[][] // lista de palpites de animais (cada palpite é um array de IDs)
+  numberBets: string[] // lista de palpites numéricos (para modalidades como Milhar, Centena, Dezena)
   position: string | null
   customPosition: boolean
   amount: number

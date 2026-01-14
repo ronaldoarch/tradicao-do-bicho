@@ -8,6 +8,7 @@ import ProgressIndicator from './ProgressIndicator'
 import SpecialQuotationsModal from './SpecialQuotationsModal'
 import ModalitySelection from './ModalitySelection'
 import AnimalSelection from './AnimalSelection'
+import NumberCalculator from './NumberCalculator'
 import PositionAmountDivision from './PositionAmountDivision'
 import LocationSelection from './LocationSelection'
 import BetConfirmation from './BetConfirmation'
@@ -17,6 +18,7 @@ import AlertModal from './AlertModal'
 const INITIAL_BET_DATA: BetData = {
   modality: null,
   animalBets: [],
+  numberBets: [],
   position: null,
   customPosition: false,
   amount: 2.0,
@@ -47,7 +49,24 @@ export default function BetFlow() {
     [betData.modality, betData.modalityName]
   )
 
+  // Detecta se a modalidade é numérica
+  const isNumberModality = useMemo(() => {
+    const modalityName = betData.modalityName || ''
+    const numberModalities = [
+      'Milhar',
+      'Centena',
+      'Dezena',
+      'Milhar Invertida',
+      'Centena Invertida',
+      'Dezena Invertida',
+      'Milhar/Centena',
+    ]
+    return numberModalities.includes(modalityName)
+  }, [betData.modalityName])
+
   const animalsValid = betData.animalBets.length > 0 && betData.animalBets.length <= MAX_PALPITES
+  const numbersValid = betData.numberBets.length > 0 && betData.numberBets.length <= MAX_PALPITES
+  const step2Valid = isNumberModality ? numbersValid : animalsValid
 
   useEffect(() => {
     const loadMe = async () => {
@@ -72,7 +91,7 @@ export default function BetFlow() {
   }, [])
 
   const handleNext = () => {
-    if (currentStep === 2 && !animalsValid) return
+    if (currentStep === 2 && !step2Valid) return
     const nextStep = currentStep + 1
     if (nextStep >= 3 && !isAuthenticated) {
       alert('Você precisa estar logado para continuar. Faça login para usar seu saldo.')
@@ -104,10 +123,25 @@ export default function BetFlow() {
     }))
   }
 
+  const handleAddNumberBet = (number: string) => {
+    setBetData((prev) => ({
+      ...prev,
+      numberBets: [...prev.numberBets, number],
+    }))
+  }
+
+  const handleRemoveNumberBet = (index: number) => {
+    setBetData((prev) => ({
+      ...prev,
+      numberBets: prev.numberBets.filter((_, i) => i !== index),
+    }))
+  }
+
   const calcularValorTotalAposta = () => {
     let valorTotal = betData.amount
+    const qtdPalpites = isNumberModality ? betData.numberBets.length : betData.animalBets.length
     if (betData.divisionType === 'each') {
-      valorTotal = betData.amount * betData.animalBets.length
+      valorTotal = betData.amount * qtdPalpites
     }
     if (betData.useBonus && betData.bonusAmount > 0) {
       valorTotal = Math.max(0, valorTotal - betData.bonusAmount)
@@ -139,14 +173,21 @@ export default function BetFlow() {
       return
     }
 
-    const modalityName = MODALITIES.find((m) => String(m.id) === betData.modality)?.name || 'Modalidade'
-    const animalNames = betData.animalBets
-      .map((grp) =>
-        grp
-          .map((id) => ANIMALS.find((a) => a.id === id)?.name || `Animal ${String(id).padStart(2, '0')}`)
-          .join('-'),
-      )
-      .join(' | ')
+    const modalityName = betData.modalityName || MODALITIES.find((m) => String(m.id) === betData.modality)?.name || 'Modalidade'
+    
+    let apostaText = ''
+    if (isNumberModality) {
+      apostaText = `${modalityName}: ${betData.numberBets.join(' | ')}`
+    } else {
+      const animalNames = betData.animalBets
+        .map((grp) =>
+          grp
+            .map((id) => ANIMALS.find((a) => a.id === id)?.name || `Animal ${String(id).padStart(2, '0')}`)
+            .join('-'),
+        )
+        .join(' | ')
+      apostaText = `${modalityName}: ${animalNames}`
+    }
 
     const payload = {
       concurso: betData.location ? `Extração ${betData.location}` : null,
@@ -155,7 +196,7 @@ export default function BetFlow() {
       horario: betData.specialTime || null,
       dataConcurso: new Date().toISOString(),
       modalidade: modalityName,
-      aposta: `${modalityName}: ${animalNames}`,
+      aposta: apostaText,
       valor: betData.amount,
       retornoPrevisto: 0,
       status: 'pendente',
@@ -163,7 +204,7 @@ export default function BetFlow() {
       detalhes: {
         betData,
         modalityName,
-        animalNames,
+        ...(isNumberModality ? { numberBets: betData.numberBets } : { animalNames: betData.animalBets }),
       },
     }
 
@@ -254,6 +295,17 @@ export default function BetFlow() {
         )
 
       case 2:
+        if (isNumberModality) {
+          return (
+            <NumberCalculator
+              modalityName={betData.modalityName || ''}
+              numberBets={betData.numberBets}
+              maxPalpites={MAX_PALPITES}
+              onAddBet={handleAddNumberBet}
+              onRemoveBet={handleRemoveNumberBet}
+            />
+          )
+        }
         return (
           <AnimalSelection
             animalBets={betData.animalBets}
@@ -274,7 +326,7 @@ export default function BetFlow() {
             useBonus={betData.useBonus}
             bonusAmount={betData.bonusAmount}
             saldoDisponivel={isAuthenticated ? userSaldo + (betData.useBonus ? betData.bonusAmount : 0) : undefined}
-            qtdPalpites={betData.animalBets.length}
+            qtdPalpites={isNumberModality ? betData.numberBets.length : betData.animalBets.length}
             onPositionChange={(pos) => setBetData((prev) => ({ ...prev, position: pos }))}
             onCustomPositionChange={(checked) =>
               setBetData((prev) => ({ ...prev, customPosition: checked }))
@@ -348,7 +400,7 @@ export default function BetFlow() {
             onClick={handleNext}
             disabled={
               (currentStep === 1 && !betData.modality && activeTab === 'bicho') ||
-              (currentStep === 2 && !animalsValid) ||
+              (currentStep === 2 && !step2Valid) ||
               (currentStep >= 2 && isAuthenticated === false)
             }
             className="flex-1 rounded-lg bg-yellow px-6 py-3 font-bold text-blue-950 hover:bg-yellow/90 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
