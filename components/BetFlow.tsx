@@ -35,7 +35,10 @@ export default function BetFlow() {
 
   const MAX_PALPITES = 10
 
-  const requiredAnimalsPerBet = useMemo(() => getRequiredAnimalsPerBet(betData.modality), [betData.modality])
+  const requiredAnimalsPerBet = useMemo(
+    () => getRequiredAnimalsPerBet(betData.modalityName || betData.modality),
+    [betData.modality, betData.modalityName]
+  )
 
   const animalsValid = betData.animalBets.length > 0 && betData.animalBets.length <= MAX_PALPITES
 
