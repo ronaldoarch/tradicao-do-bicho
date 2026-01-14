@@ -236,7 +236,15 @@ export async function POST(request: Request) {
           aposta: aposta || null,
           valor: valorNum,
           retornoPrevisto: premioTotal > 0 ? premioTotal : (retornoPrevisto ? Number(retornoPrevisto) : 0),
-          status: isInstant ? 'liquidado' : (status || 'pendente'),
+          status: (() => {
+            if (isInstant) {
+              // Aposta instantânea: liquidado se ganhou, perdida se não ganhou
+              return premioTotal > 0 ? 'liquidado' : 'perdida'
+            } else {
+              // Aposta normal: pendente até ser liquidada pelo cron
+              return status || 'pendente'
+            }
+          })(),
           detalhes: {
             ...(detalhes && typeof detalhes === 'object' ? detalhes : {}),
             resultadoInstantaneo: resultadoInstantaneo,

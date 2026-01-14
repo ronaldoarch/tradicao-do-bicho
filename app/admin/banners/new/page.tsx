@@ -21,7 +21,58 @@ export default function NewBannerPage() {
     order: 1,
   })
 
+  const validateBannerImage = (file: File): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const width = img.width
+        const height = img.height
+        
+        // Validar proporção 16:9 (com tolerância de ±5%)
+        const aspectRatio = width / height
+        const idealRatio = 16 / 9
+        const tolerance = 0.05
+        const minRatio = idealRatio * (1 - tolerance)
+        const maxRatio = idealRatio * (1 + tolerance)
+
+        if (aspectRatio < minRatio || aspectRatio > maxRatio) {
+          resolve(`Proporção incorreta. Use 16:9 (ex.: 1920×1080 ou 1600×900).\nAtual: ${width}×${height}px`)
+          return
+        }
+
+        // Validar tamanho mínimo recomendado
+        const minWidth = 1200
+        const minHeight = 675
+        if (width < minWidth || height < minHeight) {
+          resolve(`Dimensões muito pequenas. Mínimo recomendado: ${minWidth}×${minHeight}px.\nAtual: ${width}×${height}px`)
+          return
+        }
+
+        resolve(null) // Válido
+      }
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
+        resolve('Erro ao carregar imagem')
+      }
+      
+      img.src = url
+    })
+  }
+
   const handleFileUpload = async (file: File, type: 'banner' | 'logo') => {
+    // Validar banner antes do upload
+    if (type === 'banner') {
+      const validationError = await validateBannerImage(file)
+      if (validationError) {
+        alert(validationError)
+        return
+      }
+    }
+
     if (type === 'banner') {
       setUploadingBanner(true)
     } else {
@@ -139,6 +190,18 @@ export default function NewBannerPage() {
         {/* Upload de Banner */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Imagem do Banner</label>
+          
+          {/* Box informativo com especificações */}
+          <div className="mb-4 rounded-lg border-2 border-blue/20 bg-blue/5 p-4">
+            <h4 className="font-semibold text-gray-900 mb-2">📐 Especificações do Banner:</h4>
+            <ul className="text-sm text-gray-700 space-y-1">
+              <li>• <strong>Proporção:</strong> 16:9 (ex.: 1920×1080, 1600×900)</li>
+              <li>• <strong>Tamanho mínimo:</strong> 1200×675px</li>
+              <li>• <strong>Tamanho máximo:</strong> 5MB</li>
+              <li>• <strong>Formatos:</strong> JPEG, PNG, WebP, GIF</li>
+            </ul>
+          </div>
+          
           <div className="space-y-4">
             {formData.bannerImage && (
               <div className="relative w-full h-48 border-2 border-gray-300 rounded-lg overflow-hidden">
