@@ -22,9 +22,9 @@ COPY . .
 # Gerar Prisma Client e fazer build
 RUN npx prisma generate && npm run build
 
-EXPOSE 3000
+EXPOSE 3001
 
-ENV PORT=3000
+ENV PORT=3001
 ENV NODE_ENV=production
 
 # Garantir que os diretórios de upload existam (volume será montado aqui)
