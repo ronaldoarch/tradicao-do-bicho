@@ -1,4 +1,4 @@
-# Lot Bicho
+# Tradição do Bicho
 
 Site de apostas do Jogo do Bicho - Réplica do site pontodobicho.com
 

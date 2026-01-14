@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import AddSaldoModal from '@/components/AddSaldoModal'
 
 interface Usuario {
   id: number
@@ -16,8 +15,6 @@ interface Usuario {
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [loading, setLoading] = useState(true)
-  const [showAddSaldoModal, setShowAddSaldoModal] = useState(false)
-  const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null)
 
   useEffect(() => {
     loadUsuarios()
@@ -57,15 +54,6 @@ export default function UsuariosPage() {
     } catch (error) {
       console.error('Erro ao deletar usuário:', error)
     }
-  }
-
-  const handleAddSaldo = (usuario: Usuario) => {
-    setSelectedUsuario(usuario)
-    setShowAddSaldoModal(true)
-  }
-
-  const handleSaldoAdded = () => {
-    loadUsuarios()
   }
 
   if (loading) {
@@ -120,12 +108,6 @@ export default function UsuariosPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
-                      onClick={() => handleAddSaldo(usuario)}
-                      className="text-green-600 hover:text-green-800 mr-4 font-semibold"
-                    >
-                      💰 Adicionar Saldo
-                    </button>
-                    <button
                       onClick={() => toggleActive(usuario.id, usuario.active)}
                       className="text-blue hover:text-blue-700 mr-4"
                     >
@@ -144,16 +126,6 @@ export default function UsuariosPage() {
           </tbody>
         </table>
       </div>
-
-      <AddSaldoModal
-        isOpen={showAddSaldoModal}
-        usuario={selectedUsuario}
-        onClose={() => {
-          setShowAddSaldoModal(false)
-          setSelectedUsuario(null)
-        }}
-        onSuccess={handleSaldoAdded}
-      />
     </div>
   )
 }
