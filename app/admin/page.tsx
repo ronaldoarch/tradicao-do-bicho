@@ -9,6 +9,7 @@ export default function AdminDashboard() {
     saques: 0,
     promocoes: 0,
     banners: 0,
+    gateways: 0,
   })
 
   useEffect(() => {
