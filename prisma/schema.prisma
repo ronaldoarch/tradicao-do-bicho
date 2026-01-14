@@ -124,6 +124,7 @@ model Usuario {
   rolloverNecessario Float @default(0) // quanto precisa apostar para liberar o bônus
   rolloverAtual      Float @default(0) // quanto já apostou que conta para o rollover
   bonusSemanal Int   @default(0)
+  isAdmin   Boolean  @default(false)
   ativo     Boolean  @default(true)
   saques    Saque[]
   apostas   Aposta[]

@@ -12,7 +12,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:push": "prisma db push",
-    "init:db": "node scripts/check-db.js"
+    "init:db": "node scripts/check-db.js",
+    "create-admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",

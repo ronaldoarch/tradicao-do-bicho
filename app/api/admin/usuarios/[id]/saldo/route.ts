@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,9 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Verificar autenticação admin
+    await requireAdmin()
+
     const userId = parseInt(params.id)
 
     if (!userId || isNaN(userId)) {

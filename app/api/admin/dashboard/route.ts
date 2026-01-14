@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdmin } from '@/lib/admin-auth'
 
 /**
  * GET /api/admin/dashboard
@@ -12,6 +13,8 @@ import { prisma } from '@/lib/prisma'
  */
 export async function GET(request: NextRequest) {
   try {
+    // Verificar autenticação admin
+    await requireAdmin()
     const { searchParams } = new URL(request.url)
     const dataInicio = searchParams.get('dataInicio')
     const dataFim = searchParams.get('dataFim')
