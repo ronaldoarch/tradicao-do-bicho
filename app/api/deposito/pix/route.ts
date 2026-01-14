@@ -27,46 +27,58 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
     }
 
-    const { valor } = await req.json()
+    const { valor, document } = await req.json()
 
     if (!valor || valor <= 0) {
       return NextResponse.json({ error: 'Valor inválido' }, { status: 400 })
     }
 
-    // Criar pagamento PIX via Receba Online
-    // Documentação: https://docs.receba.online/
-    // Ajuste o payload conforme a documentação oficial do Receba Online
-    const baseUrl = process.env.COOLIFY_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-    const webhookUrl = `${baseUrl}/api/webhooks/receba`
+    // CPF é obrigatório pela API do Receba Online
+    if (!document) {
+      return NextResponse.json({ error: 'CPF é obrigatório para realizar depósito' }, { status: 400 })
+    }
 
-    const pixPayload = {
-      amount: valor,
-      description: `Depósito - ${user.nome}`,
-      customer: {
-        name: user.nome,
-        email: user.email,
-        phone: user.telefone || undefined,
-      },
-      externalId: `deposito_${user.id}_${Date.now()}`,
-      // Webhook URL para notificações de pagamento
-      webhookUrl: webhookUrl,
-      metadata: {
-        userId: user.id,
-        email: user.email,
-      },
+    // Platform ID é obrigatório - deve estar nas variáveis de ambiente
+    const platformId = process.env.RECEBA_PLATFORM_ID
+    if (!platformId) {
+      console.error('RECEBA_PLATFORM_ID não configurado nas variáveis de ambiente')
+      return NextResponse.json(
+        { error: 'Configuração da plataforma não encontrada. Entre em contato com o suporte.' },
+        { status: 500 }
+      )
     }
 
     // Criar pagamento PIX via Receba Online
-    // A função recebaCreatePix tenta automaticamente vários endpoints
+    // Documentação: https://docs.receba.online/
+    // Endpoint: POST /api/v1/transaction/pix/cashin
+    const pixPayload = {
+      name: user.nome,
+      email: user.email,
+      phone: user.telefone || '00000000000', // Telefone obrigatório
+      description: `Depósito - ${user.nome}`,
+      document: document.replace(/\D/g, ''), // Remove formatação do CPF
+      amount: Number(valor), // Valor com ponto como separador decimal
+      platform: platformId,
+      reference: `deposito_${user.id}_${Date.now()}`, // Identificador único
+      extra: JSON.stringify({ userId: user.id }), // Campo adicional para webhook
+    }
+
+    // Criar pagamento PIX via Receba Online
     const pixResponse = await recebaCreatePix({}, pixPayload)
 
-    // A resposta do Receba Online deve conter o QR code e outros dados
-    // Ajuste conforme a estrutura real da resposta da API
-    const qrCode = pixResponse.qrCode || pixResponse.qrcode || pixResponse.pixQrCode
-    const qrCodeText = pixResponse.qrCodeText || pixResponse.pixCopyPaste || pixResponse.emvqrcps
-    const transactionId = pixResponse.id || pixResponse.transactionId || pixResponse.externalId
+    // A resposta da API retorna: { transaction: [{ qr_code, qr_code_image, id, status, ... }] }
+    const transaction = pixResponse.transaction?.[0]
 
-    if (!qrCode && !qrCodeText) {
+    if (!transaction) {
+      console.error('Resposta do Receba Online:', pixResponse)
+      return NextResponse.json({ error: 'Resposta inválida da API' }, { status: 500 })
+    }
+
+    const qrCodeText = transaction.qr_code
+    const qrCodeImage = transaction.qr_code_image // Base64 da imagem
+    const transactionId = transaction.id
+
+    if (!qrCodeText) {
       console.error('Resposta do Receba Online:', pixResponse)
       return NextResponse.json({ error: 'QR code não retornado pela API' }, { status: 500 })
     }
@@ -78,17 +90,19 @@ export async function POST(req: NextRequest) {
         tipo: 'deposito',
         status: 'pendente',
         valor,
-        referenciaExterna: transactionId || pixPayload.externalId,
+        referenciaExterna: transactionId,
         descricao: `Depósito PIX - Aguardando pagamento`,
       },
     })
 
     return NextResponse.json({
-      qrCode,
-      qrCodeText,
-      transactionId: transactionId || pixPayload.externalId,
+      qrCode: qrCodeImage, // Imagem base64 do QR code
+      qrCodeText, // Texto do QR code para copiar e colar
+      transactionId,
       valor,
-      expiresAt: pixResponse.expiresAt || new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
+      status: transaction.status,
+      // A API não retorna expiresAt, mas podemos usar uma estimativa padrão
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
     })
   } catch (error: any) {
     console.error('Erro ao criar pagamento PIX:', error)

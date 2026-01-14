@@ -34,46 +34,25 @@ export async function recebaListTransactions(options: RecebaClientOptions = {}) 
   return request('/api/v1/transactions', options)
 }
 
-export async function recebaCreatePix(options: RecebaClientOptions = {}, payload: any) {
-  // Tentar diferentes endpoints comuns da API do Receba Online
-  // Documentação: https://docs.receba.online/
-  // Baseado na documentação, os endpoints podem variar
-  const endpoints = [
-    '/api/v1/cashin',      // Endpoint comum para depósitos
-    '/api/v1/pix',         // Endpoint específico para PIX
-    '/cashin',             // Sem prefixo de versão
-    '/pix',                // Sem prefixo de versão
-    '/api/cashin',         // Versão alternativa
-    '/api/pix',            // Versão alternativa
-  ]
+export interface RecebaCreatePixPayload {
+  name: string
+  email: string
+  phone: string
+  description: string
+  document: string // CPF ou CNPJ
+  amount: number // usar ponto como separador decimal
+  platform: string // UUID da plataforma
+  reference?: string // opcional, max 50 caracteres
+  extra?: string // opcional, max 255 caracteres
+}
 
-  let lastError: Error | null = null
-
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`Tentando endpoint: ${endpoint}`)
-      const result = await recebaRequest(endpoint, options, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      })
-      console.log(`Sucesso no endpoint: ${endpoint}`)
-      return result
-    } catch (error: any) {
-      lastError = error
-      // Se não for 404, não tentar outros endpoints
-      if (!error.message?.includes('404')) {
-        throw error
-      }
-      // Continuar tentando outros endpoints se for 404
-      console.log(`Endpoint ${endpoint} retornou 404, tentando próximo...`)
-    }
-  }
-
-  // Se todos os endpoints falharam com 404
-  throw new Error(
-    `Nenhum endpoint válido encontrado. Último erro: ${lastError?.message}. ` +
-    `Verifique a documentação: https://docs.receba.online/`
-  )
+export async function recebaCreatePix(options: RecebaClientOptions = {}, payload: RecebaCreatePixPayload) {
+  // Endpoint oficial conforme documentação: https://docs.receba.online/
+  // POST /api/v1/transaction/pix/cashin
+  return recebaRequest('/api/v1/transaction/pix/cashin', options, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
 
 export async function recebaWebhookPing(options: RecebaClientOptions = {}) {

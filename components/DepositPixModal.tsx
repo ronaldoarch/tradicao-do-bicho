@@ -11,24 +11,33 @@ interface DepositPixModalProps {
 
 export default function DepositPixModal({ isOpen, valor, onClose }: DepositPixModalProps) {
   const [qrCodeText, setQrCodeText] = useState<string | null>(null)
+  const [qrCodeImage, setQrCodeImage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expiresAt, setExpiresAt] = useState<Date | null>(null)
   const [copied, setCopied] = useState(false)
+  const [document, setDocument] = useState('')
+  const [showDocumentInput, setShowDocumentInput] = useState(true)
 
   useEffect(() => {
-    if (isOpen && valor > 0) {
-      generatePixQrCode()
-    } else {
+    if (!isOpen) {
       // Reset ao fechar
       setQrCodeText(null)
+      setQrCodeImage(null)
       setError(null)
       setExpiresAt(null)
       setCopied(false)
+      setDocument('')
+      setShowDocumentInput(true)
     }
-  }, [isOpen, valor])
+  }, [isOpen])
 
   const generatePixQrCode = async () => {
+    if (!document || document.replace(/\D/g, '').length !== 11) {
+      setError('CPF inválido. Digite um CPF válido com 11 dígitos.')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
@@ -37,7 +46,7 @@ export default function DepositPixModal({ isOpen, valor, onClose }: DepositPixMo
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ valor }),
+        body: JSON.stringify({ valor, document }),
       })
 
       const data = await res.json()
@@ -46,15 +55,25 @@ export default function DepositPixModal({ isOpen, valor, onClose }: DepositPixMo
         throw new Error(data.error || 'Erro ao gerar QR code')
       }
 
-      setQrCodeText(data.qrCodeText || data.qrCode)
+      setQrCodeText(data.qrCodeText)
+      setQrCodeImage(data.qrCode) // Imagem base64
       if (data.expiresAt) {
         setExpiresAt(new Date(data.expiresAt))
       }
+      setShowDocumentInput(false) // Esconder input após gerar QR code
     } catch (err: any) {
       setError(err.message || 'Erro ao gerar QR code do PIX')
     } finally {
       setLoading(false)
     }
+  }
+
+  const formatCPF = (value: string) => {
+    const numbers = value.replace(/\D/g, '')
+    if (numbers.length <= 11) {
+      return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+    }
+    return value
   }
 
   const copyToClipboard = () => {
@@ -80,7 +99,39 @@ export default function DepositPixModal({ isOpen, valor, onClose }: DepositPixMo
 
         <h2 className="mb-4 text-2xl font-bold text-gray-900">Depósito via PIX</h2>
 
-        {loading && (
+        {/* Input de CPF */}
+        {showDocumentInput && (
+          <div className="mb-4 space-y-3">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                CPF (obrigatório):
+              </label>
+              <input
+                type="text"
+                value={document}
+                onChange={(e) => {
+                  const formatted = formatCPF(e.target.value)
+                  setDocument(formatted)
+                }}
+                placeholder="000.000.000-00"
+                maxLength={14}
+                className="w-full rounded-lg border-2 border-gray-200 bg-white px-3 py-2 text-base focus:border-blue focus:outline-none"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                O CPF deve ser o mesmo da conta bancária usada para pagar
+              </p>
+            </div>
+            <button
+              onClick={generatePixQrCode}
+              disabled={loading || document.replace(/\D/g, '').length !== 11}
+              className="w-full rounded-lg bg-yellow px-4 py-3 text-center font-bold text-blue-950 hover:bg-yellow/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Gerando...' : 'Gerar QR Code'}
+            </button>
+          </div>
+        )}
+
+        {loading && !showDocumentInput && (
           <div className="flex flex-col items-center justify-center py-8">
             <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue border-t-transparent"></div>
             <p className="text-gray-600">Gerando QR code...</p>
@@ -91,12 +142,14 @@ export default function DepositPixModal({ isOpen, valor, onClose }: DepositPixMo
           <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">
             <p className="font-semibold">Erro</p>
             <p className="text-sm">{error}</p>
-            <button
-              onClick={generatePixQrCode}
-              className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
-            >
-              Tentar novamente
-            </button>
+            {showDocumentInput && (
+              <button
+                onClick={() => setError(null)}
+                className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
+              >
+                Tentar novamente
+              </button>
+            )}
           </div>
         )}
 
@@ -113,7 +166,13 @@ export default function DepositPixModal({ isOpen, valor, onClose }: DepositPixMo
 
             {/* QR Code */}
             <div className="flex justify-center rounded-lg border-2 border-gray-200 bg-white p-4">
-              <QRCodeSVG value={qrCodeText} size={256} level="M" />
+              {qrCodeImage ? (
+                // Usar imagem base64 se disponível
+                <img src={qrCodeImage} alt="QR Code PIX" className="w-64 h-64" />
+              ) : (
+                // Gerar QR code a partir do texto se não houver imagem
+                qrCodeText && <QRCodeSVG value={qrCodeText} size={256} level="M" />
+              )}
             </div>
 
             {/* Copy PIX Code */}
