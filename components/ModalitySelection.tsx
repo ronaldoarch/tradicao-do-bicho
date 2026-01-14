@@ -6,7 +6,7 @@ import { Modality } from '@/types/bet'
 
 interface ModalitySelectionProps {
   selectedModality: string | null
-  onModalitySelect: (modalityId: string) => void
+  onModalitySelect: (modalityId: string, modalityName: string) => void
   onSpecialQuotationsClick: () => void
 }
 
@@ -121,7 +121,7 @@ export default function ModalitySelection({
                 return (
                   <button
                     key={modality.id}
-                    onClick={() => onModalitySelect(modality.id.toString())}
+                    onClick={() => onModalitySelect(modality.id.toString(), modality.name)}
                     className={`flex min-h-[72px] flex-row items-center justify-between rounded-xl border-2 py-3 px-4 text-left transition-all ${
                       isSelected
                         ? 'border-blue bg-blue/5'

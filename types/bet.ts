@@ -40,6 +40,7 @@ export interface BetStep {
 
 export interface BetData {
   modality: string | null
+  modalityName?: string | null
   animalBets: number[][] // lista de palpites de animais (cada palpite é um array de IDs)
   position: string | null
   customPosition: boolean

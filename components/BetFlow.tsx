@@ -171,8 +171,8 @@ export default function BetFlow() {
             {activeTab === 'bicho' ? (
               <ModalitySelection
                 selectedModality={betData.modality}
-                onModalitySelect={(modalityId) =>
-                  setBetData((prev) => ({ ...prev, modality: modalityId }))
+                onModalitySelect={(modalityId, modalityName) =>
+                  setBetData((prev) => ({ ...prev, modality: modalityId, modalityName }))
                 }
                 onSpecialQuotationsClick={() => setShowSpecialModal(true)}
               />
@@ -289,21 +289,31 @@ export default function BetFlow() {
 function getRequiredAnimalsPerBet(modalityIdOrName: string | null): number {
   if (!modalityIdOrName) return 1
 
+  const norm = (str: string) =>
+    str
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+
+  const normalized = norm(modalityIdOrName)
+
+  // Prioriza nome
+  if (normalized.includes('dupla de grupo') || normalized === 'dupla') return 2
+  if (normalized.includes('terno de grupo') || normalized === 'terno') return 3
+  if (normalized.includes('quadra de grupo') || normalized === 'quadra') return 4
+  if (normalized.includes('quina de grupo') || normalized === 'quina') return 5
+  if (normalized === 'passe vai e vem') return 2
+  if (normalized === 'passe vai') return 2
+
+  // Fallback por ID conhecido
   const idNum = Number(modalityIdOrName)
   if (!Number.isNaN(idNum)) {
     if (idNum === 2) return 2 // Dupla de Grupo
     if (idNum === 3) return 3 // Terno de Grupo
     if (idNum === 4) return 4 // Quadra de Grupo
-    if (idNum === 5) return 5 // Quina de Grupo (se usada)
+    if (idNum === 5) return 5 // Quina de Grupo
   }
 
-  const name = modalityIdOrName.toLowerCase()
-  if (name.includes('dupla')) return 2
-  if (name.includes('terno')) return 3
-  if (name.includes('quadra')) return 4
-  if (name.includes('quina')) return 5
-  if (name.includes('passe vai e vem')) return 2
-  if (name.includes('passe vai')) return 2
-
-  return 1 // grupo simples ou outras
+  return 1 // Grupo simples ou outras
 }
