@@ -212,24 +212,27 @@ export default function LocationSelection({
         <div className="mb-6">
           <h3 className="mb-4 text-lg font-semibold text-gray-950">Horários Especiais:</h3>
           <div className="space-y-3">
-            {SPECIAL_TIMES.map((time) => (
-              <label
-                key={time.id}
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 p-4 transition-colors ${
-                  specialTime === time.id
-                    ? 'border-blue bg-blue/10'
-                    : 'border-gray-200 bg-white hover:border-blue/50'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={specialTime === time.id}
-                  onChange={(e) => onSpecialTimeChange(e.target.checked ? time.id : null)}
-                  className="h-5 w-5 accent-blue"
-                />
-                <span className="font-semibold text-gray-950">{time.name}</span>
-              </label>
-            ))}
+            {SPECIAL_TIMES.map((time) => {
+              const timeIdStr = String(time.id)
+              return (
+                <label
+                  key={time.id}
+                  className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 p-4 transition-colors ${
+                    specialTime === timeIdStr
+                      ? 'border-blue bg-blue/10'
+                      : 'border-gray-200 bg-white hover:border-blue/50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={specialTime === timeIdStr}
+                    onChange={(e) => onSpecialTimeChange(e.target.checked ? timeIdStr : null)}
+                    className="h-5 w-5 accent-blue"
+                  />
+                  <span className="font-semibold text-gray-950">{time.name}</span>
+                </label>
+              )
+            })}
           </div>
         </div>
       )}
