@@ -8,10 +8,123 @@ import {
 } from '@/lib/bet-rules-engine'
 import { ANIMALS } from '@/data/animals'
 import { ResultadoItem } from '@/types/resultados'
+import { extracoes } from '@/data/extracoes'
 
 // Configurar timeout maior para operações longas
 export const maxDuration = 60 // 60 segundos
 export const dynamic = 'force-dynamic'
+
+/**
+ * Mapeamento flexível de nomes de extrações para encontrar resultados
+ * Mapeia nomes cadastrados para variações possíveis retornadas pela API externa
+ */
+const EXTRACAO_NAME_MAP: Record<string, string[]> = {
+  'PT RIO': ['pt rio', 'pt rio de janeiro', 'pt-rio', 'pt-rio de janeiro', 'mpt-rio', 'mpt rio'],
+  'PT BAHIA': ['pt bahia', 'pt-ba', 'maluca bahia'],
+  'PT SP': ['pt sp', 'pt-sp', 'pt sp bandeirantes', 'pt-sp/bandeirantes', 'bandeirantes', 'pt sp (band)'],
+  'LOOK': ['look', 'look goiás', 'look goias'],
+  'LOTEP': ['lotep', 'pt paraiba/lotep', 'pt paraiba', 'pt paraíba', 'pt-pb'],
+  'LOTECE': ['lotece', 'pt ceara', 'pt ceará'],
+  'PARA TODOS': ['para todos', 'pt nacional'],
+  'NACIONAL': ['nacional', 'loteria nacional', 'loteria federal', 'federal'],
+  'FEDERAL': ['federal', 'loteria federal'],
+}
+
+/**
+ * Verifica se já passou o horário de apuração (closeTime) da extração
+ * @param nomeLoteria Nome da loteria da aposta
+ * @param dataConcurso Data do concurso da aposta
+ * @param horario Horário da aposta
+ * @returns true se já passou o horário de apuração, false caso contrário
+ */
+function jaPassouHorarioApuracao(nomeLoteria: string | null, dataConcurso: Date | null, horario?: string | null): boolean {
+  if (!nomeLoteria || !dataConcurso) {
+    // Se não tiver nome da loteria ou data, permite liquidar (fallback)
+    return true
+  }
+  
+  // Buscar extração pelo nome (pode haver múltiplas com mesmo nome mas horários diferentes)
+  // Se tiver horário, tenta encontrar a extração específica
+  let extracao = extracoes.find((e) => {
+    const nomeMatch = e.name.toLowerCase() === nomeLoteria.toLowerCase()
+    if (horario) {
+      // Tenta match por horário também
+      return nomeMatch && (e.time === horario || e.closeTime === horario)
+    }
+    return nomeMatch
+  })
+  
+  // Se não encontrou com horário, busca apenas por nome (pega a primeira)
+  if (!extracao) {
+    extracao = extracoes.find((e) => e.name.toLowerCase() === nomeLoteria.toLowerCase())
+  }
+  
+  if (!extracao || !extracao.closeTime) {
+    // Se não encontrar extração ou não tiver closeTime, permite liquidar (fallback)
+    return true
+  }
+
+  const agora = new Date()
+  const dataAposta = new Date(dataConcurso)
+  
+  // Normalizar datas para comparar apenas dia/mês/ano (sem hora)
+  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
+  const diaAposta = new Date(dataAposta.getFullYear(), dataAposta.getMonth(), dataAposta.getDate())
+  
+  // Se for dia passado, permite liquidar
+  if (diaAposta < hoje) {
+    return true
+  }
+  
+  // Se for dia futuro, não permite liquidar ainda
+  if (diaAposta > hoje) {
+    return false
+  }
+  
+  // Se for hoje, verifica se já passou o horário de apuração
+  const [horaStr, minutoStr] = extracao.closeTime.split(':')
+  const horaApuracao = parseInt(horaStr, 10)
+  const minutoApuracao = parseInt(minutoStr, 10)
+  
+  const horarioApuracao = new Date(agora)
+  horarioApuracao.setHours(horaApuracao, minutoApuracao, 0, 0)
+  
+  return agora >= horarioApuracao
+}
+
+/**
+ * Busca nomes possíveis para match flexível de extrações
+ */
+function getNomesPossiveis(nomeExtracao: string): string[] {
+  const nomeUpper = nomeExtracao.toUpperCase()
+  const nomesMapeados = EXTRACAO_NAME_MAP[nomeUpper] || []
+  return [nomeExtracao.toLowerCase(), nomeUpper, ...nomesMapeados]
+}
+
+/**
+ * Verifica se um resultado corresponde a uma extração usando match flexível
+ */
+function matchExtracao(resultadoLoteria: string, nomeExtracao: string): boolean {
+  const nomesPossiveis = getNomesPossiveis(nomeExtracao)
+  const resultadoLower = (resultadoLoteria || '').toLowerCase()
+  
+  // Match exato ou por substring
+  for (const nome of nomesPossiveis) {
+    if (resultadoLower === nome.toLowerCase() || resultadoLower.includes(nome.toLowerCase())) {
+      return true
+    }
+  }
+  
+  // Match por palavras-chave principais
+  const palavrasChave = nomeExtracao.toLowerCase().split(/\s+/).filter((p) => p.length > 2)
+  for (const palavra of palavrasChave) {
+    if (resultadoLower.includes(palavra)) {
+      return true
+    }
+  }
+  
+  return false
+}
 
 /**
  * GET /api/resultados/liquidar
@@ -204,13 +317,53 @@ export async function POST(request: NextRequest) {
     // Processar cada aposta
     for (const aposta of apostasPendentes) {
       try {
+        // Verificar se já passou o horário de apuração antes de liquidar
+        if (aposta.loteria && aposta.dataConcurso) {
+          const podeLiquidar = jaPassouHorarioApuracao(
+            aposta.loteria,
+            aposta.dataConcurso,
+            aposta.horario || undefined
+          )
+          
+          if (!podeLiquidar) {
+            // Buscar extração para log
+            const extracao = extracoes.find((e) => {
+              const nomeMatch = e.name.toLowerCase() === aposta.loteria!.toLowerCase()
+              if (aposta.horario) {
+                return nomeMatch && (e.time === aposta.horario || e.closeTime === aposta.horario)
+              }
+              return nomeMatch
+            }) || extracoes.find((e) => e.name.toLowerCase() === aposta.loteria!.toLowerCase())
+            
+            console.log(
+              `⏰ Ainda não passou o horário de apuração (${extracao?.closeTime || 'N/A'})`
+            )
+            console.log(`⏸️  Pulando aposta ${aposta.id} - aguardando apuração`)
+            continue
+          }
+        }
+
         // Filtrar resultados por loteria/horário/data da aposta
         let resultadosFiltrados = resultados
 
         if (aposta.loteria) {
-          resultadosFiltrados = resultadosFiltrados.filter(
-            (r) => r.loteria?.toLowerCase().includes(aposta.loteria!.toLowerCase())
-          )
+          // Usar match flexível para encontrar resultados
+          const antesFiltro = resultadosFiltrados.length
+          resultadosFiltrados = resultadosFiltrados.filter((r) => {
+            if (!r.loteria) return false
+            return matchExtracao(r.loteria, aposta.loteria)
+          })
+          
+          if (resultadosFiltrados.length === 0 && antesFiltro > 0) {
+            console.log(
+              `⚠️ Nenhum resultado encontrado para "${aposta.loteria}" após filtro flexível (antes: ${antesFiltro})`
+            )
+            console.log(`   Nomes possíveis: ${getNomesPossiveis(aposta.loteria).join(', ')}`)
+          } else if (resultadosFiltrados.length > 0) {
+            console.log(
+              `✅ Após filtro de loteria "${aposta.loteria}": ${resultadosFiltrados.length} resultados (antes: ${antesFiltro})`
+            )
+          }
         }
 
         if (aposta.horario) {

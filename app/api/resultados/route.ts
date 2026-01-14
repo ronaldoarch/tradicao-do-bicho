@@ -237,8 +237,20 @@ export async function GET(req: NextRequest) {
     const organizados = data?.organizados || {}
 
     let results: ResultadoItem[] = []
+    
+    // Estatísticas para logs detalhados
+    const extracaoStats: Record<string, { horarios: Set<string>, total: number }> = {}
+    let totalHorarios = 0
+    
     Object.entries(organizados).forEach(([tabela, horarios]) => {
+      if (!extracaoStats[tabela]) {
+        extracaoStats[tabela] = { horarios: new Set(), total: 0 }
+      }
+      
       Object.entries(horarios as Record<string, any[]>).forEach(([horario, lista]) => {
+        extracaoStats[tabela].horarios.add(horario)
+        totalHorarios++
+        
         const arr = (lista || []).map((item: any, idx: number) => {
           const estado =
             item.estado || inferUfFromName(item.estado) || inferUfFromName(tabela) || inferUfFromName(item.local)
@@ -263,8 +275,16 @@ export async function GET(req: NextRequest) {
             urlOrigem: item.url_origem || item.urlOrigem || item.link || undefined,
           } as ResultadoItem
         })
+        extracaoStats[tabela].total += arr.length
         results = results.concat(arr)
       })
+    })
+    
+    // Logs detalhados de debug
+    console.log(`📊 Total processado: ${Object.keys(extracaoStats).length} extrações, ${totalHorarios} horários, ${results.length} resultados`)
+    Object.entries(extracaoStats).forEach(([nome, stats]) => {
+      const horariosList = Array.from(stats.horarios).sort().join(', ')
+      console.log(`📊 Extração "${nome}": ${stats.horarios.size} horário(s) - ${horariosList}`)
     })
 
     // Filtro por data (usa dataExtracao/data_extracao)
@@ -286,6 +306,19 @@ export async function GET(req: NextRequest) {
       grouped[key] = grouped[key] || []
       grouped[key].push(r)
     })
+    
+    const gruposUnicos = Object.keys(grouped)
+    console.log(`✅ Resultados finais: ${gruposUnicos.length} grupos únicos (loteria|horário|data), ${results.length} resultados totais`)
+    
+    // Log dos grupos para facilitar identificação (limitado a 20 primeiros)
+    if (gruposUnicos.length > 0) {
+      const gruposExemplo = gruposUnicos.slice(0, 20)
+      console.log(`📋 Grupos encontrados (primeiros 20): ${gruposExemplo.join(', ')}`)
+      if (gruposUnicos.length > 20) {
+        console.log(`   ... e mais ${gruposUnicos.length - 20} grupos`)
+      }
+    }
+    
     results = Object.values(grouped)
       .map((arr) => orderByPosition(arr).slice(0, 7))
       .flat()
