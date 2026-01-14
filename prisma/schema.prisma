@@ -92,9 +92,9 @@ model Tema {
 
 model Configuracao {
   id              Int      @id @default(autoincrement())
-  nomePlataforma  String   @default("Lot Bicho")
+  nomePlataforma  String   @default("Tradição do Bicho")
   numeroSuporte   String   @default("(00) 00000-0000")
-  emailSuporte    String   @default("suporte@lotbicho.com")
+  emailSuporte    String   @default("suporte@tradicaodobicho.com")
   whatsappSuporte String   @default("5500000000000")
   logoSite        String?  @default("")
   createdAt       DateTime @default(now())

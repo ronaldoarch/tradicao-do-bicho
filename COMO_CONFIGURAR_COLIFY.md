@@ -21,7 +21,7 @@ O Colify não consegue acessar repositórios privados do GitHub sem autenticaç�
 1. No formulário de criação da aplicação, use a URL HTTPS com o token:
 
    ```
-   https://SEU_TOKEN@github.com/ronaldoarch/lotbicho.git
+   https://SEU_TOKEN@github.com/ronaldoarch/tradicao-do-bicho.git
    ```
 
    Exemplo:
@@ -32,14 +32,14 @@ O Colify não consegue acessar repositórios privados do GitHub sem autenticaç�
 2. **OU** configure no Colify:
    - Vá em Settings → Source Control
    - Adicione o token como variável de ambiente ou configuração
-   - Use a URL normal: `https://github.com/ronaldoarch/lotbicho.git`
+   - Use a URL normal: `https://github.com/ronaldoarch/tradicao-do-bicho.git`
 
 ### Passo 3: Configurar Variáveis de Ambiente
 
 No Colify, adicione:
 
 - **Nome**: `DATABASE_URL`
-- **Valor**: `postgres://postgres:SW1Ho4OVgCGpgpgZ6WVMd3fUU9E86f6H4O0CnuMUWU25b3WzS80RetfPNz7z2Zle@uk40so004k8gc488ws0sokg0:5432/postgres`
+- **Valor**: `postgres://postgres:yCPyJwFfLC6HeeSD2ss9yU7o6j3TaF2GqKBtQ1bg8anJelXt97hrByFKpbsP9iKg@kwc00sowkos44gw0kk88www0:5432/postgres`
 
 ### Passo 4: Após o Primeiro Deploy
 
@@ -57,6 +57,6 @@ Se preferir usar SSH, você precisa:
 1. Gerar uma chave SSH
 2. Adicionar a chave pública no GitHub (Deploy Keys)
 3. Adicionar a chave privada no Colify (Settings → Deploy Keys)
-4. Usar a URL SSH: `git@github.com:ronaldoarch/lotbicho.git`
+4. Usar a URL SSH: `git@github.com:ronaldoarch/tradicao-do-bicho.git`
 
 Mas o PAT é mais simples e rápido!

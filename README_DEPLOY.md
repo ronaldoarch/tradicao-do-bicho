@@ -1,4 +1,4 @@
-# Guia de Deploy - Lot Bicho
+# Guia de Deploy - Tradição do Bicho
 
 ## Configuração do Banco de Dados PostgreSQL
 
@@ -9,7 +9,7 @@ O projeto está configurado para usar PostgreSQL via Prisma ORM.
 Crie um arquivo `.env` na raiz do projeto com a seguinte variável:
 
 ```env
-DATABASE_URL="postgres://postgres:SW1Ho4OVgCGpgpgZ6WVMd3fUU9E86f6H4O0CnuMUWU25b3WzS80RetfPNz7z2Zle@uk40so004k8gc488ws0sokg0:5432/postgres"
+DATABASE_URL="postgres://postgres:yCPyJwFfLC6HeeSD2ss9yU7o6j3TaF2GqKBtQ1bg8anJelXt97hrByFKpbsP9iKg@kwc00sowkos44gw0kk88www0:5432/postgres"
 ```
 
 ### Comandos do Prisma
@@ -38,9 +38,9 @@ DATABASE_URL="postgres://postgres:SW1Ho4OVgCGpgpgZ6WVMd3fUU9E86f6H4O0CnuMUWU25b3
 
 #### Opção 1: Deploy com Dockerfile Customizado (Recomendado)
 
-1. **Configure a variável de ambiente `DATABASE_URL`** no painel do Colify com a URL do PostgreSQL:
+1. **Configure a variável de ambiente `DATABASE_URL`** no painel do Coolify com a URL do PostgreSQL:
    ```
-   postgres://postgres:SW1Ho4OVgCGpgpgZ6WVMd3fUU9E86f6H4O0CnuMUWU25b3WzS80RetfPNz7z2Zle@uk40so004k8gc488ws0sokg0:5432/postgres
+   postgres://postgres:yCPyJwFfLC6HeeSD2ss9yU7o6j3TaF2GqKBtQ1bg8anJelXt97hrByFKpbsP9iKg@kwc00sowkos44gw0kk88www0:5432/postgres
    ```
 
 2. **Configure o Volume Persistente** (IMPORTANTE para manter uploads):
@@ -81,7 +81,7 @@ Se quiser testar localmente antes:
 
 1. **Crie o arquivo `.env`** na raiz com:
    ```env
-   DATABASE_URL="postgres://postgres:SW1Ho4OVgCGpgpgZ6WVMd3fUU9E86f6H4O0CnuMUWU25b3WzS80RetfPNz7z2Zle@uk40so004k8gc488ws0sokg0:5432/postgres"
+   DATABASE_URL="postgres://postgres:yCPyJwFfLC6HeeSD2ss9yU7o6j3TaF2GqKBtQ1bg8anJelXt97hrByFKpbsP9iKg@kwc00sowkos44gw0kk88www0:5432/postgres"
    ```
 
 2. **Instale as dependências:**

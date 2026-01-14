@@ -9,7 +9,7 @@ export async function getConfiguracoes() {
       data: {
         nomePlataforma: 'Lot Bicho',
         numeroSuporte: '(00) 00000-0000',
-        emailSuporte: 'suporte@lotbicho.com',
+        emailSuporte: 'suporte@tradicaodobicho.com',
         whatsappSuporte: '5500000000000',
         logoSite: '',
       },

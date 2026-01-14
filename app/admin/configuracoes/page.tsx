@@ -15,7 +15,7 @@ export default function ConfiguracoesPage() {
   const [config, setConfig] = useState<Configuracoes>({
     nomePlataforma: 'Lot Bicho',
     numeroSuporte: '(00) 00000-0000',
-    emailSuporte: 'suporte@lotbicho.com',
+    emailSuporte: 'suporte@tradicaodobicho.com',
     whatsappSuporte: '5500000000000',
     logoSite: '',
   })
