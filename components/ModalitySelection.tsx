@@ -54,7 +54,7 @@ export default function ModalitySelection({
             (m: Modality) => m.id.toString() === selectedModality
           )
           if (!selectedMod) {
-            onModalitySelect('') // Limpa a seleção
+            onModalitySelect('', '') // Limpa a seleção
           }
         }
       }
