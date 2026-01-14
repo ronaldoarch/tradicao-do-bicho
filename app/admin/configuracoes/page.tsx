@@ -13,7 +13,7 @@ interface Configuracoes {
 
 export default function ConfiguracoesPage() {
   const [config, setConfig] = useState<Configuracoes>({
-    nomePlataforma: 'Lot Bicho',
+    nomePlataforma: 'Tradição do Bicho',
     numeroSuporte: '(00) 00000-0000',
     emailSuporte: 'suporte@tradicaodobicho.com',
     whatsappSuporte: '5500000000000',

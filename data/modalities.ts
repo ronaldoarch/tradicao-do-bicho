@@ -39,7 +39,7 @@ export const POSITIONS: Position[] = [
 ]
 
 export const LOCATIONS: Location[] = [
-  { id: 'brasil', name: 'Brasil Lot Bicho' },
+  { id: 'brasil', name: 'Brasil Tradição do Bicho' },
   { id: 'df', name: 'Distrito Federal' },
   { id: 'goias', name: 'Goiás' },
 ]

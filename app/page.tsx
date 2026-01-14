@@ -40,7 +40,7 @@ export default function Home() {
             <div className="flex w-full justify-center gap-4 lg:justify-between">
               <div className="flex items-center gap-3">
                 <span className="text-4xl">🦁</span>
-                <span className="text-3xl font-bold text-gray-950 lg:text-4xl">Lot Bicho</span>
+                <span className="text-3xl font-bold text-gray-950 lg:text-4xl">Tradição do Bicho</span>
               </div>
               <div className="hidden items-center gap-8 lg:flex">
                 <a href="/suporte">

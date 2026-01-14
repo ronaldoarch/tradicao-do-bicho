@@ -7,7 +7,7 @@ export async function getConfiguracoes() {
     // Criar configuração padrão se não existir
     config = await prisma.configuracao.create({
       data: {
-        nomePlataforma: 'Lot Bicho',
+        nomePlataforma: 'Tradição do Bicho',
         numeroSuporte: '(00) 00000-0000',
         emailSuporte: 'suporte@tradicaodobicho.com',
         whatsappSuporte: '5500000000000',

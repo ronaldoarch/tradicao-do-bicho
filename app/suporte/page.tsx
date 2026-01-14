@@ -25,10 +25,10 @@ export default function SuportePage() {
             {/* Welcome Section */}
             <section className="mb-8">
               <h2 className="mb-4 text-2xl font-bold text-blue">
-                Aprenda a navegar pelo site da Lot Bicho
+                Aprenda a navegar pelo site da Tradição do Bicho
               </h2>
               <p className="mb-6 text-gray-700">
-                Explore nossos <strong>tutoriais</strong> e saiba como aproveitar o melhor da Lot Bicho.
+                Explore nossos <strong>tutoriais</strong> e saiba como aproveitar o melhor da Tradição do Bicho.
               </p>
               <button className="rounded-lg bg-blue px-6 py-3 font-semibold text-white hover:bg-blue-scale-70 transition-colors">
                 Tour de boas-vindas

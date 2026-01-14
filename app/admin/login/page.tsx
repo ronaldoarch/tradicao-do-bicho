@@ -58,7 +58,7 @@ export default function AdminLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-white mb-2">🦁 Lot Bicho</h1>
+          <h1 className="text-4xl font-bold text-white mb-2">🦁 Tradição do Bicho</h1>
           <p className="text-blue-200">Painel Administrativo</p>
         </div>
 

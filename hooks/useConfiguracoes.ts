@@ -12,7 +12,7 @@ interface Configuracoes {
 
 export function useConfiguracoes() {
   const [configuracoes, setConfiguracoes] = useState<Configuracoes>({
-    nomePlataforma: 'Lot Bicho',
+    nomePlataforma: 'Tradição do Bicho',
     numeroSuporte: '(00) 00000-0000',
     emailSuporte: 'suporte@tradicaodobicho.com',
     whatsappSuporte: '5500000000000',

@@ -93,7 +93,7 @@ export default function AdminLayout({
       {/* Sidebar */}
       <aside className="relative w-64 bg-blue text-white shadow-lg flex flex-col">
         <div className="p-6 border-b border-blue-700">
-          <h1 className="text-2xl font-bold">🦁 Lot Bicho</h1>
+          <h1 className="text-2xl font-bold">🦁 Tradição do Bicho</h1>
           <p className="text-sm text-blue-200 mt-1">Painel Administrativo</p>
         </div>
         <nav className="p-4 flex-1">
