@@ -94,10 +94,14 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
         )}
 
         {/* Position */}
-        {betData.position && (
+        {(betData.position || (betData.customPosition && betData.customPositionValue)) && (
           <div>
             <h3 className="mb-2 font-semibold text-gray-700">Posição:</h3>
-            <p className="text-gray-950">{betData.position}</p>
+            <p className="text-gray-950">
+              {betData.customPosition && betData.customPositionValue 
+                ? betData.customPositionValue 
+                : betData.position}
+            </p>
             {betData.customPosition && (
               <p className="text-sm text-gray-500">(Personalizado)</p>
             )}

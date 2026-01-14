@@ -21,6 +21,7 @@ const INITIAL_BET_DATA: BetData = {
   numberBets: [],
   position: null,
   customPosition: false,
+  customPositionValue: undefined,
   amount: 2.0,
   divisionType: 'all',
   useBonus: false,
@@ -92,6 +93,57 @@ export default function BetFlow() {
 
   const handleNext = () => {
     if (currentStep === 2 && !step2Valid) return
+    
+    // Validação de posição no step 3
+    if (currentStep === 3) {
+      if (!betData.customPosition && !betData.position) {
+        setAlertMessage({
+          title: 'Posição não selecionada',
+          message: 'Por favor, selecione uma posição ou marque "Personalizado" e digite uma posição válida.',
+        })
+        setShowAlert(true)
+        return
+      }
+      
+      if (betData.customPosition && (!betData.customPositionValue || betData.customPositionValue.trim() === '')) {
+        setAlertMessage({
+          title: 'Posição personalizada vazia',
+          message: 'Por favor, digite uma posição personalizada (ex: 1-5, 7, 5, etc.).',
+        })
+        setShowAlert(true)
+        return
+      }
+      
+      // Validar formato da posição personalizada
+      if (betData.customPosition && betData.customPositionValue) {
+        const cleanedPos = betData.customPositionValue.replace(/º/g, '').replace(/\s/g, '')
+        const isValidFormat = /^\d+(-\d+)?$/.test(cleanedPos)
+        
+        if (!isValidFormat) {
+          setAlertMessage({
+            title: 'Formato inválido',
+            message: 'Use o formato correto: números únicos (1, 2, 3...) ou ranges (1-5, 2-7...).',
+          })
+          setShowAlert(true)
+          return
+        }
+        
+        // Validar valores (entre 1 e 7)
+        const parts = cleanedPos.split('-')
+        const firstNum = parseInt(parts[0], 10)
+        const secondNum = parts[1] ? parseInt(parts[1], 10) : firstNum
+        
+        if (firstNum < 1 || firstNum > 7 || secondNum < 1 || secondNum > 7 || firstNum > secondNum) {
+          setAlertMessage({
+            title: 'Valor inválido',
+            message: 'As posições devem estar entre 1 e 7. Exemplos: "1", "1-5", "7", "1-7".',
+          })
+          setShowAlert(true)
+          return
+        }
+      }
+    }
+    
     const nextStep = currentStep + 1
     if (nextStep >= 3 && !isAuthenticated) {
       alert('Você precisa estar logado para continuar. Faça login para usar seu saldo.')
@@ -327,10 +379,12 @@ export default function BetFlow() {
             bonusAmount={betData.bonusAmount}
             saldoDisponivel={isAuthenticated ? userSaldo + (betData.useBonus ? betData.bonusAmount : 0) : undefined}
             qtdPalpites={isNumberModality ? betData.numberBets.length : betData.animalBets.length}
+            customPositionValue={betData.customPositionValue}
             onPositionChange={(pos) => setBetData((prev) => ({ ...prev, position: pos }))}
             onCustomPositionChange={(checked) =>
-              setBetData((prev) => ({ ...prev, customPosition: checked }))
+              setBetData((prev) => ({ ...prev, customPosition: checked, customPositionValue: checked ? prev.customPositionValue : undefined }))
             }
+            onCustomPositionValueChange={(value) => setBetData((prev) => ({ ...prev, customPositionValue: value }))}
             onAmountChange={(amount) => setBetData((prev) => ({ ...prev, amount }))}
             onDivisionTypeChange={(type) => setBetData((prev) => ({ ...prev, divisionType: type }))}
             onBonusToggle={(use) => setBetData((prev) => ({ ...prev, useBonus: use }))}
@@ -401,6 +455,8 @@ export default function BetFlow() {
             disabled={
               (currentStep === 1 && !betData.modality && activeTab === 'bicho') ||
               (currentStep === 2 && !step2Valid) ||
+              (currentStep === 3 && !betData.customPosition && !betData.position) ||
+              (currentStep === 3 && betData.customPosition && (!betData.customPositionValue || betData.customPositionValue.trim() === '')) ||
               (currentStep >= 2 && isAuthenticated === false)
             }
             className="flex-1 rounded-lg bg-yellow px-6 py-3 font-bold text-blue-950 hover:bg-yellow/90 transition-colors disabled:cursor-not-allowed disabled:opacity-50"

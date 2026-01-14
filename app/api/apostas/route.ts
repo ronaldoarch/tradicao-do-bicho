@@ -99,6 +99,8 @@ export async function POST(request: Request) {
           modalityName?: string | null
           animalBets: number[][]
           position: string | null
+          customPosition?: boolean
+          customPositionValue?: string
           amount: number
           divisionType: 'all' | 'each'
         }
@@ -123,16 +125,31 @@ export async function POST(request: Request) {
         const modalityType = modalityMap[betData.modalityName || ''] || 'GRUPO'
 
         // Parsear posição (ex: "1-5" -> pos_from=1, pos_to=5)
+        // Usa customPositionValue se customPosition for true, senão usa position
+        const positionToUse = betData.customPosition && betData.customPositionValue 
+          ? betData.customPositionValue.trim() 
+          : betData.position
+        
         let pos_from = 1
         let pos_to = 1
-        if (betData.position) {
-          if (betData.position === '1st') {
+        if (positionToUse) {
+          // Remove "º" e espaços, normaliza formato
+          const cleanedPos = positionToUse.replace(/º/g, '').replace(/\s/g, '')
+          
+          if (cleanedPos === '1st' || cleanedPos === '1') {
             pos_from = 1
             pos_to = 1
-          } else if (betData.position.includes('-')) {
-            const [from, to] = betData.position.split('-').map(Number)
+          } else if (cleanedPos.includes('-')) {
+            const [from, to] = cleanedPos.split('-').map(Number)
             pos_from = from || 1
             pos_to = to || 1
+          } else {
+            // Posição única (ex: "7")
+            const num = parseInt(cleanedPos, 10)
+            if (!Number.isNaN(num)) {
+              pos_from = num
+              pos_to = num
+            }
           }
         }
 

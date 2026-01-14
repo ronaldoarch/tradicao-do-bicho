@@ -10,6 +10,9 @@ export interface Tema {
     sucesso: string
     texto: string
     textoSecundario: string
+    textoLink?: string
+    textoParagrafo?: string
+    textoTitulo?: string
     fundo: string
     fundoSecundario: string
   }
@@ -33,6 +36,9 @@ export async function getTemas(): Promise<Tema[]> {
       sucesso: t.sucesso,
       texto: t.texto,
       textoSecundario: t.textoSecundario,
+      textoLink: t.textoLink,
+      textoParagrafo: t.textoParagrafo,
+      textoTitulo: t.textoTitulo,
       fundo: t.fundo,
       fundoSecundario: t.fundoSecundario,
     },
@@ -156,6 +162,9 @@ export async function updateTema(id: string, updates: Partial<Tema>): Promise<Te
     data.sucesso = updates.cores.sucesso
     data.texto = updates.cores.texto
     data.textoSecundario = updates.cores.textoSecundario
+    if (updates.cores.textoLink !== undefined) data.textoLink = updates.cores.textoLink
+    if (updates.cores.textoParagrafo !== undefined) data.textoParagrafo = updates.cores.textoParagrafo
+    if (updates.cores.textoTitulo !== undefined) data.textoTitulo = updates.cores.textoTitulo
     data.fundo = updates.cores.fundo
     data.fundoSecundario = updates.cores.fundoSecundario
   }

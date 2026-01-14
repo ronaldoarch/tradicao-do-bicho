@@ -69,6 +69,18 @@ body {
   color: var(--tema-texto-secundario);
 }
 
+.text-tema-texto-link {
+  color: var(--tema-texto-link);
+}
+
+.text-tema-texto-paragrafo {
+  color: var(--tema-texto-paragrafo);
+}
+
+.text-tema-texto-titulo {
+  color: var(--tema-texto-titulo);
+}
+
 .bg-tema-fundo {
   background-color: var(--tema-fundo);
 }
