@@ -10,6 +10,7 @@ export async function recebaRequest<T = any>(path: string, options: RecebaClient
   const res = await fetch(url, {
     ...init,
     headers: {
+      'Accept': 'application/json', // Obrigatório conforme documentação
       'Content-Type': 'application/json',
       Authorization: `Bearer ${options.apiKey ?? process.env.RECEBA_API_KEY ?? ''}`,
       ...(init?.headers || {}),
