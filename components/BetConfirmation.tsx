@@ -11,12 +11,14 @@ interface BetConfirmationProps {
 }
 
 export default function BetConfirmation({ betData, onConfirm, onBack }: BetConfirmationProps) {
-  const selectedAnimals = ANIMALS.filter((animal) => betData.animals.includes(animal.id))
+  const selectedGroups = betData.animalBets || []
+  const flatSelectedIds = selectedGroups.flat()
+  const selectedAnimals = ANIMALS.filter((animal) => flatSelectedIds.includes(animal.id))
 
   const calculateTotal = () => {
     let total = betData.amount
     if (betData.divisionType === 'each') {
-      total = total * selectedAnimals.length
+      total = total * selectedGroups.length
     }
     if (betData.useBonus && betData.bonusAmount > 0) {
       total = Math.max(0, total - betData.bonusAmount)
@@ -48,15 +50,14 @@ export default function BetConfirmation({ betData, onConfirm, onBack }: BetConfi
 
         {/* Animals */}
         <div>
-          <h3 className="mb-2 font-semibold text-gray-700">Animais Selecionados:</h3>
-          <div className="flex flex-wrap gap-2">
-            {selectedAnimals.map((animal) => (
-              <span
-                key={animal.id}
-                className="rounded-full bg-blue px-3 py-1 text-sm font-semibold text-white"
-              >
-                {animal.name} (Grupo {animal.group})
-              </span>
+          <h3 className="mb-2 font-semibold text-gray-700">Palpites de animais:</h3>
+          <div className="space-y-2">
+            {selectedGroups.map((grp, idx) => (
+              <div key={idx} className="flex flex-wrap gap-2">
+                <span className="rounded-lg bg-amber-200 px-3 py-1 text-sm font-semibold text-gray-900">
+                  {grp.map((n) => String(n).padStart(2, '0')).join('-')}
+                </span>
+              </div>
             ))}
           </div>
         </div>
