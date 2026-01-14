@@ -125,21 +125,51 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Buscar resultados oficiais (com timeout)
-    const resultadosResponse = await fetch(
-      `${process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'}`,
-      { 
+    // Buscar resultados oficiais (com timeout e fallback)
+    // Primeiro tenta API interna, depois API externa
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                   (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'http://localhost:3001')
+    
+    let resultados: ResultadoItem[] = []
+    let resultadosResponse: Response | null = null
+
+    // Tentar API interna primeiro
+    try {
+      resultadosResponse = await fetch(`${baseUrl}/api/resultados`, {
         cache: 'no-store',
         signal: AbortSignal.timeout(30000) // 30 segundos timeout
-      }
-    )
+      })
 
-    if (!resultadosResponse.ok) {
-      throw new Error('Erro ao buscar resultados oficiais')
+      if (resultadosResponse.ok) {
+        const resultadosData = await resultadosResponse.json()
+        resultados = resultadosData.results || resultadosData.resultados || []
+        console.log(`✅ Resultados obtidos da API interna: ${resultados.length} resultados`)
+      }
+    } catch (error) {
+      console.log('⚠️ API interna não disponível, tentando API externa:', error)
     }
 
-    const resultadosData = await resultadosResponse.json()
-    const resultados: ResultadoItem[] = resultadosData.results || resultadosData.resultados || []
+    // Se API interna não retornou resultados, tentar API externa como fallback
+    if (resultados.length === 0) {
+      try {
+        resultadosResponse = await fetch(
+          `${process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'}`,
+          { 
+            cache: 'no-store',
+            signal: AbortSignal.timeout(30000) // 30 segundos timeout
+          }
+        )
+
+        if (resultadosResponse.ok) {
+          const resultadosData = await resultadosResponse.json()
+          resultados = resultadosData.results || resultadosData.resultados || []
+          console.log(`✅ Resultados obtidos da API externa: ${resultados.length} resultados`)
+        }
+      } catch (error) {
+        console.error('❌ Erro ao buscar resultados oficiais:', error)
+        throw new Error('Erro ao buscar resultados oficiais')
+      }
+    }
 
     if (resultados.length === 0) {
       return NextResponse.json({
@@ -188,11 +218,29 @@ export async function POST(request: NextRequest) {
         }
 
         if (aposta.dataConcurso) {
+          // Normalizar data da aposta (formato ISO: 2026-01-14)
           const dataAposta = aposta.dataConcurso.toISOString().split('T')[0]
+          const [anoAposta, mesAposta, diaAposta] = dataAposta.split('-')
+          const dataApostaFormatada = `${diaAposta}/${mesAposta}/${anoAposta}` // Formato brasileiro: 14/01/2026
+          
           resultadosFiltrados = resultadosFiltrados.filter((r) => {
             if (!r.date && !r.dataExtracao) return false
-            const dataResultado = (r.date || r.dataExtracao)?.split('T')[0]
-            return dataResultado === dataAposta
+            const dataResultado = r.date || r.dataExtracao || ''
+            
+            // Comparar formato ISO (2026-01-14)
+            if (dataResultado.split('T')[0] === dataAposta) return true
+            
+            // Comparar formato brasileiro (14/01/2026)
+            if (dataResultado === dataApostaFormatada) return true
+            
+            // Comparação parcial (dia/mês/ano)
+            const matchBR = dataResultado.match(/(\d{2})\/(\d{2})\/(\d{4})/)
+            if (matchBR) {
+              const [_, dia, mes, ano] = matchBR
+              if (`${ano}-${mes}-${dia}` === dataAposta) return true
+            }
+            
+            return false
           })
         }
 

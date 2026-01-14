@@ -1,225 +1,168 @@
-# ⏰ Configurar Cron Job no Coolify
+# 🕐 Configuração de Cron Job no Coolify - Sistema de Liquidação
 
-## 📋 Opções Disponíveis
+Este guia explica como configurar o cron job para liquidação automática de apostas no Coolify.
 
-No Coolify, cron jobs podem ser configurados de **3 formas**:
+## 📋 Pré-requisitos
 
----
+- Aplicação já deployada no Coolify
+- Acesso ao terminal do Coolify
+- Variável de ambiente `NEXT_PUBLIC_APP_URL` configurada (URL pública da aplicação)
 
-## Opção 1: Via Terminal do Container (Recomendado)
+## 🚀 Configuração no Coolify
 
-### Passo 1: Acessar Terminal do Container
+### Opção 1: Cron Job via Interface do Coolify (Recomendado)
 
-No painel do Coolify:
-1. Vá em **Projects** → Selecione seu projeto
-2. Clique em **Terminal** (ou **Shell**)
-3. Isso abre um terminal dentro do container
+1. **Acesse o painel do Coolify**
+   - Vá para sua aplicação
+   - Clique em **"Scheduled Tasks"** ou **"Cron Jobs"**
 
-### Passo 2: Instalar Cron (se necessário)
+2. **Criar novo Cron Job**
+   - Clique em **"+ Add Scheduled Task"**
+   - Configure:
+     - **Name**: `Liquidação Automática`
+     - **Schedule**: `*/5 9-22 * * *` (executa a cada 5 minutos das 9h às 22h)
+     - **Command**: 
+       ```bash
+       curl -X POST http://localhost:3001/api/resultados/liquidar \
+         -H "Content-Type: application/json" \
+         -d '{"usarMonitor": false}'
+       ```
+     - **Container**: Selecione o container da aplicação
 
-```bash
-# Verificar se cron está instalado
-which crond || which cron
+3. **Salvar e ativar**
 
-# Se não estiver, instalar (depende da imagem base)
-# Para imagens baseadas em Debian/Ubuntu:
-apt-get update && apt-get install -y cron
+### Opção 2: Cron Job via Terminal (Alternativa)
 
-# Para imagens Alpine:
-apk add --no-cache dcron
-```
+1. **Acesse o terminal do Coolify**
+   - Vá em **"Terminal"** na sua aplicação
 
-### Passo 3: Criar Script de Liquidação
-
-```bash
-# Criar diretório para scripts
-mkdir -p /app/scripts/cron
-mkdir -p /app/logs
-
-# Criar script
-# NOTA: localhost funciona aqui porque está dentro do mesmo container
-cat > /app/scripts/cron/liquidar.sh << 'EOF'
-#!/bin/bash
-curl -X POST http://localhost:3000/api/resultados/liquidar \
-  -H "Content-Type: application/json" \
-  -d '{"usarMonitor": true}' \
-  >> /app/logs/cron-liquidacao.log 2>&1
-EOF
-
-# Dar permissão de execução
-chmod +x /app/scripts/cron/liquidar.sh
-```
-
-### Passo 4: Configurar Cron Job
-
-```bash
-# Adicionar ao crontab
-(crontab -l 2>/dev/null; echo "*/5 9-22 * * * /app/scripts/cron/liquidar.sh") | crontab -
-
-# Verificar se foi adicionado
-crontab -l
-
-# Iniciar serviço cron
-crond -f -d 8 &
-# ou
-cron
-```
-
-### Passo 5: Testar
-
-```bash
-# Executar manualmente
-/app/scripts/cron/liquidar.sh
-
-# Verificar logs
-tail -f /app/logs/cron-liquidacao.log
-```
-
----
-
-## Opção 2: Via Dockerfile (Persistente)
-
-### Modificar Dockerfile
-
-Adicione ao final do `Dockerfile`:
-
-```dockerfile
-# Instalar cron
-RUN apt-get update && apt-get install -y cron && rm -rf /var/lib/apt/lists/*
-
-# Criar script de liquidação
-RUN mkdir -p /app/scripts/cron /app/logs
-COPY scripts/cron/liquidar.sh /app/scripts/cron/liquidar.sh
-RUN chmod +x /app/scripts/cron/liquidar.sh
-
-# Configurar cron job
-RUN (crontab -l 2>/dev/null; echo "*/5 9-22 * * * /app/scripts/cron/liquidar.sh") | crontab -
-
-# Iniciar cron no entrypoint
-COPY scripts/start-with-cron.sh /app/scripts/start-with-cron.sh
-RUN chmod +x /app/scripts/start-with-cron.sh
-
-CMD ["/app/scripts/start-with-cron.sh"]
-```
-
-### Criar script de start com cron
-
-```bash
-# scripts/start-with-cron.sh
-#!/bin/bash
-set -e
-
-# Iniciar cron em background
-crond -f -d 8 &
-
-# Executar comando original
-exec "$@"
-```
-
----
-
-## Opção 3: Via API Externa (Mais Simples)
-
-### Usar serviço externo de cron
-
-Use um serviço como:
-- **cron-job.org** (gratuito)
-- **EasyCron** (gratuito)
-- **UptimeRobot** (gratuito)
-
-### Configurar no cron-job.org
-
-1. Acesse https://cron-job.org
-2. Crie conta gratuita
-3. Adicione novo cron job:
-   - **URL:** `https://SEU-DOMINIO-PUBLICO/api/resultados/liquidar`
-     - ⚠️ **IMPORTANTE:** Use a URL pública do seu servidor, não localhost!
-     - Exemplo: `https://ig4o44cgogk084sc0g8884o4.agenciamidas.com/api/resultados/liquidar`
-   - **Method:** POST
-   - **Body:** `{"usarMonitor": true}`
-   - **Headers:** `Content-Type: application/json`
-   - **Schedule:** A cada 5 minutos (9h-22h)
-
-### Exemplo de configuração completa:
-
-```
-URL: https://ig4o44cgogk084sc0g8884o4.agenciamidas.com/api/resultados/liquidar
-Method: POST
-Body: {"usarMonitor": true}
-Headers: Content-Type: application/json
-Schedule: */5 9-22 * * *
-```
-
-**⚠️ Nota:** 
-- Para serviços externos (cron-job.org): Use URL pública do servidor
-- Para scripts dentro do container: Use `localhost:3000` (mesmo container)
-
----
-
-## Opção 4: Via Coolify Scheduled Tasks (Se disponível)
-
-Algumas versões do Coolify têm **Scheduled Tasks**:
-
-1. Vá em **Projects** → Seu projeto
-2. Procure por **Scheduled Tasks** ou **Cron Jobs**
-3. Adicione nova tarefa:
-   - **Command:** `curl -X POST http://localhost:3000/api/resultados/liquidar -H "Content-Type: application/json" -d '{"usarMonitor": true}'`
-     - ⚠️ **Nota:** Aqui usa localhost porque executa dentro do mesmo container
-   - **Schedule:** `*/5 9-22 * * *`
-
----
-
-## ✅ Recomendação
-
-### Para Coolify: **Opção 3 (API Externa)**
-
-**Por quê?**
-- ✅ Mais simples de configurar
-- ✅ Não precisa modificar container
-- ✅ Funciona mesmo se container reiniciar
-- ✅ Logs externos
-- ✅ Gratuito
-
-### Configuração Rápida:
-
-1. Acesse https://cron-job.org
-2. Crie conta
-3. Adicione cron job:
+2. **Criar script de liquidação**
+   ```bash
+   mkdir -p /app/scripts/cron
+   cat > /app/scripts/cron/liquidar.sh << 'EOF'
+   #!/bin/bash
+   API_URL="${API_URL:-http://localhost:3001}"
+   curl -X POST "$API_URL/api/resultados/liquidar" \
+     -H "Content-Type: application/json" \
+     -d '{"usarMonitor": false}'
+   EOF
+   chmod +x /app/scripts/cron/liquidar.sh
    ```
-   URL: https://SEU-DOMINIO-PUBLICO/api/resultados/liquidar
-      ⚠️ Use a URL pública do seu servidor Coolify!
-      Exemplo: https://ig4o44cgogk084sc0g8884o4.agenciamidas.com/api/resultados/liquidar
+
+3. **Configurar crontab**
+   ```bash
+   crontab -e
+   ```
    
-   Method: POST
-   Body: {"usarMonitor": true}
-   Headers: Content-Type: application/json
-   Schedule: */5 9-22 * * *
+   Adicione a linha:
+   ```cron
+   */5 9-22 * * * /app/scripts/cron/liquidar.sh >> /tmp/liquidacao.log 2>&1
    ```
 
----
+## ⏰ Horários Recomendados
 
-## 🧪 Testar Manualmente
+### Execução a cada 5 minutos (horário comercial)
+```cron
+*/5 9-22 * * *
+```
+- Executa das 9h às 22h, a cada 5 minutos
+- Ideal para horários de sorteios frequentes
 
-Antes de configurar o cron, teste manualmente:
+### Execução a cada 1 minuto (horário comercial)
+```cron
+*/1 9-22 * * *
+```
+- Executa das 9h às 22h, a cada 1 minuto
+- Para liquidação mais rápida (mais carga no servidor)
 
-```bash
-# No terminal do Coolify
-curl -X POST http://localhost:3000/api/resultados/liquidar \
-  -H "Content-Type: application/json" \
-  -d '{"usarMonitor": true}'
+### Execução em horários específicos
+```cron
+31 9,12,15,18,22 * * *
+```
+- Executa às 9:31, 12:31, 15:31, 18:31 e 22:31
+- Para horários específicos de sorteios
+
+## 🔧 Variáveis de Ambiente
+
+Certifique-se de que estas variáveis estão configuradas:
+
+```env
+NEXT_PUBLIC_APP_URL=https://seu-dominio.com
+DATABASE_URL=postgres://...
 ```
 
-Se funcionar, pode configurar o cron job externo.
+## 📊 Monitoramento
 
----
+### Ver logs do cron job
+
+No terminal do Coolify:
+```bash
+# Ver logs do script
+tail -f /tmp/liquidacao.log
+
+# Ver logs da aplicação
+pm2 logs tradicao-do-bicho --lines 50
+```
+
+### Testar manualmente
+
+```bash
+# Testar endpoint de liquidação
+curl -X POST http://localhost:3001/api/resultados/liquidar \
+  -H "Content-Type: application/json" \
+  -d '{"usarMonitor": false}'
+
+# Ver estatísticas
+curl http://localhost:3001/api/resultados/liquidar
+```
+
+## 🐛 Troubleshooting
+
+### Cron não está executando
+
+1. **Verificar se o cron está rodando**
+   ```bash
+   ps aux | grep cron
+   ```
+
+2. **Verificar logs do cron**
+   ```bash
+   grep CRON /var/log/syslog
+   ```
+
+3. **Testar script manualmente**
+   ```bash
+   /app/scripts/cron/liquidar.sh
+   ```
+
+### Erro de conexão
+
+- Verifique se `NEXT_PUBLIC_APP_URL` está configurada corretamente
+- Para scripts dentro do container: Use `localhost:3001` (mesmo container)
+- Para scripts externos: Use a URL pública completa
+
+### Timeout
+
+- Aumente o timeout no endpoint se necessário
+- Verifique se o banco de dados está acessível
+- Verifique se há muitas apostas pendentes
 
 ## 📝 Notas Importantes
 
-1. **Horários de sorteio:** Ajuste o schedule conforme seus horários
-2. **Frequência:** `*/5` = a cada 5 minutos. Pode ajustar para `*/1` (1 minuto) ou `*/10` (10 minutos)
-3. **Monitoramento:** Configure alertas no serviço de cron externo
-4. **Logs:** Verifique logs em `/app/logs/cron-liquidacao.log` ou no serviço externo
+- O cron job executa dentro do container da aplicação
+- Use `localhost:3001` para requisições internas
+- O script já tem tratamento de erros e logging
+- Os logs são salvos em `/tmp/liquidacao.log`
+
+## 🔄 Atualização do Script
+
+Se precisar atualizar o script:
+
+1. Edite o arquivo no repositório
+2. Faça commit e push
+3. O Coolify vai fazer rebuild automático
+4. O script será atualizado no container
 
 ---
 
-**Última atualização:** 2026-01-15
+**Última atualização:** 14 de Janeiro de 2026

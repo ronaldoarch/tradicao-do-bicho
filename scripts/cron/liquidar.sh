@@ -1,65 +1,45 @@
 #!/bin/bash
 
-# Script de liquidação automática para cron job
-# 
-# Uso: Adicionar ao crontab para execução periódica
-# Exemplo: */5 9-22 * * * /caminho/para/lotbicho/scripts/cron/liquidar.sh
+# Script de liquidação automática de apostas
+# Executa a liquidação de apostas pendentes via API
 
 # Configurações
-# NOTA: localhost funciona aqui porque o script roda dentro do mesmo container
-# Para serviços externos, use a URL pública do servidor
-API_URL="${API_URL:-http://localhost:3000}"
-LOG_DIR="${LOG_DIR:-$(dirname "$0")/../logs}"
-LOG_FILE="$LOG_DIR/liquidacao-$(date '+%Y%m%d').log"
-DATE=$(date '+%Y-%m-%d %H:%M:%S')
+API_URL="${API_URL:-http://localhost:3001}"
+LOG_FILE="${LOG_FILE:-/tmp/liquidacao.log}"
 
-# Criar diretório de logs se não existir
-mkdir -p "$LOG_DIR"
-
-# Função de log
+# Função para log
 log() {
-  echo "[$DATE] $1" >> "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-# Iniciar liquidação
-log "=========================================="
+# Verificar se a API está disponível
 log "Iniciando liquidação automática..."
+log "API URL: $API_URL"
 
-# Executar liquidação (tenta monitor primeiro, fallback automático)
+# Executar liquidação
 RESPONSE=$(curl -s -X POST "$API_URL/api/resultados/liquidar" \
-  -H "Content-Type: application/json" \
-  -d '{"usarMonitor": true}' \
-  -w "\nHTTP_CODE:%{http_code}" \
-  --max-time 60)
+    -H "Content-Type: application/json" \
+    -d '{"usarMonitor": false}' \
+    -w "\nHTTP_CODE:%{http_code}")
 
-# Extrair código HTTP e corpo da resposta
-HTTP_CODE=$(echo "$RESPONSE" | grep -oP 'HTTP_CODE:\K\d+' || echo "000")
-BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:.*//')
+HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
+BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
 
-# Verificar resultado
 if [ "$HTTP_CODE" = "200" ]; then
-  # Parsear resposta JSON (se disponível)
-  PROCESSADAS=$(echo "$BODY" | grep -oP '"processadas":\s*\K\d+' || echo "0")
-  LIQUIDADAS=$(echo "$BODY" | grep -oP '"liquidadas":\s*\K\d+' || echo "0")
-  PREMIO=$(echo "$BODY" | grep -oP '"premioTotal":\s*\K[\d.]+' || echo "0")
-  FONTE=$(echo "$BODY" | grep -oP '"fonte":\s*"\K[^"]+' || echo "desconhecida")
-  
-  log "✅ Liquidação concluída com sucesso"
-  log "   Processadas: $PROCESSADAS"
-  log "   Liquidadas: $LIQUIDADAS"
-  log "   Prêmio total: R$ $PREMIO"
-  log "   Fonte: $FONTE"
+    log "✅ Liquidação executada com sucesso"
+    log "Resposta: $BODY"
+    
+    # Extrair estatísticas da resposta JSON
+    PROCESSADAS=$(echo "$BODY" | grep -o '"processadas":[0-9]*' | cut -d: -f2 || echo "0")
+    LIQUIDADAS=$(echo "$BODY" | grep -o '"liquidadas":[0-9]*' | cut -d: -f2 || echo "0")
+    PREMIO=$(echo "$BODY" | grep -o '"premioTotal":[0-9.]*' | cut -d: -f2 || echo "0")
+    
+    log "Estatísticas: Processadas=$PROCESSADAS | Liquidadas=$LIQUIDADAS | Prêmio Total=R$ $PREMIO"
 else
-  log "❌ Erro na liquidação (HTTP $HTTP_CODE)"
-  log "   Resposta: $BODY"
+    log "❌ Erro ao executar liquidação (HTTP $HTTP_CODE)"
+    log "Resposta: $BODY"
+    exit 1
 fi
 
-log "Finalizando liquidação automática."
-log "=========================================="
-
-# Retornar código de saída apropriado
-if [ "$HTTP_CODE" = "200" ]; then
-  exit 0
-else
-  exit 1
-fi
+log "Liquidação concluída"
+exit 0
