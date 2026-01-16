@@ -65,6 +65,52 @@ export function formatDateLabel(dateString?: string): string {
 }
 
 /**
+ * Retorna a data padrão em formato ISO (hoje)
+ */
+export function getDefaultDateISO(): string {
+  const hoje = new Date()
+  return hoje.toISOString().split('T')[0]
+}
+
+/**
+ * Agrupa resultados por horário de sorteio
+ */
+export function groupResultsByDrawTime<T extends { drawTime?: string; horario?: string }>(
+  results: T[],
+  location?: string,
+  date?: string
+): Record<string, T[]> {
+  const grouped: Record<string, T[]> = {}
+  
+  // Filtrar por localização se fornecida
+  let filteredResults = results
+  if (location) {
+    filteredResults = results.filter((r: any) => 
+      r.location === location || r.loteria === location
+    )
+  }
+  
+  // Filtrar por data se fornecida
+  if (date) {
+    const isoDate = toIsoDate(date)
+    filteredResults = filteredResults.filter((r: any) => {
+      const resultDate = toIsoDate(r.date || r.dataExtracao || '')
+      return resultDate === isoDate
+    })
+  }
+  
+  filteredResults.forEach((result) => {
+    const key = result.drawTime || result.horario || 'sem-horario'
+    if (!grouped[key]) {
+      grouped[key] = []
+    }
+    grouped[key].push(result)
+  })
+  
+  return grouped
+}
+
+/**
  * Normaliza o horário do resultado para o horário correto de fechamento da extração
  * 
  * @param loteriaNome Nome da loteria (ex: "PT SP", "LOOK", "LOTECE")

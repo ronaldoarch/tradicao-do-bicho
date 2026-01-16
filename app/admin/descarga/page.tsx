@@ -56,6 +56,9 @@ export default function DescargaPage() {
   const [estatisticas, setEstatisticas] = useState<EstatisticaDescarga[]>([])
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false)
+  const [whatsappNumero, setWhatsappNumero] = useState('')
+  const [enviandoPDF, setEnviandoPDF] = useState(false)
   const [formData, setFormData] = useState({
     modalidade: '',
     premio: 1,
@@ -176,6 +179,110 @@ export default function DescargaPage() {
     }).format(valor)
   }
 
+  const handleGerarPDF = async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (activeTab === 'limites') {
+        params.append('incluirLimites', 'true')
+        params.append('incluirAlertas', 'false')
+        params.append('incluirEstatisticas', 'false')
+      } else if (activeTab === 'alertas') {
+        params.append('incluirLimites', 'false')
+        params.append('incluirAlertas', 'true')
+        params.append('incluirEstatisticas', 'false')
+      } else {
+        params.append('incluirLimites', 'true')
+        params.append('incluirAlertas', 'true')
+        params.append('incluirEstatisticas', 'true')
+      }
+
+      const res = await fetch(`/api/admin/descarga/pdf?${params.toString()}`)
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `descarga_${new Date().toISOString().split('T')[0]}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      } else {
+        alert('Erro ao gerar PDF')
+      }
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error)
+      alert('Erro ao gerar PDF')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEnviarWhatsApp = async () => {
+    if (!whatsappNumero) {
+      alert('Digite o número do WhatsApp')
+      return
+    }
+
+    setEnviandoPDF(true)
+    try {
+      const params: any = {
+        numeroWhatsApp: whatsappNumero,
+      }
+
+      if (activeTab === 'limites') {
+        params.incluirLimites = true
+        params.incluirAlertas = false
+        params.incluirEstatisticas = false
+      } else if (activeTab === 'alertas') {
+        params.incluirLimites = false
+        params.incluirAlertas = true
+        params.incluirEstatisticas = false
+      } else {
+        params.incluirLimites = true
+        params.incluirAlertas = true
+        params.incluirEstatisticas = true
+      }
+
+      const res = await fetch('/api/admin/descarga/enviar-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        
+        // Baixar PDF primeiro
+        const pdfBlob = await fetch(`data:application/pdf;base64,${data.pdfBase64}`).then(r => r.blob())
+        const url = window.URL.createObjectURL(pdfBlob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = data.filename
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+
+        // Abrir WhatsApp
+        window.open(data.whatsappLink, '_blank')
+        
+        setShowWhatsAppModal(false)
+        setWhatsappNumero('')
+        alert('PDF gerado! Abra o WhatsApp e anexe o arquivo baixado.')
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Erro ao preparar envio')
+      }
+    } catch (error) {
+      console.error('Erro ao enviar via WhatsApp:', error)
+      alert('Erro ao preparar envio')
+    } finally {
+      setEnviandoPDF(false)
+    }
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
@@ -183,6 +290,24 @@ export default function DescargaPage() {
         <p className="text-gray-600 mt-2">
           Configure limites por modalidade e prêmio. O sistema gera alertas quando limites são ultrapassados.
         </p>
+      </div>
+
+      {/* Botões de ação */}
+      <div className="mb-6 flex gap-4 justify-end">
+        <button
+          onClick={handleGerarPDF}
+          disabled={loading}
+          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center gap-2"
+        >
+          📄 Baixar PDF
+        </button>
+        <button
+          onClick={() => setShowWhatsAppModal(true)}
+          disabled={loading}
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+        >
+          💬 Enviar via WhatsApp
+        </button>
       </div>
 
       {/* Tabs */}
@@ -505,6 +630,54 @@ export default function DescargaPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal WhatsApp */}
+      {showWhatsAppModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-semibold mb-4">Enviar PDF via WhatsApp</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Número do WhatsApp
+              </label>
+              <input
+                type="text"
+                value={whatsappNumero}
+                onChange={(e) => setWhatsappNumero(e.target.value)}
+                placeholder="5500000000000"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Formato: código do país + DDD + número (ex: 5521999999999)
+              </p>
+            </div>
+            <div className="mb-4">
+              <p className="text-sm text-gray-600">
+                O PDF será gerado e baixado automaticamente. Em seguida, o WhatsApp será aberto
+                para você anexar o arquivo manualmente.
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setShowWhatsAppModal(false)
+                  setWhatsappNumero('')
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleEnviarWhatsApp}
+                disabled={enviandoPDF || !whatsappNumero}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {enviandoPDF ? 'Gerando...' : 'Gerar e Enviar'}
+              </button>
+            </div>
           </div>
         </div>
       )}
