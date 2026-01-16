@@ -227,9 +227,10 @@ export default function BingoAdminPage() {
               ativa: true,
             })
           }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold shadow-md flex items-center gap-2 transition-all hover:shadow-lg"
         >
-          {showForm ? 'Cancelar' : '+ Nova Sala'}
+          <span className="text-xl">+</span>
+          <span>{showForm ? 'Cancelar' : 'Nova Sala'}</span>
         </button>
       </div>
 

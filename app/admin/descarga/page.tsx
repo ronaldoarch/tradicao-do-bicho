@@ -354,42 +354,49 @@ export default function DescargaPage() {
           <div className="mb-4 flex justify-between items-center">
             <h2 className="text-xl font-semibold">Limites de Descarga</h2>
             <button
-              onClick={() => setShowForm(!showForm)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              onClick={() => {
+                setShowForm(!showForm)
+                setFormData({ modalidade: '', premio: 1, limite: '', ativo: true })
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
             >
-              {showForm ? 'Cancelar' : '+ Novo Limite'}
+              <span>+</span>
+              <span>{showForm ? 'Cancelar' : 'Novo Limite'}</span>
             </button>
           </div>
 
           {showForm && (
-            <div className="bg-white p-6 rounded-lg shadow mb-6">
-              <h3 className="text-lg font-semibold mb-4">Novo Limite</h3>
+            <div className="bg-white p-6 rounded-lg shadow mb-6 border-2 border-blue-200">
+              <h3 className="text-lg font-semibold mb-4 text-blue-900">Configurar Limite de Descarga</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Configure quanto você vai bancar para cada modalidade e prêmio
+              </p>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Modalidade
+                    Modalidade *
                   </label>
                   <select
                     value={formData.modalidade}
                     onChange={(e) => setFormData({ ...formData, modalidade: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                   >
-                    <option value="">Selecione...</option>
+                    <option value="">Selecione a modalidade...</option>
                     {MODALIDADES.map((mod) => (
                       <option key={mod} value={mod}>
-                        {mod}
+                        {mod.replace(/_/g, ' ')}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Prêmio
+                    Prêmio *
                   </label>
                   <select
                     value={formData.premio}
                     onChange={(e) => setFormData({ ...formData, premio: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                   >
                     {[1, 2, 3, 4, 5].map((p) => (
                       <option key={p} value={p}>
@@ -400,23 +407,26 @@ export default function DescargaPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Limite (R$)
+                    Valor Máximo a Bancar (R$) *
                   </label>
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     value={formData.limite}
                     onChange={(e) => setFormData({ ...formData, limite: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                     placeholder="0.00"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Valor máximo que você vai bancar</p>
                 </div>
                 <div className="flex items-end">
                   <button
                     onClick={handleSalvarLimite}
-                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    disabled={!formData.modalidade || !formData.limite}
+                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                   >
-                    Salvar
+                    Salvar Limite
                   </button>
                 </div>
               </div>
