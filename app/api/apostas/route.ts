@@ -72,8 +72,17 @@ export async function GET() {
 
     // Combinar apostas normais com cartelas de bingo
     const todasApostas = [...apostas, ...apostasBingo].sort((a, b) => {
-      const dateA = a.dataConcurso ? new Date(a.dataConcurso).getTime() : 0
-      const dateB = b.dataConcurso ? new Date(b.dataConcurso).getTime() : 0
+      // Usar dataConcurso se disponível, senão usar createdAt da aposta ou dataConcurso da cartela
+      const dateA = a.dataConcurso 
+        ? new Date(a.dataConcurso).getTime() 
+        : (a as any).createdAt 
+        ? new Date((a as any).createdAt).getTime() 
+        : 0
+      const dateB = b.dataConcurso 
+        ? new Date(b.dataConcurso).getTime() 
+        : (b as any).createdAt 
+        ? new Date((b as any).createdAt).getTime() 
+        : 0
       return dateB - dateA
     })
 
