@@ -6,6 +6,65 @@ import { extracoes, type Extracao } from '@/data/extracoes'
 import { getHorarioRealApuracao } from '@/data/horarios-reais-apuracao'
 
 /**
+ * Converte uma data em formato brasileiro (DD/MM/YYYY) ou ISO (YYYY-MM-DD) para formato ISO
+ * 
+ * @param dateString Data em formato brasileiro ou ISO
+ * @returns Data em formato ISO (YYYY-MM-DD)
+ */
+export function toIsoDate(dateString?: string): string {
+  if (!dateString) return ''
+  
+  // Se já está em formato ISO, retornar como está
+  if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+    return dateString.split('T')[0] // Remove hora se houver
+  }
+  
+  // Tentar formato brasileiro DD/MM/YYYY
+  const matchBR = dateString.match(/(\d{2})\/(\d{2})\/(\d{4})/)
+  if (matchBR) {
+    const [, dia, mes, ano] = matchBR
+    return `${ano}-${mes}-${dia}`
+  }
+  
+  // Tentar formato DD-MM-YYYY
+  const matchDash = dateString.match(/(\d{2})-(\d{2})-(\d{4})/)
+  if (matchDash) {
+    const [, dia, mes, ano] = matchDash
+    return `${ano}-${mes}-${dia}`
+  }
+  
+  // Retornar original se não conseguir converter
+  return dateString
+}
+
+/**
+ * Formata uma data para exibição em português
+ * 
+ * @param dateString Data em qualquer formato
+ * @returns Data formatada (ex: "15 de Janeiro de 2026")
+ */
+export function formatDateLabel(dateString?: string): string {
+  if (!dateString) return ''
+  
+  const isoDate = toIsoDate(dateString)
+  if (!isoDate) return dateString
+  
+  try {
+    const [ano, mes, dia] = isoDate.split('-')
+    const date = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia))
+    
+    const meses = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    
+    return `${parseInt(dia)} de ${meses[parseInt(mes) - 1]} de ${ano}`
+  } catch {
+    return dateString
+  }
+}
+
+/**
  * Normaliza o horário do resultado para o horário correto de fechamento da extração
  * 
  * @param loteriaNome Nome da loteria (ex: "PT SP", "LOOK", "LOTECE")
