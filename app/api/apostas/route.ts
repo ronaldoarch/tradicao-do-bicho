@@ -11,6 +11,7 @@ import {
 import { ANIMALS } from '@/data/animals'
 import { validarExtracaoParaAposta } from '@/lib/extracao-helpers'
 import { parsePosition } from '@/lib/position-parser'
+import { verificarLimiteDescarga } from '@/lib/descarga-helpers'
 
 export async function GET() {
   const session = cookies().get('lotbicho_session')?.value
@@ -256,6 +257,32 @@ export async function POST(request: Request) {
 
       return { ...created, resultadoInstantaneo, premioTotal }
     })
+
+    // Verificar limites de descarga APÓS criar a aposta
+    // (não bloqueia, apenas gera alertas se necessário)
+    if (modalidade && detalhes && typeof detalhes === 'object' && 'betData' in detalhes) {
+      const betData = (detalhes as any).betData
+      const position = betData.position || betData.customPositionValue
+      
+      if (position) {
+        const { pos_from, pos_to } = parsePosition(position)
+        const premios = Array.from({ length: pos_to - pos_from + 1 }, (_, i) => pos_from + i)
+        const dataConcursoDate = dataConcurso ? new Date(dataConcurso) : null
+        
+        // Verificar limites (não bloqueia, apenas cria alertas se necessário)
+        try {
+          await verificarLimiteDescarga(
+            modalidade,
+            premios,
+            valorNum,
+            dataConcursoDate
+          )
+        } catch (error) {
+          // Se houver erro na verificação, não bloqueia a aposta
+          console.error('Erro ao verificar limite de descarga:', error)
+        }
+      }
+    }
 
     return NextResponse.json({ aposta: result }, { status: 201 })
   } catch (error) {

@@ -85,6 +85,7 @@ export default function AdminLayout({
     { href: '/admin/promocoes', label: 'Promoções', icon: '🎁' },
     { href: '/admin/gateways', label: 'Gateways', icon: '🔌' },
     { href: '/admin/temas', label: 'Temas', icon: '🎨' },
+    { href: '/admin/descarga', label: 'Descarga / Banca', icon: '⚠️' },
     { href: '/admin/configuracoes', label: 'Configurações', icon: '⚙️' },
   ]
 
