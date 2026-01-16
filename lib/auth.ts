@@ -10,6 +10,7 @@ export interface SessionPayload {
   id: number
   email: string
   nome: string
+  isAdmin?: boolean
 }
 
 export function createSessionToken(payload: SessionPayload) {
