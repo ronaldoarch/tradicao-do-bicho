@@ -88,6 +88,11 @@ export default function Header() {
               Cotação
             </a>
           </li>
+          <li>
+            <a href="/bingo" className="h-12 rounded-2xl px-4 py-2 hover:bg-blue-scale-70 transition-colors">
+              Bingo
+            </a>
+          </li>
         </ul>
       </nav>
 

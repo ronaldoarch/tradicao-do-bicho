@@ -9,7 +9,7 @@ export default function BottomNav() {
     <div className="border-top-gradient-r-blue-to-yellow bottom-nav-container fixed bottom-0 left-0 right-0 z-50 flex w-full items-center justify-around bg-blue text-sm text-white shadow-lg xl:hidden">
       {/* Submenu */}
       <div
-        className={`submenu-container has-2-items absolute bottom-10 left-1/2 z-20 flex h-20 w-20 -translate-x-1/2 transform items-center justify-center ${
+        className={`submenu-container has-3-items absolute bottom-10 left-1/2 z-20 flex h-20 w-20 -translate-x-1/2 transform items-center justify-center ${
           isMenuOpen ? 'active' : ''
         }`}
       >
@@ -17,6 +17,10 @@ export default function BottomNav() {
           <span className="iconify i-material-symbols:pets" style={{ fontSize: '24px' }}></span>
           <span className="w-16 text-xs font-semibold leading-tight">Jogo do Bicho</span>
         </div>
+        <a href="/bingo" className="submenu-item flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md bg-blue p-3 text-center text-white shadow-md">
+          <span className="iconify i-material-symbols:event-available" style={{ fontSize: '24px' }}></span>
+          <span className="w-16 text-xs font-semibold leading-tight">Bingo</span>
+        </a>
         <div className="submenu-item flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md bg-blue p-3 text-center text-white shadow-md">
           <span className="iconify i-fluent:ticket-diagonal-16-regular" style={{ fontSize: '24px' }}></span>
           <span className="w-16 text-xs font-semibold leading-tight">Loterias</span>
