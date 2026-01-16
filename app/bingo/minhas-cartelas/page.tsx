@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import BottomNav from '@/components/BottomNav'
+import BingoSorteadosCounter from '@/components/BingoSorteadosCounter'
 import { CartelaNumeros } from '@/lib/bingo-helpers'
 
 interface CartelaBingo {
@@ -189,15 +190,18 @@ export default function MinhasCartelasPage() {
                         <span className="text-gray-600">Valor Pago:</span>
                         <span className="font-semibold">{formatarMoeda(cartela.valorPago)}</span>
                       </div>
-                      {cartela.sala.emAndamento && cartela.sala.numerosSorteados && (
-                        <div className="text-sm text-gray-600 mb-2">
-                          Números Sorteados:{' '}
-                          <span className="font-semibold">
-                            {cartela.sala.numerosSorteados.length}
-                          </span>
-                        </div>
-                      )}
                     </div>
+
+                    {/* Contador de números sorteados */}
+                    {cartela.sala.emAndamento && cartela.sala.numerosSorteados && (
+                      <div className="mb-4">
+                        <BingoSorteadosCounter
+                          salaId={cartela.sala.id}
+                          numerosSorteados={cartela.sala.numerosSorteados}
+                          emAndamento={cartela.sala.emAndamento}
+                        />
+                      </div>
+                    )}
 
                     <div className="max-w-md mx-auto">{renderizarCartela(cartela)}</div>
                   </div>
