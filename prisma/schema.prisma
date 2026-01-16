@@ -116,24 +116,25 @@ model Gateway {
 }
 
 model Usuario {
-  id                 Int         @id @default(autoincrement())
+  id                 Int            @id @default(autoincrement())
   nome               String
-  email              String      @unique
+  email              String         @unique
   telefone           String?
   passwordHash       String?
-  saldo              Float       @default(0)
-  bonus              Float       @default(0)
-  bonusBloqueado     Float       @default(0)
-  rolloverNecessario Float       @default(0) // quanto precisa apostar para liberar o bônus
-  rolloverAtual      Float       @default(0) // quanto já apostou que conta para o rollover
-  bonusSemanal       Int         @default(0)
-  isAdmin            Boolean     @default(false)
-  ativo              Boolean     @default(true)
+  saldo              Float          @default(0)
+  bonus              Float          @default(0)
+  bonusBloqueado     Float          @default(0)
+  rolloverNecessario Float          @default(0) // quanto precisa apostar para liberar o bônus
+  rolloverAtual      Float          @default(0) // quanto já apostou que conta para o rollover
+  bonusSemanal       Int            @default(0)
+  isAdmin            Boolean        @default(false)
+  ativo              Boolean        @default(true)
   saques             Saque[]
   apostas            Aposta[]
   transacoes         Transacao[]
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  CartelaBingo       CartelaBingo[]
 }
 
 model Aposta {
@@ -219,4 +220,64 @@ model AlertaDescarga {
   @@index([modalidade, premio])
   @@index([resolvido])
   @@index([dataConcurso])
+}
+
+model SalaBingo {
+  id               Int       @id @default(autoincrement())
+  nome             String
+  descricao        String?
+  valorCartela     Float     @default(0)
+  premioTotal      Float     @default(0)
+  premioLinha      Float     @default(0)
+  premioColuna     Float     @default(0)
+  premioDiagonal   Float     @default(0)
+  premioBingo      Float     @default(0)
+  ativa            Boolean   @default(true)
+  emAndamento      Boolean   @default(false)
+  dataInicio       DateTime?
+  dataFim          DateTime?
+  numerosSorteados Json? // Array de números sorteados
+  resultadoFinal   Json? // Resultado final do bingo
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  cartelas   CartelaBingo[]
+  resultados ResultadoBingo[]
+
+  @@index([ativa])
+  @@index([emAndamento])
+}
+
+model CartelaBingo {
+  id             Int      @id @default(autoincrement())
+  salaId         Int
+  usuarioId      Int
+  numeros        Json // Matriz 5x5 com os números da cartela
+  valorPago      Float    @default(0)
+  status         String   @default("ativa") // ativa, ganhou, perdida
+  premioRecebido Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sala    SalaBingo @relation(fields: [salaId], references: [id], onDelete: Cascade)
+  usuario Usuario   @relation(fields: [usuarioId], references: [id])
+
+  @@index([salaId])
+  @@index([usuarioId])
+  @@index([status])
+}
+
+model ResultadoBingo {
+  id                 Int      @id @default(autoincrement())
+  salaId             Int
+  tipo               String // "linha", "coluna", "diagonal", "bingo"
+  numerosGanhadores  Json // Números que completaram o tipo
+  cartelasGanhadoras Json // IDs das cartelas ganhadoras
+  premioTotal        Float    @default(0)
+  createdAt          DateTime @default(now())
+
+  sala SalaBingo @relation(fields: [salaId], references: [id], onDelete: Cascade)
+
+  @@index([salaId])
+  @@index([tipo])
 }
