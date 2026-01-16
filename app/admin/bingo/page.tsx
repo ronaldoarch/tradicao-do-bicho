@@ -48,8 +48,11 @@ export default function BingoAdminPage() {
   const carregarSalas = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/bingo/salas')
+      const res = await fetch('/api/admin/bingo/salas', {
+        cache: 'no-store',
+      })
       const data = await res.json()
+      console.log('Salas carregadas no admin:', data.salas)
       setSalas(data.salas || [])
     } catch (error) {
       console.error('Erro ao carregar salas:', error)
@@ -79,6 +82,9 @@ export default function BingoAdminPage() {
       })
 
       if (res.ok) {
+        const data = await res.json()
+        console.log('Sala salva com sucesso:', data.sala)
+        alert(`Sala "${data.sala?.nome || formData.nome}" criada com sucesso!`)
         setShowForm(false)
         setSalaSelecionada(null)
         setFormData({
@@ -95,6 +101,7 @@ export default function BingoAdminPage() {
         carregarSalas()
       } else {
         const error = await res.json()
+        console.error('Erro ao salvar sala:', error)
         alert(error.error || 'Erro ao salvar sala')
       }
     } catch (error) {
