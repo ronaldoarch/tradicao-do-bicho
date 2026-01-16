@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         data: {
           salaId: sala.id,
           usuarioId: user.id,
-          numeros: numerosCartela as Prisma.InputJsonValue,
+          numeros: numerosCartela as unknown as Prisma.InputJsonValue,
           valorPago: sala.valorCartela,
           status: 'ativa',
         },
