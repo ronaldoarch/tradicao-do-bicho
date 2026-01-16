@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { parseSessionToken } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { gerarCartelaBingo } from '@/lib/bingo-helpers'
 
 /**
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
         data: {
           salaId: sala.id,
           usuarioId: user.id,
-          numeros: numerosCartela,
+          numeros: numerosCartela as Prisma.InputJsonValue,
           valorPago: sala.valorCartela,
           status: 'ativa',
         },
