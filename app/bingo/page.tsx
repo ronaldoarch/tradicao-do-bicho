@@ -38,8 +38,14 @@ export default function BingoPage() {
   const carregarSalas = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/bingo/salas')
+      const res = await fetch('/api/bingo/salas', {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      })
       const data = await res.json()
+      console.log('Salas carregadas:', data.salas)
       setSalas(data.salas || [])
     } catch (error) {
       console.error('Erro ao carregar salas:', error)
