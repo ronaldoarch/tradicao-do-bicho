@@ -442,19 +442,20 @@ export async function POST(request: NextRequest) {
         if (aposta.loteria) {
           // Usar match flexível para encontrar resultados
           const antesFiltro = resultadosFiltrados.length
+          const loteriaAposta = aposta.loteria // Garantir que não é null
           resultadosFiltrados = resultadosFiltrados.filter((r) => {
             if (!r.loteria) return false
-            return matchExtracao(r.loteria, aposta.loteria)
+            return matchExtracao(r.loteria, loteriaAposta)
           })
           
           if (resultadosFiltrados.length === 0 && antesFiltro > 0) {
             console.log(
-              `⚠️ Nenhum resultado encontrado para "${aposta.loteria}" após filtro flexível (antes: ${antesFiltro})`
+              `⚠️ Nenhum resultado encontrado para "${loteriaAposta}" após filtro flexível (antes: ${antesFiltro})`
             )
-            console.log(`   Nomes possíveis: ${getNomesPossiveis(aposta.loteria).join(', ')}`)
+            console.log(`   Nomes possíveis: ${getNomesPossiveis(loteriaAposta).join(', ')}`)
           } else if (resultadosFiltrados.length > 0) {
             console.log(
-              `✅ Após filtro de loteria "${aposta.loteria}": ${resultadosFiltrados.length} resultados (antes: ${antesFiltro})`
+              `✅ Após filtro de loteria "${loteriaAposta}": ${resultadosFiltrados.length} resultados (antes: ${antesFiltro})`
             )
           }
         }
