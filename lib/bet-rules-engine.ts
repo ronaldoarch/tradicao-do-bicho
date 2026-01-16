@@ -247,6 +247,13 @@ export function calcularNumero(
     combinations = contarPermutacoesDistintas(numero)
   }
   
+  // MILHAR_CENTENA: cada número gera 2 combinações (1 milhar + 1 centena)
+  if (modalidade === 'MILHAR_CENTENA') {
+    // Se for múltiplos números, cada um gera 2 combinações
+    // Por enquanto, assumimos 1 número por palpite
+    combinations = 2 // 1 milhar + 1 centena
+  }
+  
   const units = combinations * qtdPosicoes
   const unitValue = calcularValorUnitario(valorPalpite, units)
   
@@ -388,9 +395,12 @@ export function buscarOdd(
       '1-2': 150, // Fixo 1º-2º
     },
     MILHAR_CENTENA: {
-      '1-1': 3300, // Valor combinado
+      '1-1': 3300, // Valor combinado (milhar ou centena)
       '1-3': 3300,
       '1-5': 3300,
+      // Nota: Conforme guia, se acertar pela milhar usa odd_milhar_milharcentena,
+      // se acertar pela centena usa odd_centena_milharcentena.
+      // Por enquanto, usamos um valor único 3300x que representa ambos os casos.
     },
   }
   
@@ -448,23 +458,40 @@ export function conferirNumero(
   let hits = 0
   const numeroDigits = numeroApostado.length
   
-  for (let pos = pos_from - 1; pos < pos_to && pos < resultado.length; pos++) {
-    const premio = resultado[pos]
-    const premioStr = premio.toString().padStart(4, '0')
-    
-    // Extrair os últimos N dígitos conforme modalidade
-    let premioRelevante: string
-    if (numeroDigits === 2) {
-      premioRelevante = premioStr.slice(-2) // Dezena
-    } else if (numeroDigits === 3) {
-      premioRelevante = premioStr.slice(-3) // Centena
-    } else {
-      premioRelevante = premioStr // Milhar
+  // MILHAR_CENTENA: verifica tanto milhar quanto centena
+  if (modalidade === 'MILHAR_CENTENA') {
+    for (let pos = pos_from - 1; pos < pos_to && pos < resultado.length; pos++) {
+      const premio = resultado[pos]
+      const premioStr = premio.toString().padStart(4, '0')
+      
+      const milhar = premioStr // 4 dígitos
+      const centena = premioStr.slice(-3) // 3 últimos dígitos
+      
+      // Verificar se bate pela milhar OU pela centena
+      if (combinations.includes(milhar) || combinations.includes(centena)) {
+        hits++
+      }
     }
-    
-    // Verificar se alguma combinação bate
-    if (combinations.includes(premioRelevante)) {
-      hits++
+  } else {
+    // Modalidades normais
+    for (let pos = pos_from - 1; pos < pos_to && pos < resultado.length; pos++) {
+      const premio = resultado[pos]
+      const premioStr = premio.toString().padStart(4, '0')
+      
+      // Extrair os últimos N dígitos conforme modalidade
+      let premioRelevante: string
+      if (numeroDigits === 2) {
+        premioRelevante = premioStr.slice(-2) // Dezena
+      } else if (numeroDigits === 3) {
+        premioRelevante = premioStr.slice(-3) // Centena
+      } else {
+        premioRelevante = premioStr // Milhar
+      }
+      
+      // Verificar se alguma combinação bate
+      if (combinations.includes(premioRelevante)) {
+        hits++
+      }
     }
   }
   
@@ -707,6 +734,8 @@ export function conferirPalpite(
   }
   
   // Buscar odd e calcular prêmio
+  // Para MILHAR_CENTENA, a odd já está configurada como valor combinado (3300x)
+  // que representa tanto acerto por milhar quanto por centena
   const odd = buscarOdd(modalidade, pos_from, pos_to)
   const premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
   const totalPrize = calcularPremioPalpite(prize.hits, premioUnidade)
