@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import BottomNav from '@/components/BottomNav'
+import BingoSorteadosCounter from '@/components/BingoSorteadosCounter'
 
 interface SalaBingo {
   id: number
@@ -20,6 +21,7 @@ interface SalaBingo {
   emAndamento: boolean
   dataInicio: string | null
   dataFim: string | null
+  numerosSorteados: number[] | null
   _count?: {
     cartelas: number
   }
@@ -150,6 +152,17 @@ export default function BingoPage() {
                         {sala.emAndamento ? 'Em Andamento' : 'Aberta'}
                       </span>
                     </div>
+
+                    {/* Contador de números sorteados */}
+                    {sala.emAndamento && sala.numerosSorteados && (
+                      <div className="mb-4">
+                        <BingoSorteadosCounter
+                          salaId={sala.id}
+                          numerosSorteados={sala.numerosSorteados}
+                          emAndamento={sala.emAndamento}
+                        />
+                      </div>
+                    )}
 
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between text-sm">

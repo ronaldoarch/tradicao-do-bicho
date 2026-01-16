@@ -7,6 +7,7 @@ import BottomNav from '@/components/BottomNav'
 
 interface Aposta {
   id: number
+  tipo?: 'bingo' | 'normal'
   concurso?: string | null
   loteria?: string | null
   estado?: string | null
@@ -84,12 +85,27 @@ export default function MinhasApostasPage() {
                           {[a.loteria, a.estado, a.horario].filter(Boolean).join(' • ')}
                         </div>
                       </td>
-                      <td className="px-4 py-3">{a.aposta || a.modalidade || '—'}</td>
+                      <td className="px-4 py-3">
+                        {a.tipo === 'bingo' ? (
+                          <div className="flex items-center gap-2">
+                            <span className="iconify i-material-symbols:event-available text-blue"></span>
+                            <span>{a.aposta || a.modalidade || 'Cartela de Bingo'}</span>
+                          </div>
+                        ) : (
+                          a.aposta || a.modalidade || '—'
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         {a.dataConcurso ? new Date(a.dataConcurso).toLocaleString('pt-BR') : '—'}
                       </td>
                       <td className="px-4 py-3">R$ {Number(a.valor || 0).toFixed(2)}</td>
-                      <td className="px-4 py-3">R$ {Number(a.retornoPrevisto || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3">
+                        {a.tipo === 'bingo' && a.detalhes?.emAndamento ? (
+                          <span className="text-xs text-gray-500">Aguardando resultado</span>
+                        ) : (
+                          `R$ ${Number(a.retornoPrevisto || 0).toFixed(2)}`
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <span
                           className={`rounded-full px-2 py-1 text-xs font-semibold ${
@@ -162,38 +178,65 @@ export default function MinhasApostasPage() {
 
             {selecionada.detalhes && (
               <div className="mt-6 rounded-lg border border-gray-100 bg-gray-50 p-4 text-sm text-gray-800">
-                <h3 className="mb-2 font-semibold text-gray-900">Palpites</h3>
-
-                {/* Palpites de animais (animalBets) */}
-                {Array.isArray(selecionada.detalhes?.betData?.animalBets) &&
-                  selecionada.detalhes.betData.animalBets.length > 0 && (
-                    <div className="mb-3 flex flex-wrap gap-2">
-                      {selecionada.detalhes.betData.animalBets.map((bet: number[], idx: number) => (
-                        <span
-                          key={idx}
-                          className="flex items-center gap-2 rounded-lg bg-amber-200 px-3 py-1 text-xs font-semibold text-gray-900"
-                        >
-                          {bet.map((n) => String(n).padStart(2, '0')).join('-')}
-                        </span>
-                      ))}
+                {selecionada.tipo === 'bingo' ? (
+                  <>
+                    <h3 className="mb-4 font-semibold text-gray-900">Cartela de Bingo</h3>
+                    <div className="mb-4">
+                      <p className="text-xs text-gray-500 mb-2">Sala: {selecionada.detalhes.salaNome}</p>
+                      {selecionada.detalhes.emAndamento && (
+                        <p className="text-xs text-yellow-600 font-semibold">Bingo em andamento</p>
+                      )}
+                      {selecionada.detalhes.numerosSorteados && (
+                        <p className="text-xs text-gray-600 mt-2">
+                          Números sorteados: {Array.isArray(selecionada.detalhes.numerosSorteados) ? selecionada.detalhes.numerosSorteados.length : 0}/75
+                        </p>
+                      )}
                     </div>
-                  )}
+                    {selecionada.detalhes.numeros && (
+                      <div className="max-w-md mx-auto">
+                        <CartelaBingoVisual
+                          numeros={selecionada.detalhes.numeros}
+                          numerosSorteados={selecionada.detalhes.numerosSorteados || []}
+                        />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <h3 className="mb-2 font-semibold text-gray-900">Palpites</h3>
 
-                {/* Números ou outros detalhes se existirem */}
-                {selecionada.detalhes?.betData?.numbers && (
-                  <div className="mb-2 text-xs text-gray-800">
-                    <span className="font-semibold text-gray-900">Números:</span>{' '}
-                    {selecionada.detalhes.betData.numbers.join(', ')}
-                  </div>
+                    {/* Palpites de animais (animalBets) */}
+                    {Array.isArray(selecionada.detalhes?.betData?.animalBets) &&
+                      selecionada.detalhes.betData.animalBets.length > 0 && (
+                        <div className="mb-3 flex flex-wrap gap-2">
+                          {selecionada.detalhes.betData.animalBets.map((bet: number[], idx: number) => (
+                            <span
+                              key={idx}
+                              className="flex items-center gap-2 rounded-lg bg-amber-200 px-3 py-1 text-xs font-semibold text-gray-900"
+                            >
+                              {bet.map((n) => String(n).padStart(2, '0')).join('-')}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                    {/* Números ou outros detalhes se existirem */}
+                    {selecionada.detalhes?.betData?.numbers && (
+                      <div className="mb-2 text-xs text-gray-800">
+                        <span className="font-semibold text-gray-900">Números:</span>{' '}
+                        {selecionada.detalhes.betData.numbers.join(', ')}
+                      </div>
+                    )}
+
+                    {/* Fallback: JSON bruto se não houver campos conhecidos */}
+                    {!selecionada.detalhes?.betData?.animalBets &&
+                      !selecionada.detalhes?.betData?.numbers && (
+                        <pre className="whitespace-pre-wrap text-xs text-gray-700">
+                          {JSON.stringify(selecionada.detalhes, null, 2)}
+                        </pre>
+                      )}
+                  </>
                 )}
-
-                {/* Fallback: JSON bruto se não houver campos conhecidos */}
-                {!selecionada.detalhes?.betData?.animalBets &&
-                  !selecionada.detalhes?.betData?.numbers && (
-                    <pre className="whitespace-pre-wrap text-xs text-gray-700">
-                      {JSON.stringify(selecionada.detalhes, null, 2)}
-                    </pre>
-                  )}
               </div>
             )}
           </div>
@@ -208,6 +251,53 @@ function Detail({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg border border-gray-100 bg-white px-3 py-2">
       <p className="text-xs text-gray-500">{label}</p>
       <p className="font-semibold text-gray-900">{value}</p>
+    </div>
+  )
+}
+
+function CartelaBingoVisual({
+  numeros,
+  numerosSorteados,
+}: {
+  numeros: any
+  numerosSorteados: number[]
+}) {
+  const colunas = ['B', 'I', 'N', 'G', 'O']
+  const numerosCartela = numeros as { b: number[]; i: number[]; n: number[]; g: number[]; o: number[] }
+
+  return (
+    <div className="border-2 border-gray-300 rounded-lg p-4 bg-white">
+      <div className="grid grid-cols-5 gap-1 mb-2">
+        {colunas.map((letra) => (
+          <div key={letra} className="text-center font-bold text-blue text-lg">
+            {letra}
+          </div>
+        ))}
+      </div>
+      {[0, 1, 2, 3, 4].map((linha) => (
+        <div key={linha} className="grid grid-cols-5 gap-1">
+          {colunas.map((letra, colIndex) => {
+            const numero = numerosCartela[letra.toLowerCase() as keyof typeof numerosCartela][linha]
+            const sorteado = numerosSorteados.includes(numero)
+            const isCentro = linha === 2 && colIndex === 2
+
+            return (
+              <div
+                key={`${letra}-${linha}`}
+                className={`aspect-square flex items-center justify-center border border-gray-300 rounded text-sm font-semibold ${
+                  isCentro
+                    ? 'bg-blue text-white'
+                    : sorteado
+                    ? 'bg-green-200 text-green-800'
+                    : 'bg-gray-50 text-gray-700'
+                }`}
+              >
+                {isCentro ? 'FREE' : numero}
+              </div>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }

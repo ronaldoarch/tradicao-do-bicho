@@ -14,7 +14,21 @@ export async function GET(request: NextRequest) {
       where: {
         ativa: true,
       },
-      include: {
+      select: {
+        id: true,
+        nome: true,
+        descricao: true,
+        valorCartela: true,
+        premioTotal: true,
+        premioLinha: true,
+        premioColuna: true,
+        premioDiagonal: true,
+        premioBingo: true,
+        ativa: true,
+        emAndamento: true,
+        dataInicio: true,
+        dataFim: true,
+        numerosSorteados: true,
         _count: {
           select: {
             cartelas: true,

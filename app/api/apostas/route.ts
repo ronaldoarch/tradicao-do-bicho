@@ -27,10 +27,68 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
     })
 
+    // Buscar cartelas de bingo do usuário
+    const cartelasBingo = await prisma.cartelaBingo.findMany({
+      where: { usuarioId: user.id },
+      include: {
+        sala: {
+          select: {
+            id: true,
+            nome: true,
+            emAndamento: true,
+            numerosSorteados: true,
+            resultadoFinal: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    // Converter cartelas de bingo para formato de aposta
+    const apostasBingo = cartelasBingo.map((cartela) => ({
+      id: cartela.id + 1000000, // Offset para não conflitar com IDs de apostas normais
+      tipo: 'bingo' as const,
+      concurso: `Bingo: ${cartela.sala.nome}`,
+      loteria: null,
+      estado: null,
+      horario: null,
+      dataConcurso: cartela.createdAt,
+      modalidade: 'Cartela de Bingo',
+      aposta: `Cartela #${cartela.id}`,
+      valor: cartela.valorPago,
+      retornoPrevisto: cartela.premioRecebido,
+      status: cartela.status === 'ganhou' ? ('ganhou' as const) : cartela.status === 'perdida' ? ('perdeu' as const) : ('pendente' as const),
+      detalhes: {
+        tipo: 'bingo',
+        cartelaId: cartela.id,
+        salaId: cartela.sala.id,
+        salaNome: cartela.sala.nome,
+        numeros: cartela.numeros,
+        numerosSorteados: cartela.sala.numerosSorteados,
+        emAndamento: cartela.sala.emAndamento,
+        resultadoFinal: cartela.sala.resultadoFinal,
+      },
+    }))
+
+    // Combinar apostas normais com cartelas de bingo
+    const todasApostas = [...apostas, ...apostasBingo].sort((a, b) => {
+      const dateA = a.dataConcurso 
+        ? new Date(a.dataConcurso).getTime() 
+        : (a as any).createdAt 
+        ? new Date((a as any).createdAt).getTime() 
+        : 0
+      const dateB = b.dataConcurso 
+        ? new Date(b.dataConcurso).getTime() 
+        : (b as any).createdAt 
+        ? new Date((b as any).createdAt).getTime() 
+        : 0
+      return dateB - dateA
+    })
+
     return NextResponse.json({
       user: { id: user.id, email: user.email, nome: user.nome },
-      apostas,
-      total: apostas.length,
+      apostas: todasApostas,
+      total: todasApostas.length,
     })
   } catch (error) {
     console.error('Erro ao buscar apostas', error)
