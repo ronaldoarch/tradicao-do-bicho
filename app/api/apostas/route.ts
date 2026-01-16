@@ -24,7 +24,7 @@ export async function GET() {
   try {
     const apostas = await prisma.aposta.findMany({
       where: { usuarioId: user.id },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { id: 'desc' },
     })
 
     // Buscar cartelas de bingo do usuário
@@ -72,16 +72,8 @@ export async function GET() {
 
     // Combinar apostas normais com cartelas de bingo
     const todasApostas = [...apostas, ...apostasBingo].sort((a, b) => {
-      const dateA = a.dataConcurso 
-        ? new Date(a.dataConcurso).getTime() 
-        : (a as any).createdAt 
-        ? new Date((a as any).createdAt).getTime() 
-        : 0
-      const dateB = b.dataConcurso 
-        ? new Date(b.dataConcurso).getTime() 
-        : (b as any).createdAt 
-        ? new Date((b as any).createdAt).getTime() 
-        : 0
+      const dateA = a.dataConcurso ? new Date(a.dataConcurso).getTime() : 0
+      const dateB = b.dataConcurso ? new Date(b.dataConcurso).getTime() : 0
       return dateB - dateA
     })
 
