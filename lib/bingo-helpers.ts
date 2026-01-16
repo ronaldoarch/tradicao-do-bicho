@@ -135,7 +135,7 @@ export async function verificarCartelasSala(salaId: number): Promise<{
   }
 
   for (const cartela of sala.cartelas) {
-    const numerosCartela = cartela.numeros as CartelaNumeros
+    const numerosCartela = cartela.numeros as unknown as CartelaNumeros
     const resultado = verificarGanhadores(numerosCartela, numerosSorteados)
 
     if (resultado.bingo) {
