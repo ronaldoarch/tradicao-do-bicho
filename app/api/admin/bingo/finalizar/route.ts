@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { parseSessionToken } from '@/lib/auth'
+import { requireAdmin } from '@/lib/admin-auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { verificarCartelasSala } from '@/lib/bingo-helpers'
@@ -10,10 +9,9 @@ import { verificarCartelasSala } from '@/lib/bingo-helpers'
  * Finaliza uma sala de bingo e processa ganhadores
  */
 export async function POST(request: NextRequest) {
-  const session = cookies().get('lotbicho_session')?.value
-  const user = parseSessionToken(session)
-
-  if (!user || !user.isAdmin) {
+  try {
+    await requireAdmin()
+  } catch (error) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
   }
 

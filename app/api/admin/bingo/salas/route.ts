@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { parseSessionToken } from '@/lib/auth'
+import { requireAdmin } from '@/lib/admin-auth'
 import { prisma } from '@/lib/prisma'
 
 /**
@@ -8,10 +7,9 @@ import { prisma } from '@/lib/prisma'
  * Lista todas as salas de bingo
  */
 export async function GET(request: NextRequest) {
-  const session = cookies().get('lotbicho_session')?.value
-  const user = parseSessionToken(session)
-
-  if (!user || !user.isAdmin) {
+  try {
+    await requireAdmin()
+  } catch (error) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
   }
 
@@ -53,10 +51,9 @@ export async function GET(request: NextRequest) {
  * Cria uma nova sala de bingo
  */
 export async function POST(request: NextRequest) {
-  const session = cookies().get('lotbicho_session')?.value
-  const user = parseSessionToken(session)
-
-  if (!user || !user.isAdmin) {
+  try {
+    await requireAdmin()
+  } catch (error) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
   }
 
@@ -108,10 +105,9 @@ export async function POST(request: NextRequest) {
  * Atualiza uma sala de bingo
  */
 export async function PUT(request: NextRequest) {
-  const session = cookies().get('lotbicho_session')?.value
-  const user = parseSessionToken(session)
-
-  if (!user || !user.isAdmin) {
+  try {
+    await requireAdmin()
+  } catch (error) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
   }
 
@@ -151,10 +147,9 @@ export async function PUT(request: NextRequest) {
  * Remove uma sala de bingo
  */
 export async function DELETE(request: NextRequest) {
-  const session = cookies().get('lotbicho_session')?.value
-  const user = parseSessionToken(session)
-
-  if (!user || !user.isAdmin) {
+  try {
+    await requireAdmin()
+  } catch (error) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
   }
 
