@@ -1,156 +1,103 @@
-import { ResultadoItem } from '@/types/resultados'
+/**
+ * Funções auxiliares para processamento de resultados
+ */
 
-export interface GroupedResults {
-  drawTime: string
-  rows: ResultadoItem[]
-  dateLabel: string
-  locationLabel: string
-}
+import { extracoes, type Extracao } from '@/data/extracoes'
+import { getHorarioRealApuracao } from '@/data/horarios-reais-apuracao'
 
-export const getDefaultDateISO = () => new Date().toISOString().split('T')[0]
-
-const UF_ALIASES: Record<string, string> = {
-  rj: 'RJ',
-  'rio de janeiro': 'RJ',
-  sp: 'SP',
-  'sao paulo': 'SP',
-  'são paulo': 'SP',
-  ba: 'BA',
-  bahia: 'BA',
-  go: 'GO',
-  goias: 'GO',
-  'goiás': 'GO',
-  pb: 'PB',
-  paraiba: 'PB',
-  'paraíba': 'PB',
-  ce: 'CE',
-  ceara: 'CE',
-  'ceará': 'CE',
-  mg: 'MG',
-  minas: 'MG',
-  pr: 'PR',
-  parana: 'PR',
-  'paraná': 'PR',
-  sc: 'SC',
-  'santa catarina': 'SC',
-  rs: 'RS',
-  'rio grande do sul': 'RS',
-  df: 'DF',
-  brasilia: 'DF',
-  'brasília': 'DF',
-  'distrito federal': 'DF',
-  federal: 'BR',
-  nacional: 'BR',
-  'para todos': 'BR',
-}
-
-function normalizeText(value: string) {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-}
-
-export function resolveUf(location?: string | null) {
-  if (!location) return undefined
-  const key = normalizeText(location)
-  return UF_ALIASES[key] ?? (key.length === 2 ? key.toUpperCase() : undefined)
-}
-
-export function toIsoDate(value?: string) {
-  if (!value) return ''
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
-
-  const br = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
-  if (br) return `${br[3]}-${br[2]}-${br[1]}`
-
-  const parsed = new Date(value)
-  if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0]
-
-  return value
-}
-
-export function formatDateLabel(value?: string) {
-  if (!value) return ''
-  const iso = toIsoDate(value)
-  const parts = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  if (parts) {
-    const [, y, m, d] = parts
-    return `${d}/${m}/${y}`
+/**
+ * Normaliza o horário do resultado para o horário correto de fechamento da extração
+ * 
+ * @param loteriaNome Nome da loteria (ex: "PT SP", "LOOK", "LOTECE")
+ * @param horarioResultado Horário que veio do resultado (ex: "20:40", "10:40")
+ * @returns Horário normalizado para fechamento (ex: "20:15", "10:00") ou o horário original se não encontrar
+ */
+export function normalizarHorarioResultado(
+  loteriaNome: string,
+  horarioResultado: string
+): string {
+  // Validação básica
+  if (!loteriaNome || !horarioResultado) {
+    return horarioResultado
   }
-  const parsed = new Date(iso)
-  return !isNaN(parsed.getTime()) ? parsed.toLocaleDateString('pt-BR') : value
-}
-
-function matchesDate(resultDate?: string, selectedDate?: string) {
-  if (!selectedDate) return true
-  if (!resultDate) return true
-
-  const isoResult = toIsoDate(resultDate)
-  const isoFilter = toIsoDate(selectedDate)
-
-  const dayMonth = (v: string) => {
-    const m = v.match(/(\d{2})\/(\d{2})/)
-    return m ? `${m[1]}/${m[2]}` : undefined
+  
+  // Normalizar nome da loteria
+  const nomeNormalizado = loteriaNome.toUpperCase().trim()
+  
+  // Normalizar horário do resultado (formato HH:MM)
+  const horarioNormalizado = horarioResultado
+    .replace(/[h:]/g, ':')  // Substituir "h" por ":"
+    .replace(/^(\d{1,2}):(\d{2})$/, (_, h, m) => {
+      return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`
+    })
+  
+  // Converter para minutos para comparação
+  const [horaResultado, minutoResultado] = horarioNormalizado.split(':').map(Number)
+  
+  if (isNaN(horaResultado) || isNaN(minutoResultado)) {
+    return horarioResultado // Retorna original se inválido
   }
-  const dmResult = dayMonth(resultDate)
-  const dmFilter = dayMonth(isoFilter)
-
-  return (
-    isoResult.startsWith(isoFilter) ||
-    isoFilter.startsWith(isoResult) ||
-    resultDate.includes(selectedDate) ||
-    isoResult.includes(selectedDate) ||
-    (!!dmResult && !!dmFilter && dmResult === dmFilter)
+  
+  const minutosResultado = horaResultado * 60 + minutoResultado
+  
+  // Buscar todas as extrações com esse nome
+  const extracoesComMesmoNome = extracoes.filter(
+    e => e.name.toUpperCase() === nomeNormalizado && e.active
   )
-}
-
-function sortByPosition(items: ResultadoItem[]) {
-  const getOrder = (value?: string) => {
-    if (!value) return Number.MAX_SAFE_INTEGER
-    const match = value.match(/(\d+)/)
-    return match ? parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER
+  
+  if (extracoesComMesmoNome.length === 0) {
+    return horarioResultado // Retorna original se não encontrar extração
   }
-
-  return [...items].sort((a, b) => getOrder(a.position) - getOrder(b.position))
-}
-
-function extractTimeValue(label: string) {
-  const normalized = label.toLowerCase()
-  const match = normalized.match(/(\d{1,2})h(\d{2})/) || normalized.match(/(\d{1,2}):(\d{2})/)
-  if (match) {
-    const hours = parseInt(match[1], 10)
-    const minutes = parseInt(match[2], 10)
-    return hours * 60 + minutes
+  
+  let melhorMatch: { extracao: Extracao, diferenca: number } | null = null
+  
+  // Para cada extração, verificar se o horário do resultado corresponde ao horário real
+  for (const extracao of extracoesComMesmoNome) {
+    // Buscar horário real de apuração
+    const horarioReal = getHorarioRealApuracao(extracao.name, extracao.time)
+    
+    if (horarioReal) {
+      // Verificar match exato com closeTimeReal (horário quando o resultado deve estar disponível)
+      const [horaFim, minutoFim] = horarioReal.closeTimeReal.split(':').map(Number)
+      const minutosFim = horaFim * 60 + minutoFim
+      
+      // Match exato com closeTimeReal
+      if (minutosResultado === minutosFim) {
+        return extracao.time // Retorna horário interno normalizado
+      }
+      
+      // Verificar se está dentro do intervalo de apuração
+      const [horaInicio, minutoInicio] = horarioReal.startTimeReal.split(':').map(Number)
+      const minutosInicio = horaInicio * 60 + minutoInicio
+      
+      if (minutosResultado >= minutosInicio && minutosResultado <= minutosFim) {
+        // Calcular diferença para escolher o melhor match se houver múltiplos
+        const diferenca = Math.abs(minutosResultado - minutosFim)
+        if (!melhorMatch || diferenca < melhorMatch.diferenca) {
+          melhorMatch = { extracao, diferenca }
+        }
+      }
+    }
   }
-  return Number.MAX_SAFE_INTEGER
-}
-
-export function groupResultsByDrawTime(
-  results: ResultadoItem[],
-  location: string,
-  selectedDate: string
-): GroupedResults[] {
-  const filterUf = resolveUf(location)
-  const locationLc = (location || '').toLowerCase()
-  const groups = new Map<string, ResultadoItem[]>()
-
-  results.forEach((item) => {
-    const itemUf = resolveUf(item.estado || item.location)
-    const locationMatch =
-      filterUf ? itemUf === filterUf : !locationLc || (item.location || '').toLowerCase().includes(locationLc)
-    const dateMatch = matchesDate(item.date, selectedDate)
-    if (!locationMatch || !dateMatch) return
-
-    const key = item.drawTime?.trim() || 'Resultado'
-    const list = groups.get(key) ?? []
-    list.push(item)
-    groups.set(key, list)
-  })
-
-  return Array.from(groups.entries())
-    .map(([drawTime, rows]) => ({
-      drawTime,
-      rows: sortByPosition(rows),
-      dateLabel: formatDateLabel(rows[0]?.date || selectedDate),
-      locationLabel: location,
-    }))
-    .sort((a, b) => extractTimeValue(a.drawTime) - extractTimeValue(b.drawTime))
+  
+  // Se encontrou match dentro do intervalo, retornar o melhor
+  if (melhorMatch) {
+    return melhorMatch.extracao.time
+  }
+  
+  // Fallback: verificar match aproximado com horário interno (dentro de 30 minutos)
+  for (const extracao of extracoesComMesmoNome) {
+    const [horaExtracao, minutoExtracao] = extracao.time.split(':').map(Number)
+    if (isNaN(horaExtracao) || isNaN(minutoExtracao)) continue
+    
+    const minutosExtracao = horaExtracao * 60 + minutoExtracao
+    const diferenca = Math.abs(minutosResultado - minutosExtracao)
+    
+    if (diferenca <= 30) {
+      return extracao.time
+    }
+  }
+  
+  // Se não encontrou match, retornar horário original
+  return horarioResultado
 }

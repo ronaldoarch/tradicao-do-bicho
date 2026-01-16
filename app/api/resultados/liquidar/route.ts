@@ -34,58 +34,79 @@ const EXTRACAO_NAME_MAP: Record<string, string[]> = {
 
 /**
  * Verifica se já passou o horário de apuração usando horários reais
+ * 
+ * IMPORTANTE: Esta função usa os horários REAIS de apuração,
+ * não os horários internos do sistema.
+ * 
  * @param nomeLoteria Nome da loteria da aposta
  * @param dataConcurso Data do concurso da aposta
- * @param horario Horário da aposta
+ * @param horario Horário da aposta (opcional)
  * @returns true se já passou o horário de apuração, false caso contrário
  */
 function jaPassouHorarioApuracao(nomeLoteria: string | null, dataConcurso: Date | null, horario?: string | null): boolean {
+  // Validação básica
   if (!nomeLoteria || !dataConcurso) {
-    // Se não tiver nome da loteria ou data, permite liquidar (fallback)
-    return true
+    console.log('⚠️ Verificação de horário: sem extração ou data, permitindo liquidação')
+    return true // Permite liquidar se não tem dados suficientes
   }
   
   // Buscar extração pelo nome e horário
   const extracao = buscarExtracaoPorNomeEHorario(nomeLoteria, horario || undefined)
   
   if (!extracao) {
-    // Se não encontrar extração, permite liquidar (fallback)
+    console.log('⚠️ Verificação de horário: extração não encontrada, permitindo liquidação')
     return true
   }
   
-  // Buscar horário real de apuração
-  const horarioExtracao = horario || extracao.time || ''
-  const horarioReal = getHorarioRealApuracao(extracao.name, horarioExtracao)
+  // Buscar horário REAL de apuração
+  const horarioExtracao = horario || extracao.time || extracao.closeTime || ''
   
-  if (!horarioReal) {
-    // Se não encontrar horário real, usa closeTime da extração como fallback
-    if (!extracao.closeTime) {
-      return true
+  let horarioReal = null
+  let startTimeParaUsar = extracao.closeTime || extracao.time || ''
+  let closeTimeParaUsar = extracao.closeTime || extracao.time || ''
+  
+  if (extracao.name && horarioExtracao) {
+    try {
+      horarioReal = getHorarioRealApuracao(extracao.name, horarioExtracao)
+      
+      if (horarioReal) {
+        // IMPORTANTE: Usar startTimeReal para permitir tentar liquidar a partir do horário inicial
+        // O resultado pode começar a sair a partir de startTimeReal
+        startTimeParaUsar = horarioReal.startTimeReal || horarioReal.closeTimeReal
+        closeTimeParaUsar = horarioReal.closeTimeReal
+        
+        console.log(`📅 Usando horário REAL de apuração: ${horarioReal.name} ${horarioReal.time}`)
+        console.log(`   Início: ${startTimeParaUsar} | Fim: ${closeTimeParaUsar}`)
+        
+        // Verificar se o dia da semana tem sorteio
+        const diaSemana = dataConcurso.getDay() // 0=Domingo, 1=Segunda, ..., 6=Sábado
+        if (!temSorteioNoDia(horarioReal, diaSemana)) {
+          const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+          console.log(`🚫 ${diasSemana[diaSemana]} não tem sorteio para ${horarioReal.name} ${horarioReal.time}`)
+          return false // Não pode liquidar se não tem sorteio neste dia
+        }
+      } else {
+        console.log(`⚠️ Horário real não encontrado para ${extracao.name} ${horarioExtracao}, usando horário interno`)
+      }
+    } catch (error) {
+      console.log(`⚠️ Erro ao buscar horário real: ${error}, usando horário interno`)
     }
-    
-    const agora = new Date()
-    const dataAposta = new Date(dataConcurso)
-    const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
-    const diaAposta = new Date(dataAposta.getFullYear(), dataAposta.getMonth(), dataAposta.getDate())
-    
-    if (diaAposta < hoje) return true
-    if (diaAposta > hoje) return false
-    
-    const [horaStr, minutoStr] = extracao.closeTime.split(':')
-    const horaApuracao = parseInt(horaStr, 10)
-    const minutoApuracao = parseInt(minutoStr, 10)
-    const horarioApuracao = new Date(agora)
-    horarioApuracao.setHours(horaApuracao, minutoApuracao, 0, 0)
-    
-    return agora >= horarioApuracao
   }
   
-  // Verificar dia da semana
-  const diaSemana = dataConcurso.getDay()
-  if (!temSorteioNoDia(horarioReal, diaSemana)) {
-    return false
+  if (!startTimeParaUsar) {
+    console.log('⚠️ Verificação de horário: sem startTime disponível, permitindo liquidação')
+    return true
   }
   
+  // Parsear horário inicial de apuração (formato HH:MM)
+  const [horas, minutos] = startTimeParaUsar.split(':').map(Number)
+  
+  if (isNaN(horas) || isNaN(minutos)) {
+    console.log(`⚠️ Verificação de horário: startTime inválido "${startTimeParaUsar}", permitindo liquidação`)
+    return true
+  }
+  
+  // IMPORTANTE: Usar horário de Brasília (GMT-3) para comparação
   // Obter horário atual em Brasília
   const agoraUTC = new Date()
   const agoraBrasiliaStr = agoraUTC.toLocaleString('en-US', {
@@ -99,40 +120,69 @@ function jaPassouHorarioApuracao(nomeLoteria: string | null, dataConcurso: Date 
     hour12: false
   })
   
-  // Converter para Date
+  // Converter string "MM/DD/YYYY, HH:MM:SS" para Date
   const [dataPart, horaPart] = agoraBrasiliaStr.split(', ')
   const [mes, dia, ano] = dataPart.split('/')
-  const [horaAtual, minutoAtual] = horaPart.split(':')
+  const [horaAtual, minutoAtual, segundoAtual] = horaPart.split(':')
   const agora = new Date(
-    parseInt(ano), parseInt(mes) - 1, parseInt(dia),
-    parseInt(horaAtual), parseInt(minutoAtual), 0
+    parseInt(ano),
+    parseInt(mes) - 1,
+    parseInt(dia),
+    parseInt(horaAtual),
+    parseInt(minutoAtual),
+    parseInt(segundoAtual)
   )
   
-  // Criar data/hora de apuração inicial
-  const [horas, minutos] = horarioReal.startTimeReal.split(':').map(Number)
+  // Obter data do concurso em horário de Brasília
+  const dataConcursoBrasiliaStr = dataConcurso.toLocaleString('en-US', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+  const [mesConc, diaConc, anoConc] = dataConcursoBrasiliaStr.split('/')
+  
+  // Criar data/hora INICIAL de apuração no dia do concurso usando horário de Brasília
   const dataApuracaoInicial = new Date(
-    dataConcurso.getFullYear(),
-    dataConcurso.getMonth(),
-    dataConcurso.getDate(),
-    horas, minutos, 0
+    parseInt(anoConc),
+    parseInt(mesConc) - 1,
+    parseInt(diaConc),
+    horas,
+    minutos,
+    0
   )
   
-  // Comparar datas
+  // Criar datas para comparação de dia (sem hora) em horário de Brasília
   const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
   const dataConcursoSemHora = new Date(
-    dataConcurso.getFullYear(),
-    dataConcurso.getMonth(),
-    dataConcurso.getDate()
+    parseInt(anoConc),
+    parseInt(mesConc) - 1,
+    parseInt(diaConc)
   )
   
+  // Se for hoje, usar hora atual; se for passado, já pode liquidar; se for futuro, não pode
   if (dataConcursoSemHora.getTime() === hoje.getTime()) {
-    // Mesmo dia: verificar se já passou o horário inicial
-    return agora >= dataApuracaoInicial
+    // Mesmo dia: verificar se já passou o horário INICIAL
+    const jaPassouHorarioInicial = agora >= dataApuracaoInicial
+    
+    const horaApuracaoInicial = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`
+    const horaAtualStr = `${agora.getHours().toString().padStart(2, '0')}:${agora.getMinutes().toString().padStart(2, '0')}:${agora.getSeconds().toString().padStart(2, '0')}`
+    
+    const fonteHorario = horarioReal ? '(horário real)' : '(interno)'
+    console.log(`⏰ Verificação de horário: ${extracao.name} (ID ${extracao.id})`)
+    console.log(`   startTime: ${startTimeParaUsar} | closeTime: ${closeTimeParaUsar} ${fonteHorario}`)
+    console.log(`   Data apuração inicial: ${dataConcursoSemHora.toLocaleDateString('pt-BR')} ${horaApuracaoInicial}`)
+    console.log(`   Agora: ${agora.toLocaleDateString('pt-BR')} ${horaAtualStr}`)
+    console.log(`   ${jaPassouHorarioInicial ? '✅ Já pode tentar liquidar' : '⏸️  Ainda não passou o horário inicial'}`)
+    
+    return jaPassouHorarioInicial
   } else if (dataConcursoSemHora.getTime() < hoje.getTime()) {
     // Dia passado: já pode liquidar
+    console.log('✅ Verificação de horário: data do concurso é passado, permitindo liquidação')
     return true
   } else {
     // Dia futuro: não pode liquidar ainda
+    console.log('⏸️  Verificação de horário: data do concurso é futuro, bloqueando liquidação')
     return false
   }
 }
@@ -364,25 +414,23 @@ export async function POST(request: NextRequest) {
       try {
         // Verificar se já passou o horário de apuração antes de liquidar
         if (aposta.loteria && aposta.dataConcurso) {
+          // Buscar nome da loteria se loteria for ID numérico
+          let nomeLoteria: string | null = null
+          if (/^\d+$/.test(aposta.loteria)) {
+            const extracaoId = parseInt(aposta.loteria, 10)
+            const extracao = extracoes.find((e) => e.id === extracaoId)
+            nomeLoteria = extracao?.name || null
+          } else {
+            nomeLoteria = aposta.loteria
+          }
+          
           const podeLiquidar = jaPassouHorarioApuracao(
-            aposta.loteria,
+            nomeLoteria,
             aposta.dataConcurso,
-            aposta.horario || undefined
+            aposta.horario && aposta.horario !== 'null' ? aposta.horario : undefined
           )
           
           if (!podeLiquidar) {
-            // Buscar extração para log
-            const extracao = extracoes.find((e) => {
-              const nomeMatch = e.name.toLowerCase() === aposta.loteria!.toLowerCase()
-              if (aposta.horario) {
-                return nomeMatch && (e.time === aposta.horario || e.closeTime === aposta.horario)
-              }
-              return nomeMatch
-            }) || extracoes.find((e) => e.name.toLowerCase() === aposta.loteria!.toLowerCase())
-            
-            console.log(
-              `⏰ Ainda não passou o horário de apuração (${extracao?.closeTime || 'N/A'})`
-            )
             console.log(`⏸️  Pulando aposta ${aposta.id} - aguardando apuração`)
             continue
           }

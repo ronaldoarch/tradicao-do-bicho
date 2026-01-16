@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ResultadosResponse, ResultadoItem } from '@/types/resultados'
-import { toIsoDate } from '@/lib/resultados-helpers'
+import { toIsoDate, normalizarHorarioResultado } from '@/lib/resultados-helpers'
 
 const RAW_SOURCE =
   process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'
@@ -251,6 +251,9 @@ export async function GET(req: NextRequest) {
         extracaoStats[tabela].horarios.add(horario)
         totalHorarios++
         
+        // Normalizar horário do resultado
+        const horarioNormalizado = normalizarHorarioResultado(tabela, horario)
+        
         const arr = (lista || []).map((item: any, idx: number) => {
           const estado =
             item.estado || inferUfFromName(item.estado) || inferUfFromName(tabela) || inferUfFromName(item.local)
@@ -263,8 +266,9 @@ export async function GET(req: NextRequest) {
             milhar: item.numero || item.milhar || '',
             grupo: item.grupo || '',
             animal: item.animal || '',
-            drawTime: horario,
-            horario,
+            drawTime: horarioNormalizado,
+            horario: horarioNormalizado,
+            horarioOriginal: horario !== horarioNormalizado ? horario : undefined,
             loteria: tabela,
             location: locationResolved,
             date: dateValue,

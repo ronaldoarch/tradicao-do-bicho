@@ -11,6 +11,7 @@ export interface ResultadoItem {
   posicao?: number
   colocacao?: string
   horario?: string
+  horarioOriginal?: string // Horário original antes da normalização
   dataExtracao?: string
   timestamp?: string
   fonte?: string
