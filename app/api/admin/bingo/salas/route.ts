@@ -69,6 +69,8 @@ export async function POST(request: NextRequest) {
       premioDiagonal,
       premioBingo,
       ativa,
+      sorteioAutomatico,
+      intervaloSorteio,
     } = body
 
     if (!nome || valorCartela === undefined) {
@@ -77,6 +79,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    const agora = new Date()
+    const proximoSorteio = sorteioAutomatico && intervaloSorteio
+      ? new Date(agora.getTime() + Number(intervaloSorteio) * 1000)
+      : null
 
     const sala = await prisma.salaBingo.create({
       data: {
@@ -90,6 +97,9 @@ export async function POST(request: NextRequest) {
         premioBingo: premioBingo ? Number(premioBingo) : 0,
         ativa: ativa !== undefined ? Boolean(ativa) : true,
         emAndamento: false,
+        sorteioAutomatico: sorteioAutomatico !== undefined ? Boolean(sorteioAutomatico) : false,
+        intervaloSorteio: intervaloSorteio ? Number(intervaloSorteio) : 30,
+        proximoSorteio,
       },
     })
 
@@ -119,20 +129,39 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'ID é obrigatório' }, { status: 400 })
     }
 
+    const updateData: any = {
+      ...(data.nome && { nome: data.nome }),
+      ...(data.descricao !== undefined && { descricao: data.descricao }),
+      ...(data.valorCartela !== undefined && { valorCartela: Number(data.valorCartela) }),
+      ...(data.premioTotal !== undefined && { premioTotal: Number(data.premioTotal) }),
+      ...(data.premioLinha !== undefined && { premioLinha: Number(data.premioLinha) }),
+      ...(data.premioColuna !== undefined && { premioColuna: Number(data.premioColuna) }),
+      ...(data.premioDiagonal !== undefined && { premioDiagonal: Number(data.premioDiagonal) }),
+      ...(data.premioBingo !== undefined && { premioBingo: Number(data.premioBingo) }),
+      ...(data.ativa !== undefined && { ativa: Boolean(data.ativa) }),
+      ...(data.emAndamento !== undefined && { emAndamento: Boolean(data.emAndamento) }),
+    }
+
+    // Atualizar configurações de sorteio automático
+    if (data.sorteioAutomatico !== undefined) {
+      updateData.sorteioAutomatico = Boolean(data.sorteioAutomatico)
+      
+      // Se está ativando sorteio automático e a sala está em andamento, calcular próximo sorteio
+      if (data.sorteioAutomatico && data.emAndamento !== false) {
+        const intervaloSorteio = data.intervaloSorteio ? Number(data.intervaloSorteio) : 30
+        updateData.proximoSorteio = new Date(Date.now() + intervaloSorteio * 1000)
+      } else if (!data.sorteioAutomatico) {
+        updateData.proximoSorteio = null
+      }
+    }
+
+    if (data.intervaloSorteio !== undefined) {
+      updateData.intervaloSorteio = Number(data.intervaloSorteio)
+    }
+
     const sala = await prisma.salaBingo.update({
       where: { id: Number(id) },
-      data: {
-        ...(data.nome && { nome: data.nome }),
-        ...(data.descricao !== undefined && { descricao: data.descricao }),
-        ...(data.valorCartela !== undefined && { valorCartela: Number(data.valorCartela) }),
-        ...(data.premioTotal !== undefined && { premioTotal: Number(data.premioTotal) }),
-        ...(data.premioLinha !== undefined && { premioLinha: Number(data.premioLinha) }),
-        ...(data.premioColuna !== undefined && { premioColuna: Number(data.premioColuna) }),
-        ...(data.premioDiagonal !== undefined && { premioDiagonal: Number(data.premioDiagonal) }),
-        ...(data.premioBingo !== undefined && { premioBingo: Number(data.premioBingo) }),
-        ...(data.ativa !== undefined && { ativa: Boolean(data.ativa) }),
-        ...(data.emAndamento !== undefined && { emAndamento: Boolean(data.emAndamento) }),
-      },
+      data: updateData,
     })
 
     return NextResponse.json({ sala })

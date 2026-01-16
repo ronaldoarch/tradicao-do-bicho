@@ -81,13 +81,31 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'ID da sala é obrigatório' }, { status: 400 })
     }
 
+    const agora = new Date()
+    const updateData: any = {
+      emAndamento: Boolean(iniciar),
+      dataInicio: iniciar ? agora : null,
+      numerosSorteados: iniciar ? ([] as Prisma.InputJsonValue) : Prisma.JsonNull,
+    }
+
+    // Se está iniciando e tem sorteio automático, calcular próximo sorteio
+    if (iniciar) {
+      const salaAtual = await prisma.salaBingo.findUnique({
+        where: { id: Number(salaId) },
+        select: { sorteioAutomatico: true, intervaloSorteio: true },
+      })
+
+      if (salaAtual?.sorteioAutomatico && salaAtual.intervaloSorteio) {
+        updateData.proximoSorteio = new Date(agora.getTime() + salaAtual.intervaloSorteio * 1000)
+      }
+    } else {
+      // Se está parando, limpar próximo sorteio
+      updateData.proximoSorteio = null
+    }
+
     const sala = await prisma.salaBingo.update({
       where: { id: Number(salaId) },
-      data: {
-        emAndamento: Boolean(iniciar),
-        dataInicio: iniciar ? new Date() : null,
-        numerosSorteados: iniciar ? ([] as Prisma.InputJsonValue) : Prisma.JsonNull,
-      },
+      data: updateData,
     })
 
     return NextResponse.json({ sala })

@@ -18,6 +18,9 @@ interface SalaBingo {
   dataFim: string | null
   numerosSorteados: number[] | null
   resultadoFinal: any
+  sorteioAutomatico: boolean
+  intervaloSorteio: number
+  proximoSorteio: string | null
   _count?: {
     cartelas: number
     resultados: number
@@ -39,6 +42,8 @@ export default function BingoAdminPage() {
     premioDiagonal: '',
     premioBingo: '',
     ativa: true,
+    sorteioAutomatico: false,
+    intervaloSorteio: '30',
   })
 
   useEffect(() => {
@@ -97,6 +102,8 @@ export default function BingoAdminPage() {
           premioDiagonal: '',
           premioBingo: '',
           ativa: true,
+          sorteioAutomatico: false,
+          intervaloSorteio: '30',
         })
         carregarSalas()
       } else {
@@ -124,6 +131,8 @@ export default function BingoAdminPage() {
       premioDiagonal: sala.premioDiagonal.toString(),
       premioBingo: sala.premioBingo.toString(),
       ativa: sala.ativa,
+      sorteioAutomatico: sala.sorteioAutomatico || false,
+      intervaloSorteio: sala.intervaloSorteio?.toString() || '30',
     })
     setShowForm(true)
   }
@@ -232,6 +241,8 @@ export default function BingoAdminPage() {
               premioDiagonal: '',
               premioBingo: '',
               ativa: true,
+              sorteioAutomatico: false,
+              intervaloSorteio: '30',
             })
           }}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold shadow-md flex items-center gap-2 transition-all hover:shadow-lg"
@@ -325,7 +336,45 @@ export default function BingoAdminPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
             </div>
-            <div className="md:col-span-2">
+            <div className="md:col-span-2 border-t pt-4">
+              <h4 className="text-md font-semibold text-gray-900 mb-3">Configuração de Sorteios Automáticos</h4>
+              <div className="space-y-4">
+                <div>
+                  <label className="flex items-center gap-2 mb-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.sorteioAutomatico}
+                      onChange={(e) => setFormData({ ...formData, sorteioAutomatico: e.target.checked })}
+                      className="rounded"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Ativar Sorteios Automáticos</span>
+                  </label>
+                  <p className="text-xs text-gray-500 ml-6">
+                    Quando ativado, os números serão sorteados automaticamente em intervalos regulares
+                  </p>
+                </div>
+                {formData.sorteioAutomatico && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Intervalo entre Sorteios (segundos)
+                    </label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="300"
+                      value={formData.intervaloSorteio}
+                      onChange={(e) => setFormData({ ...formData, intervaloSorteio: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="30"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Tempo em segundos entre cada sorteio (mínimo: 5s, máximo: 300s)
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="md:col-span-2 border-t pt-4">
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"

@@ -238,6 +238,10 @@ model SalaBingo {
   dataFim          DateTime?
   numerosSorteados Json? // Array de números sorteados
   resultadoFinal   Json? // Resultado final do bingo
+  // Configuração de sorteios automáticos
+  sorteioAutomatico Boolean  @default(false) // Se os sorteios são automáticos
+  intervaloSorteio  Int      @default(30) // Intervalo entre sorteios em segundos
+  proximoSorteio    DateTime? // Próximo horário de sorteio automático
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -246,6 +250,7 @@ model SalaBingo {
 
   @@index([ativa])
   @@index([emAndamento])
+  @@index([emAndamento, sorteioAutomatico])
 }
 
 model CartelaBingo {
