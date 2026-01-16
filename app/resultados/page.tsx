@@ -133,10 +133,11 @@ export default function ResultadosPage() {
                           location={locationLabel}
                           drawTime={drawTime}
                           results={groupResults}
-                        fallbackToSample={false}
-                      />
-                    </div>
-                  ))}
+                          fallbackToSample={false}
+                        />
+                      </div>
+                    )
+                  })}
               </>
             )}
 
