@@ -38,10 +38,11 @@ export async function GET(request: NextRequest) {
     const filename = `descarga_${new Date().toISOString().split('T')[0]}.pdf`
 
     // Converter Buffer para ArrayBuffer para NextResponse
+    // Garantir que seja ArrayBuffer (não SharedArrayBuffer)
     const arrayBuffer = pdfBuffer.buffer.slice(
       pdfBuffer.byteOffset,
       pdfBuffer.byteOffset + pdfBuffer.byteLength
-    )
+    ) as ArrayBuffer
 
     return new NextResponse(arrayBuffer, {
       headers: {
