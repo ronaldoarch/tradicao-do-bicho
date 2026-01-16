@@ -15,6 +15,10 @@ interface Usuario {
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [loading, setLoading] = useState(true)
+  const [showAddSaldoModal, setShowAddSaldoModal] = useState(false)
+  const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null)
+  const [valorSaldo, setValorSaldo] = useState('')
+  const [addingSaldo, setAddingSaldo] = useState(false)
 
   useEffect(() => {
     loadUsuarios()
@@ -53,6 +57,54 @@ export default function UsuariosPage() {
       loadUsuarios()
     } catch (error) {
       console.error('Erro ao deletar usuário:', error)
+    }
+  }
+
+  const openAddSaldoModal = (usuario: Usuario) => {
+    setSelectedUsuario(usuario)
+    setValorSaldo('')
+    setShowAddSaldoModal(true)
+  }
+
+  const handleAddSaldo = async () => {
+    if (!selectedUsuario || !valorSaldo) {
+      alert('Digite um valor')
+      return
+    }
+
+    const valor = parseFloat(valorSaldo)
+    if (isNaN(valor) || valor <= 0) {
+      alert('Valor inválido')
+      return
+    }
+
+    setAddingSaldo(true)
+    try {
+      const response = await fetch(`/api/admin/usuarios/${selectedUsuario.id}/saldo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          valor,
+          descricao: 'Depósito manual via admin',
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        alert(`Saldo adicionado com sucesso!\nNovo saldo: R$ ${data.usuario.saldoNovo.toFixed(2)}`)
+        setShowAddSaldoModal(false)
+        setSelectedUsuario(null)
+        setValorSaldo('')
+        loadUsuarios()
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Erro ao adicionar saldo')
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar saldo:', error)
+      alert('Erro ao adicionar saldo')
+    } finally {
+      setAddingSaldo(false)
     }
   }
 
@@ -108,6 +160,12 @@ export default function UsuariosPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
+                      onClick={() => openAddSaldoModal(usuario)}
+                      className="text-green-600 hover:text-green-800 mr-4"
+                    >
+                      + Saldo
+                    </button>
+                    <button
                       onClick={() => toggleActive(usuario.id, usuario.active)}
                       className="text-blue hover:text-blue-700 mr-4"
                     >
@@ -126,6 +184,56 @@ export default function UsuariosPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Modal Adicionar Saldo */}
+      {showAddSaldoModal && selectedUsuario && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-semibold mb-4">Adicionar Saldo</h3>
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                Usuário: <strong>{selectedUsuario.nome}</strong> (ID: {selectedUsuario.id})
+              </p>
+              <p className="text-sm text-gray-600 mb-4">
+                Saldo atual: <strong>R$ {selectedUsuario.saldo?.toFixed(2) || '0.00'}</strong>
+              </p>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Valor a adicionar (R$)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={valorSaldo}
+                onChange={(e) => setValorSaldo(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                placeholder="100.00"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setShowAddSaldoModal(false)
+                  setSelectedUsuario(null)
+                  setValorSaldo('')
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                disabled={addingSaldo}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAddSaldo}
+                disabled={addingSaldo || !valorSaldo}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {addingSaldo ? 'Adicionando...' : 'Adicionar Saldo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
