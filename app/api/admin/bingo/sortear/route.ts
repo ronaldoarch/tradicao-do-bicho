@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { parseSessionToken } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { sortearNumero, verificarCartelasSala } from '@/lib/bingo-helpers'
 
 /**
@@ -88,7 +89,7 @@ export async function PUT(request: NextRequest) {
       data: {
         emAndamento: Boolean(iniciar),
         dataInicio: iniciar ? new Date() : null,
-        numerosSorteados: iniciar ? [] : null,
+        numerosSorteados: iniciar ? ([] as Prisma.InputJsonValue) : Prisma.JsonNull,
       },
     })
 

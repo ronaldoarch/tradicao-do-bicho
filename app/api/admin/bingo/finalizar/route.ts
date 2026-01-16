@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { parseSessionToken } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { verificarCartelasSala } from '@/lib/bingo-helpers'
 
 /**
@@ -41,7 +42,11 @@ export async function POST(request: NextRequest) {
     const ganhadores = await verificarCartelasSala(sala.id)
 
     // Processar resultados e prêmios
-    const resultados: any[] = []
+    const resultados: Array<{
+      tipo: string
+      cartelasGanhadoras: number[]
+      premioTotal: number
+    }> = []
 
     // Bingo completo
     if (ganhadores.bingo.length > 0) {
@@ -164,13 +169,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar registros de resultados
+    const numerosSorteados = (sala.numerosSorteados as number[] | null) ?? []
     for (const resultado of resultados) {
       await prisma.resultadoBingo.create({
         data: {
           salaId: sala.id,
           tipo: resultado.tipo,
-          numerosGanhadores: sala.numerosSorteados,
-          cartelasGanhadoras: resultado.cartelasGanhadoras,
+          numerosGanhadores: numerosSorteados as Prisma.InputJsonValue,
+          cartelasGanhadoras: resultado.cartelasGanhadoras as Prisma.InputJsonValue,
           premioTotal: resultado.premioTotal,
         },
       })
