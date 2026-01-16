@@ -461,7 +461,8 @@ export async function POST(request: NextRequest) {
         }
 
         if (aposta.horario) {
-          resultadosFiltrados = resultadosFiltrados.filter((r) => r.horario === aposta.horario)
+          const horarioAposta = aposta.horario // Garantir que não é null
+          resultadosFiltrados = resultadosFiltrados.filter((r) => r.horario === horarioAposta)
         }
 
         if (aposta.dataConcurso) {
