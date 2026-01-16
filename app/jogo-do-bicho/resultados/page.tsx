@@ -112,24 +112,31 @@ export default function ResultadosPage() {
               <>
                 {loading && <div className="py-6 text-gray-600">Carregando resultados...</div>}
 
-                {!loading && groupedResults.length === 0 && (
+                {!loading && Object.keys(groupedResults).length === 0 && (
                   <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-600">
                     Nenhum resultado encontrado para o filtro selecionado.
                   </div>
                 )}
 
                 {!loading &&
-                  groupedResults.map((group) => (
-                    <div key={`${group.drawTime}-${group.dateLabel}`} className="mb-6 last:mb-0">
-                      <ResultsTable
-                        date={group.dateLabel || formatDateLabel(selectedDate)}
-                        location={group.locationLabel}
-                        drawTime={group.drawTime}
-                        results={group.rows}
-                        fallbackToSample={false}
-                      />
-                    </div>
-                  ))}
+                  Object.entries(groupedResults).map(([drawTime, groupResults]) => {
+                    // Extrair informações do primeiro resultado do grupo
+                    const firstResult = groupResults[0]
+                    const dateLabel = firstResult?.date || firstResult?.dataExtracao || formatDateLabel(selectedDate)
+                    const locationLabel = firstResult?.location || firstResult?.loteria || selectedLocation
+                    
+                    return (
+                      <div key={drawTime} className="mb-6 last:mb-0">
+                        <ResultsTable
+                          date={formatDateLabel(dateLabel)}
+                          location={locationLabel}
+                          drawTime={drawTime}
+                          results={groupResults}
+                          fallbackToSample={false}
+                        />
+                      </div>
+                    )
+                  })}
               </>
             )}
 
