@@ -11,6 +11,7 @@ import { ResultadoItem } from '@/types/resultados'
 import { extracoes } from '@/data/extracoes'
 import { buscarExtracaoPorNomeEHorario } from '@/lib/extracao-helpers'
 import { getHorarioRealApuracao, temSorteioNoDia } from '@/data/horarios-reais-apuracao'
+import { buscarResultadosBichoCerto } from '@/lib/bichocerto-parser'
 
 // Configurar timeout maior para operações longas
 export const maxDuration = 60 // 60 segundos
@@ -188,6 +189,30 @@ function jaPassouHorarioApuracao(nomeLoteria: string | null, dataConcurso: Date 
 }
 
 /**
+ * Função auxiliar para inferir UF do nome
+ */
+function inferUfFromName(name?: string | null): string | undefined {
+  if (!name) return undefined
+  const key = name.toLowerCase().trim()
+  const UF_MAP: Record<string, string> = {
+    'pt rio': 'RJ',
+    'pt rio de janeiro': 'RJ',
+    'pt-rio': 'RJ',
+    'pt sp': 'SP',
+    'pt-sp': 'SP',
+    'pt bahia': 'BA',
+    'pt-ba': 'BA',
+    'lotep': 'PB',
+    'look': 'GO',
+    'lotece': 'CE',
+    'nacional': 'BR',
+    'para todos': 'BR',
+    'federal': 'BR',
+  }
+  return UF_MAP[key]
+}
+
+/**
  * Busca nomes possíveis para match flexível de extrações
  */
 function getNomesPossiveis(nomeExtracao: string): string[] {
@@ -333,49 +358,118 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Buscar resultados oficiais (com timeout e fallback)
-    // Primeiro tenta API interna, depois API externa
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
-                   (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'http://localhost:3001')
+    // Buscar resultados oficiais
+    // Estratégia: usar parser direto do bichocerto.com se USAR_BICHOCERTO_DIRETO=true
+    // Caso contrário, usar API interna/externa como fallback
+    const usarBichoCertoDireto = process.env.USAR_BICHOCERTO_DIRETO !== 'false'
     
     let resultados: ResultadoItem[] = []
-    let resultadosResponse: Response | null = null
-
-    // Tentar API interna primeiro
-    try {
-      resultadosResponse = await fetch(`${baseUrl}/api/resultados`, {
-        cache: 'no-store',
-        signal: AbortSignal.timeout(30000) // 30 segundos timeout
-      })
-
-      if (resultadosResponse.ok) {
-        const resultadosData = await resultadosResponse.json()
-        resultados = resultadosData.results || resultadosData.resultados || []
-        console.log(`✅ Resultados obtidos da API interna: ${resultados.length} resultados`)
-      }
-    } catch (error) {
-      console.log('⚠️ API interna não disponível, tentando API externa:', error)
-    }
-
-    // Se API interna não retornou resultados, tentar API externa como fallback
-    if (resultados.length === 0) {
+    
+    if (usarBichoCertoDireto) {
+      // Usar parser direto do bichocerto.com
       try {
-        resultadosResponse = await fetch(
-          `${process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'}`,
-          { 
-            cache: 'no-store',
-            signal: AbortSignal.timeout(30000) // 30 segundos timeout
+        const { buscarResultadosBichoCerto } = await import('@/lib/bichocerto-parser')
+        
+        // Coletar loterias únicas das apostas pendentes
+        const loteriasUnicas = new Set<string>()
+        apostasPendentes.forEach(aposta => {
+          if (aposta.loteria) {
+            // Converter ID numérico para nome se necessário
+            if (/^\d+$/.test(aposta.loteria)) {
+              const extracaoId = parseInt(aposta.loteria, 10)
+              const extracao = extracoes.find((e) => e.id === extracaoId)
+              if (extracao) {
+                loteriasUnicas.add(extracao.name)
+              }
+            } else {
+              loteriasUnicas.add(aposta.loteria)
+            }
           }
-        )
+        })
+        
+        // Coletar datas únicas
+        const datasUnicas = new Set<string>()
+        apostasPendentes.forEach(aposta => {
+          if (aposta.dataConcurso) {
+            const dataISO = aposta.dataConcurso.toISOString().split('T')[0]
+            datasUnicas.add(dataISO)
+          }
+        })
+        
+        // Buscar resultados para cada combinação loteria/data
+        for (const loteria of loteriasUnicas) {
+          for (const dataISO of datasUnicas) {
+            const resultadosBichoCerto = await buscarResultadosBichoCerto(loteria, dataISO)
+            
+            // Converter formato do parser para formato ResultadoItem
+            resultadosBichoCerto.forEach(resultadoBingo => {
+              resultadoBingo.premios.forEach(premio => {
+                resultados.push({
+                  position: premio.posicao,
+                  milhar: premio.numero,
+                  grupo: premio.grupo,
+                  animal: premio.animal,
+                  drawTime: resultadoBingo.horario,
+                  horario: resultadoBingo.horario,
+                  loteria: loteria,
+                  location: inferUfFromName(loteria) || '',
+                  date: dataISO,
+                  dataExtracao: dataISO,
+                  estado: inferUfFromName(loteria) || undefined,
+                })
+              })
+            })
+          }
+        }
+        
+        console.log(`✅ Resultados obtidos do bichocerto.com: ${resultados.length} resultados`)
+      } catch (error) {
+        console.error('❌ Erro ao buscar resultados do bichocerto.com:', error)
+        // Continuar com fallback
+      }
+    }
+    
+    // Fallback: usar API interna/externa se não usou parser direto ou se não retornou resultados
+    if (resultados.length === 0) {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                     (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'http://localhost:3001')
+      
+      // Tentar API interna primeiro
+      try {
+        const resultadosResponse = await fetch(`${baseUrl}/api/resultados`, {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(30000) // 30 segundos timeout
+        })
 
         if (resultadosResponse.ok) {
           const resultadosData = await resultadosResponse.json()
           resultados = resultadosData.results || resultadosData.resultados || []
-          console.log(`✅ Resultados obtidos da API externa: ${resultados.length} resultados`)
+          console.log(`✅ Resultados obtidos da API interna: ${resultados.length} resultados`)
         }
       } catch (error) {
-        console.error('❌ Erro ao buscar resultados oficiais:', error)
-        throw new Error('Erro ao buscar resultados oficiais')
+        console.log('⚠️ API interna não disponível, tentando API externa:', error)
+      }
+
+      // Se API interna não retornou resultados, tentar API externa como fallback
+      if (resultados.length === 0) {
+        try {
+          const resultadosResponse = await fetch(
+            `${process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'}`,
+            { 
+              cache: 'no-store',
+              signal: AbortSignal.timeout(30000) // 30 segundos timeout
+            }
+          )
+
+          if (resultadosResponse.ok) {
+            const resultadosData = await resultadosResponse.json()
+            resultados = resultadosData.results || resultadosData.resultados || []
+            console.log(`✅ Resultados obtidos da API externa: ${resultados.length} resultados`)
+          }
+        } catch (error) {
+          console.error('❌ Erro ao buscar resultados oficiais:', error)
+          throw new Error('Erro ao buscar resultados oficiais')
+        }
       }
     }
 

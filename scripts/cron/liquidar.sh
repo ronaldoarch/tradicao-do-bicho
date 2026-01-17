@@ -5,24 +5,24 @@
 
 # Configurações
 API_URL="${API_URL:-http://localhost:3001}"
-LOG_FILE="${LOG_FILE:-/tmp/liquidacao.log}"
+LOG_FILE="${LOG_FILE:-/var/log/liquidar.log}"
 
 # Função para log
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE" 2>&1
 }
 
 # Verificar se a API está disponível
 log "Iniciando liquidação automática..."
 log "API URL: $API_URL"
 
-# Executar liquidação
-RESPONSE=$(curl -s -X POST "$API_URL/api/resultados/liquidar" \
+# Executar liquidação com timeout de 120 segundos
+RESPONSE=$(curl -f -s --max-time 120 -X POST "$API_URL/api/resultados/liquidar" \
     -H "Content-Type: application/json" \
     -d '{"usarMonitor": false}' \
-    -w "\nHTTP_CODE:%{http_code}")
+    -w "\nHTTP_CODE:%{http_code}" 2>&1)
 
-HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
+HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2 || echo "000")
 BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
 
 if [ "$HTTP_CODE" = "200" ]; then
@@ -35,11 +35,9 @@ if [ "$HTTP_CODE" = "200" ]; then
     PREMIO=$(echo "$BODY" | grep -o '"premioTotal":[0-9.]*' | cut -d: -f2 || echo "0")
     
     log "Estatísticas: Processadas=$PROCESSADAS | Liquidadas=$LIQUIDADAS | Prêmio Total=R$ $PREMIO"
+    exit 0
 else
     log "❌ Erro ao executar liquidação (HTTP $HTTP_CODE)"
     log "Resposta: $BODY"
     exit 1
 fi
-
-log "Liquidação concluída"
-exit 0
