@@ -99,8 +99,8 @@ export async function POST(request: NextRequest) {
         emAndamento: false,
         sorteioAutomatico: sorteioAutomatico !== undefined ? Boolean(sorteioAutomatico) : false,
         intervaloSorteio: intervaloSorteio ? Number(intervaloSorteio) : 30,
-        proximoSorteio,
-      },
+        proximoSorteio: proximoSorteio || null,
+      } as any,
     })
 
     return NextResponse.json({ sala })
