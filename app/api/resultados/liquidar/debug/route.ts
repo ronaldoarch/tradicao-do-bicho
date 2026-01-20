@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     
     for (const aposta of apostasPendentes) {
       let nomeLoteria: string | null = null
-      if (/^\d+$/.test(aposta.loteria || '')) {
+      if (aposta.loteria && /^\d+$/.test(aposta.loteria)) {
         const extracaoId = parseInt(aposta.loteria, 10)
         const extracao = extracoes.find((e) => e.id === extracaoId)
         nomeLoteria = extracao?.name || null
