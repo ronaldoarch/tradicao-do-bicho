@@ -397,8 +397,11 @@ export async function POST(request: NextRequest) {
         })
         
         // Buscar resultados para cada combinação loteria/data
-        for (const loteria of loteriasUnicas) {
-          for (const dataISO of datasUnicas) {
+        const loteriasArray = Array.from(loteriasUnicas)
+        const datasArray = Array.from(datasUnicas)
+        
+        for (const loteria of loteriasArray) {
+          for (const dataISO of datasArray) {
             const resultadosBichoCerto = await buscarResultadosBichoCerto(loteria, dataISO)
             
             // Converter formato do parser para formato ResultadoItem
