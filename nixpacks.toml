@@ -3,8 +3,8 @@ nixPkgs = ["nodejs_22", "npm"]
 
 [phases.install]
 cmds = [
-  "apt-get update && apt-get install -y --no-install-recommends cron curl && rm -rf /var/lib/apt/lists/*",
-  "npm ci --ignore-scripts"
+  "apt-get update && apt-get install -y --no-install-recommends cron curl && rm -rf /var/lib/apt/lists/* || true",
+  "npm ci"
 ]
 
 [phases.build]
@@ -22,7 +22,3 @@ cmd = "bash -c 'if command -v crond &> /dev/null; then crond -f -d 8 & fi; if co
 
 [staticAssets]
 "public" = "./public"
-
-[variables]
-NODE_ENV = "production"
-PORT = "3001"
