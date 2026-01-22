@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { parseSessionToken } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { recebaCreatePix } from '@/lib/receba-client'
+import { suitpayCreatePix, buscarCodigoIBGEPorCEP, type SuitPayCreatePixPayload } from '@/lib/suitpay-client'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Cria um pagamento PIX via Receba Online e retorna o QR code
+ * Cria um pagamento PIX via SuitPay e retorna o QR code
  */
 export async function POST(req: NextRequest) {
   try {
@@ -20,48 +20,46 @@ export async function POST(req: NextRequest) {
 
     const user = await prisma.usuario.findUnique({
       where: { id: payload.id },
-      select: { id: true, nome: true, email: true, telefone: true },
+      select: { id: true, nome: true, email: true, telefone: true, cpf: true },
     })
 
     if (!user) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
     }
 
-    const { valor, document } = await req.json()
+    const body = await req.json()
+    const { valor, document, cep, endereco } = body
 
     if (!valor || valor <= 0) {
       return NextResponse.json({ error: 'Valor inválido' }, { status: 400 })
     }
 
-    // CPF é obrigatório pela API do Receba Online
-    if (!document) {
+    // CPF é obrigatório
+    const documentClean = document || user.cpf
+    if (!documentClean) {
       return NextResponse.json({ error: 'CPF é obrigatório para realizar depósito' }, { status: 400 })
     }
 
-    // Platform ID é obrigatório - deve estar nas variáveis de ambiente
-    const platformId = process.env.RECEBA_PLATFORM_ID
-    if (!platformId) {
-      console.error('RECEBA_PLATFORM_ID não configurado nas variáveis de ambiente')
+    const cpfLimpo = documentClean.replace(/\D/g, '')
+    if (cpfLimpo.length !== 11) {
       return NextResponse.json(
-        { error: 'Configuração da plataforma não encontrada. Entre em contato com o suporte.' },
-        { status: 500 }
+        { error: 'CPF inválido. Digite um CPF válido com 11 dígitos.' },
+        { status: 400 }
       )
     }
 
-    // API Key é obrigatória - deve estar nas variáveis de ambiente
-    const apiKey = process.env.RECEBA_API_KEY
-    if (!apiKey) {
-      console.error('RECEBA_API_KEY não configurado nas variáveis de ambiente')
-      return NextResponse.json(
-        { error: 'Configuração da API não encontrada. Entre em contato com o suporte.' },
-        { status: 500 }
-      )
-    }
-
-    // Criar pagamento PIX via Receba Online
-    // Documentação: https://docs.receba.online/
-    // Endpoint: POST /api/v1/transaction/pix/cashin
+    // Client ID e Client Secret são obrigatórios
+    const clientId = process.env.SUITPAY_CLIENT_ID
+    const clientSecret = process.env.SUITPAY_CLIENT_SECRET
     
+    if (!clientId || !clientSecret) {
+      console.error('SUITPAY_CLIENT_ID ou SUITPAY_CLIENT_SECRET não configurados')
+      return NextResponse.json(
+        { error: 'Configuração do gateway não encontrada. Entre em contato com o suporte.' },
+        { status: 500 }
+      )
+    }
+
     // Validar telefone - deve ter pelo menos 10 dígitos
     const phoneClean = (user.telefone || '').replace(/\D/g, '')
     if (phoneClean.length < 10) {
@@ -71,67 +69,92 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Validar CPF - deve ter 11 dígitos
-    const documentClean = document.replace(/\D/g, '')
-    if (documentClean.length !== 11) {
-      return NextResponse.json(
-        { error: 'CPF inválido. Digite um CPF válido com 11 dígitos.' },
-        { status: 400 }
-      )
+    // Buscar código IBGE por CEP (se fornecido) ou usar padrão
+    let codIbge = '5208707' // Goiânia como padrão
+    let enderecoCompleto = {
+      codIbge: '5208707',
+      street: endereco?.street || 'Rua não informada',
+      number: endereco?.number || 'S/N',
+      complement: endereco?.complement || '',
+      zipCode: cep ? cep.replace(/\D/g, '') : '74000000',
+      neighborhood: endereco?.neighborhood || 'Centro',
+      city: endereco?.city || 'Goiânia',
+      state: endereco?.state || 'GO',
     }
 
-    // Payload conforme documentação oficial: https://docs.receba.online/pix
-    // Campos obrigatórios: name, email, phone, description, document, amount, platform
-    // Campos opcionais: reference (max 50), extra (max 255)
-    const pixPayload = {
-      name: user.nome.trim(),
-      email: user.email.trim().toLowerCase(),
-      phone: phoneClean, // Número de telefone sem formatação
-      description: `Depósito - ${user.nome}`.substring(0, 255), // Limitar tamanho conforme doc
-      document: documentClean, // CPF sem formatação (apenas números)
-      amount: parseFloat(valor.toFixed(2)), // Float com ponto como separador decimal (conforme doc)
-      platform: platformId, // UUID da plataforma
-      reference: `deposito_${user.id}_${Date.now()}`.substring(0, 50), // Max 50 caracteres (conforme doc)
-      extra: JSON.stringify({ userId: user.id }).substring(0, 255), // Max 255 caracteres (conforme doc)
+    if (cep) {
+      const cepLimpo = cep.replace(/\D/g, '')
+      if (cepLimpo.length === 8) {
+        const ibgeEncontrado = await buscarCodigoIBGEPorCEP(cepLimpo)
+        if (ibgeEncontrado) {
+          codIbge = ibgeEncontrado
+          enderecoCompleto.codIbge = ibgeEncontrado
+        }
+      }
     }
 
-    // Log do payload (sem dados sensíveis) para debug
-    console.log('=== DEBUG PIX CASHIN ===')
-    console.log('Base URL:', process.env.RECEBA_BASE_URL || 'https://sandbox.receba.online')
-    console.log('Platform ID:', platformId ? `${platformId.substring(0, 8)}...` : 'MISSING')
-    console.log('API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'MISSING')
-    console.log('Payload:', {
-      name: pixPayload.name,
-      email: pixPayload.email,
-      phone: pixPayload.phone ? `${pixPayload.phone.substring(0, 3)}***` : 'missing',
-      document: pixPayload.document ? `${pixPayload.document.substring(0, 3)}***` : 'missing',
-      amount: pixPayload.amount,
-      platform: pixPayload.platform ? `${pixPayload.platform.substring(0, 8)}...` : 'missing',
-      reference: pixPayload.reference,
-    })
+    // Construir URL do webhook
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                   (req.headers.get('host') ? `https://${req.headers.get('host')}` : 'http://localhost:3001')
+    const callbackUrl = `${baseUrl}/api/webhooks/suitpay`
+
+    // Request number único
+    const requestNumber = `deposito_${user.id}_${Date.now()}`
+
+    // Data de vencimento (hoje para PIX)
+    const hoje = new Date()
+    const dueDate = hoje.toISOString().split('T')[0] // AAAA-MM-DD
+
+    // Payload conforme documentação SuitPay
+    const pixPayload: SuitPayCreatePixPayload = {
+      requestNumber,
+      dueDate,
+      amount: parseFloat(valor.toFixed(2)),
+      usernameCheckout: process.env.SUITPAY_USERNAME_CHECKOUT || 'checkout',
+      client: {
+        name: user.nome.trim(),
+        document: cpfLimpo,
+        phoneNumber: phoneClean,
+        email: user.email.trim().toLowerCase(),
+        address: enderecoCompleto,
+      },
+      products: [
+        {
+          description: 'Depósito na plataforma',
+          quantity: 1,
+          value: parseFloat(valor.toFixed(2)),
+        },
+      ],
+      callbackUrl,
+    }
+
+    console.log('=== DEBUG SUITPAY PIX ===')
+    console.log('Base URL:', process.env.SUITPAY_BASE_URL || 'https://sandbox.ws.suitpay.app')
+    console.log('Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'MISSING')
+    console.log('Request Number:', requestNumber)
     console.log('========================')
 
-    // Criar pagamento PIX via Receba Online
-    // Passar a API key explicitamente para garantir que está sendo usada
-    console.log('Enviando requisição para:', `${process.env.RECEBA_BASE_URL || 'https://sandbox.receba.online'}/api/v1/transaction/pix/cashin`)
-    const pixResponse = await recebaCreatePix({ apiKey, baseUrl: process.env.RECEBA_BASE_URL }, pixPayload)
-    console.log('Resposta recebida:', pixResponse)
+    // Criar pagamento PIX via SuitPay
+    const baseUrlSuitPay = process.env.SUITPAY_BASE_URL || 'https://sandbox.ws.suitpay.app'
+    const pixResponse = await suitpayCreatePix(
+      {
+        clientId,
+        clientSecret,
+        baseUrl: baseUrlSuitPay,
+      },
+      pixPayload
+    )
 
-    // A resposta da API retorna: { transaction: [{ qr_code, qr_code_image, id, status, ... }] }
-    const transaction = pixResponse.transaction?.[0]
+    console.log('Resposta SuitPay:', { 
+      idTransaction: pixResponse.idTransaction, 
+      response: pixResponse.response,
+      qrCode: pixResponse.qrCode ? 'Presente' : 'Ausente',
+      qrCodeImage: pixResponse.qrCodeImage ? 'Presente' : 'Ausente',
+    })
 
-    if (!transaction) {
-      console.error('Resposta do Receba Online:', pixResponse)
+    if (!pixResponse.idTransaction) {
+      console.error('Resposta inválida da SuitPay:', pixResponse)
       return NextResponse.json({ error: 'Resposta inválida da API' }, { status: 500 })
-    }
-
-    const qrCodeText = transaction.qr_code
-    const qrCodeImage = transaction.qr_code_image // Base64 da imagem
-    const transactionId = transaction.id
-
-    if (!qrCodeText) {
-      console.error('Resposta do Receba Online:', pixResponse)
-      return NextResponse.json({ error: 'QR code não retornado pela API' }, { status: 500 })
     }
 
     // Criar registro da transação pendente
@@ -141,79 +164,37 @@ export async function POST(req: NextRequest) {
         tipo: 'deposito',
         status: 'pendente',
         valor,
-        referenciaExterna: transactionId,
-        descricao: `Depósito PIX - Aguardando pagamento`,
+        referenciaExterna: pixResponse.idTransaction,
+        descricao: `Depósito PIX via SuitPay - Aguardando pagamento`,
       },
     })
 
     return NextResponse.json({
-      qrCode: qrCodeImage, // Imagem base64 do QR code
-      qrCodeText, // Texto do QR code para copiar e colar
-      transactionId,
+      qrCode: pixResponse.qrCodeImage, // Imagem base64 do QR code (se disponível)
+      qrCodeText: pixResponse.qrCode, // Texto do QR code para copiar e colar
+      transactionId: pixResponse.idTransaction,
       valor,
-      status: transaction.status,
-      // A API não retorna expiresAt, mas podemos usar uma estimativa padrão
+      status: 'pending',
       expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
     })
   } catch (error: any) {
     console.error('Erro ao criar pagamento PIX:', error)
     
-    // Tratar erros específicos da API Receba Online
     const errorMessage = error.message || ''
     
-    // Erro 422 - Validação
-    if (errorMessage.includes('422')) {
-      try {
-        const errorBody = JSON.parse(errorMessage.match(/\{.*\}/)?.[0] || '{}')
-        const errorCode = errorBody.error
-        const apiMessage = errorBody.message || errorBody.error || 'Erro de validação'
-        
-        // Mapear códigos de erro conhecidos para mensagens amigáveis
-        const errorMessages: Record<number, string> = {
-          10: 'Plataforma inválida. Verifique a configuração da plataforma.',
-          11: 'Configuração de PIX não encontrada. Entre em contato com o suporte.',
-          13: 'Transação para CNPJ não permitida. Use CPF.',
-          14: 'Transação não permitida para menores de idade.',
-          15: 'Documento na lista de bloqueio.',
-          17: 'Documento inválido.',
-          18: 'Status do CNPJ inválido.',
-          23: 'Valor mínimo não atingido.',
-          25: 'Transação duplicada. Aguarde alguns segundos e tente novamente.',
-          26: 'Chave PIX inválida.',
-          27: 'Documento inválido.',
-          28: 'Chave PIX não pertence ao documento informado.',
-          29: 'Não autorizado a acessar este recurso.',
-          30: 'Tipo de chave PIX inválido.',
-          34: 'Operação não permitida. Verifique se sua conta está habilitada para depósitos PIX ou entre em contato com o suporte técnico.',
-        }
-        
-        const friendlyMessage = errorMessages[errorCode] || apiMessage
-        
-        return NextResponse.json(
-          { error: friendlyMessage, errorCode, originalMessage: apiMessage },
-          { status: 422 }
-        )
-      } catch (parseError) {
-        return NextResponse.json(
-          { error: 'Erro ao processar resposta da API. Tente novamente ou entre em contato com o suporte.' },
-          { status: 422 }
-        )
-      }
-    }
-    
     // Erro 401 - Não autenticado
-    if (errorMessage.includes('401') || errorMessage.includes('Unauthenticated')) {
+    if (errorMessage.includes('401') || errorMessage.includes('autenticação')) {
       return NextResponse.json(
-        { error: 'Erro de autenticação. Verifique se a API key está configurada corretamente.' },
+        { error: 'Erro de autenticação. Verifique se as credenciais estão configuradas corretamente.' },
         { status: 401 }
       )
     }
     
-    // Erro 404 - Endpoint não encontrado
-    if (errorMessage.includes('404')) {
+    // Erro 400 - Validação
+    if (errorMessage.includes('400')) {
       return NextResponse.json(
-        { error: 'Endpoint não encontrado. Verifique a configuração da API.' },
-        { status: 404 }
+        { error: 'Erro na validação dos dados. Verifique os campos informados.' },
+        { status: 400 }
       )
     }
     

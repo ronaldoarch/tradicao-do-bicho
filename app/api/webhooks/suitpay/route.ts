@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { validarHashWebhookSuitPay, type SuitPayWebhookPixPayload } from '@/lib/suitpay-client'
 import { calcularBonus } from '@/lib/promocoes-calculator'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Webhook para depósitos do gateway Receba.
- * Espera um payload com pelo menos:
- * {
- *   amount: number,
- *   status: 'paid' | ...,
- *   externalId?: string,
- *   userId?: number,
- *   email?: string
- * }
- *
- * Obs: ajuste os campos conforme o payload real do Receba e faça a validação de assinatura se houver.
+ * Webhook para depósitos PIX do gateway SuitPay.
+ * Recebe notificações de status de transações PIX.
  */
 export async function POST(req: NextRequest) {
   let webhookEventId: number | null = null
@@ -37,8 +29,8 @@ export async function POST(req: NextRequest) {
 
       const webhookEvent = await prisma.webhookEvent.create({
         data: {
-          source: 'receba',
-          eventType: body.status || 'unknown',
+          source: 'suitpay',
+          eventType: body.statusTransaction || 'unknown',
           payload: body,
           headers: relevantHeaders,
           status: 'received',
@@ -49,43 +41,60 @@ export async function POST(req: NextRequest) {
       console.error('Erro ao registrar webhook:', trackError)
       // Continua processando mesmo se falhar o tracking
     }
-    const amount = Number(body.amount || 0)
-    const status = String(body.status || '').toLowerCase()
-    const externalId = body.externalId ? String(body.externalId) : undefined
-    const userIdPayload = body.userId ? Number(body.userId) : undefined
-    const emailPayload = body.email ? String(body.email).toLowerCase() : undefined
 
-    if (!amount || amount <= 0) {
-      return NextResponse.json({ error: 'Valor inválido' }, { status: 400 })
+    // Validar payload do webhook
+    const payload: SuitPayWebhookPixPayload = body
+
+    if (!payload.idTransaction || !payload.statusTransaction) {
+      return NextResponse.json({ error: 'Payload inválido' }, { status: 400 })
     }
 
-    // Processa apenas depósitos pagos
-    if (status !== 'paid' && status !== 'pago') {
-      return NextResponse.json({ message: 'Ignorado: status não pago' }, { status: 200 })
+    // Validar hash do webhook
+    const clientSecret = process.env.SUITPAY_CLIENT_SECRET
+    if (!clientSecret) {
+      console.error('SUITPAY_CLIENT_SECRET não configurado')
+      return NextResponse.json({ error: 'Configuração não encontrada' }, { status: 500 })
     }
 
-    // Localizar usuário
-    let user = null
-    if (userIdPayload) {
-      user = await prisma.usuario.findUnique({ where: { id: userIdPayload } })
-    }
-    if (!user && emailPayload) {
-      user = await prisma.usuario.findUnique({ where: { email: emailPayload } })
+    const { hash, ...payloadSemHash } = payload
+    const hashValido = validarHashWebhookSuitPay(payloadSemHash, hash, clientSecret)
+
+    if (!hashValido) {
+      console.error('Hash do webhook inválido')
+      return NextResponse.json({ error: 'Hash inválido' }, { status: 401 })
     }
 
-    if (!user) {
-      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
+    // Processar apenas transações pagas (PAID_OUT)
+    if (payload.statusTransaction !== 'PAID_OUT') {
+      return NextResponse.json({ message: 'Transação não paga, ignorando' }, { status: 200 })
     }
 
-    // Verificar se já existe transação igual (idempotência simples)
-    if (externalId) {
-      const existing = await prisma.transacao.findFirst({
-        where: { referenciaExterna: externalId, tipo: 'deposito' },
-      })
-      if (existing) {
-        return NextResponse.json({ message: 'Transação já processada' }, { status: 200 })
-      }
+    // Buscar transação pelo requestNumber ou idTransaction
+    const transacao = await prisma.transacao.findFirst({
+      where: {
+        OR: [
+          { referenciaExterna: payload.idTransaction },
+          { referenciaExterna: payload.requestNumber },
+        ],
+        tipo: 'deposito',
+      },
+      include: {
+        usuario: true,
+      },
+    })
+
+    if (!transacao) {
+      console.log(`Transação não encontrada: ${payload.idTransaction}`)
+      return NextResponse.json({ message: 'Transação não encontrada' }, { status: 200 })
     }
+
+    // Verificar se já foi processada
+    if (transacao.status === 'pago') {
+      return NextResponse.json({ message: 'Transação já processada' }, { status: 200 })
+    }
+
+    // Buscar usuário
+    const user = transacao.usuario
 
     // Contar depósitos pagos anteriores (para bônus de primeiro depósito)
     const depositosPagos = await prisma.transacao.count({
@@ -99,7 +108,7 @@ export async function POST(req: NextRequest) {
     })
 
     // Calcular bônus usando sistema de promoções
-    const calculoBonus = calcularBonus(amount, promocoesAtivas, depositosPagos === 0)
+    const calculoBonus = calcularBonus(transacao.valor, promocoesAtivas, depositosPagos === 0)
     let bonusAplicado = calculoBonus.bonus
 
     // Se não aplicou promoção mas é primeiro depósito, usar regras antigas como fallback
@@ -107,7 +116,7 @@ export async function POST(req: NextRequest) {
       const bonusPercent = Number(process.env.BONUS_FIRST_DEPOSIT_PERCENT ?? 50)
       const bonusLimit = Number(process.env.BONUS_FIRST_DEPOSIT_LIMIT ?? 100)
       if (bonusPercent > 0) {
-        const calc = (amount * bonusPercent) / 100
+        const calc = (transacao.valor * bonusPercent) / 100
         bonusAplicado = Math.min(calc, bonusLimit)
       }
     }
@@ -116,24 +125,20 @@ export async function POST(req: NextRequest) {
     const rolloverMult = Number(process.env.BONUS_ROLLOVER_MULTIPLIER ?? 3)
 
     await prisma.$transaction(async (tx) => {
-      // Criar transação
-      await tx.transacao.create({
+      // Atualizar transação
+      await tx.transacao.update({
+        where: { id: transacao.id },
         data: {
-          usuarioId: user!.id,
-          tipo: 'deposito',
           status: 'pago',
-          valor: amount,
           bonusAplicado,
-          referenciaExterna: externalId,
-          descricao: 'Depósito via Receba',
         },
       })
 
       // Atualizar saldo e bônus/rollover
       await tx.usuario.update({
-        where: { id: user!.id },
+        where: { id: user.id },
         data: {
-          saldo: { increment: amount },
+          saldo: { increment: transacao.valor },
           bonusBloqueado: bonusAplicado > 0 ? { increment: bonusAplicado } : undefined,
           rolloverNecessario: bonusAplicado > 0 ? { increment: bonusAplicado * rolloverMult } : undefined,
         },
@@ -162,7 +167,7 @@ export async function POST(req: NextRequest) {
       bonusAplicado,
     })
   } catch (error) {
-    console.error('Erro no webhook Receba:', error)
+    console.error('Erro no webhook SuitPay:', error)
     
     // Atualizar status do webhook para falhou
     if (webhookEventId) {
