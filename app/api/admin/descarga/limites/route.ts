@@ -69,9 +69,11 @@ export async function POST(request: NextRequest) {
 
     const limiteCriado = await prisma.limiteDescarga.upsert({
       where: {
-        modalidade_premio: {
+        modalidade_premio_loteria_horario: {
           modalidade,
           premio,
+          loteria: '', // Limite geral
+          horario: '',
         },
       },
       update: {
@@ -82,6 +84,8 @@ export async function POST(request: NextRequest) {
         modalidade,
         premio,
         limite: Number(limite),
+        loteria: '', // Limite geral
+        horario: '',
         ativo: ativo !== undefined ? Boolean(ativo) : true,
       },
     })

@@ -119,6 +119,7 @@ model Usuario {
   id                 Int            @id @default(autoincrement())
   nome               String
   email              String         @unique
+  cpf                String?        @unique // CPF único para validar uma conta por CPF
   telefone           String?
   passwordHash       String?
   saldo              Float          @default(0)
@@ -195,12 +196,32 @@ model LimiteDescarga {
   premio     Int // 1, 2, 3, 4, 5 (posição do prêmio)
   limite     Float // Limite máximo em R$
   ativo      Boolean  @default(true)
+  loteria    String   @default("") // Loteria/extracao - "" para limite geral
+  horario    String   @default("") // Horário da extração - "" para limite geral
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  @@unique([modalidade, premio])
+  @@unique([modalidade, premio, loteria, horario])
   @@index([modalidade])
-  @@index([premio])
+  @@index([loteria, horario, premio])
+}
+
+model NumeroBloqueado {
+  id         Int      @id @default(autoincrement())
+  modalidade String   // Nome da modalidade
+  premio     Int      // 1 ao 5 (prêmio)
+  numero     String   // Número bloqueado (milhar/centena/dezena)
+  loteria    String   // Loteria/extracao
+  horario    String   // Horário da extração
+  valorAtual Float    // Valor total apostado neste número
+  limite     Float    // Limite que foi atingido
+  bloqueadoEm DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([modalidade, premio, numero, loteria, horario])
+  @@index([modalidade, premio, loteria, horario])
+  @@index([numero])
 }
 
 model AlertaDescarga {
@@ -214,6 +235,8 @@ model AlertaDescarga {
   resolvido     Boolean   @default(false)
   resolvidoEm   DateTime?
   resolvidoPor  Int? // ID do admin que resolveu
+  loteria       String?  // Loteria/extracao - null para alerta geral
+  horario       String?  // Horário da extração - null para alerta geral
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

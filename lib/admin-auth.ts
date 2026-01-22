@@ -1,3 +1,4 @@
+import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { parseSessionToken } from './auth'
 import { prisma } from './prisma'
@@ -49,4 +50,43 @@ export async function requireAdmin(): Promise<AdminSessionPayload> {
     throw new Error('Unauthorized: Admin access required')
   }
   return session
+}
+
+/**
+ * Verifica se o usuário está autenticado e é admin
+ * Retorna o userId se for admin, ou NextResponse com erro se não for
+ * Versão para uso em rotas API
+ */
+export async function requireAdminAPI(request: NextRequest): Promise<{ userId: number } | NextResponse> {
+  // Buscar cookie de sessão (tenta ambos os cookies)
+  const cookieStore = await cookies()
+  const sessionCookie = cookieStore.get('lotbicho_session')?.value || 
+                        cookieStore.get('admin_session')?.value ||
+                        cookieStore.get('postenobicho_session')?.value
+  
+  if (!sessionCookie) {
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+  }
+
+  // Decodificar token
+  const user = parseSessionToken(sessionCookie)
+  
+  if (!user) {
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+  }
+
+  // Verificar se é admin no banco
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: user.id },
+    select: { id: true, isAdmin: true, ativo: true },
+  })
+  
+  if (!usuario || !usuario.isAdmin || !usuario.ativo) {
+    return NextResponse.json({ 
+      error: 'Acesso negado. Apenas administradores podem acessar esta rota.',
+      details: `Usuário ${user.email} não possui permissões de administrador.`
+    }, { status: 403 })
+  }
+
+  return { userId: user.id }
 }

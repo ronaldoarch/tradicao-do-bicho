@@ -12,6 +12,7 @@ import { ANIMALS } from '@/data/animals'
 import { validarExtracaoParaAposta } from '@/lib/extracao-helpers'
 import { parsePosition } from '@/lib/position-parser'
 import { verificarLimiteDescarga } from '@/lib/descarga-helpers'
+import { verificarLimiteDescargaPorNumero, extrairPremiosDaPosicao } from '@/lib/descarga'
 
 export async function GET() {
   const session = cookies().get('lotbicho_session')?.value
@@ -148,6 +149,47 @@ export async function POST(request: Request) {
           { error: validacao.errorMessage || 'Extração inválida' },
           { status: 400 }
         )
+      }
+    }
+
+    // VERIFICAR LIMITES DE DESCARGA POR NÚMERO ANTES DE PROCESSAR A APOSTA
+    // Apenas para apostas com números específicos (modalidades numéricas)
+    if (detalhes && typeof detalhes === 'object' && 'betData' in detalhes) {
+      const betData = (detalhes as any).betData
+
+      // Verificar se é modalidade numérica com números específicos
+      if (betData.numberBets && betData.numberBets.length > 0 && modalidade) {
+        // Extrair prêmio da posição
+        const positionToUse = betData.customPosition && betData.customPositionValue 
+          ? betData.customPositionValue.trim() 
+          : betData.position
+
+        // Converter posição para prêmios (ex: "1-5" = prêmios 1, 2, 3, 4, 5)
+        const premios = extrairPremiosDaPosicao(positionToUse)
+
+        // Verificar cada número apostado
+        for (const numeroApostado of betData.numberBets) {
+          const numeroLimpo = numeroApostado.replace(/\D/g, '') // Limpar formatação
+          
+          // Verificar cada prêmio
+          for (const premio of premios) {
+            const verificacao = await verificarLimiteDescargaPorNumero(
+              modalidade,
+              premio,
+              numeroLimpo,
+              loteria || null,
+              horario || null,
+              valorNum
+            )
+
+            if (verificacao.bloqueado) {
+              return NextResponse.json(
+                { error: verificacao.mensagem },
+                { status: 400 }
+              )
+            }
+          }
+        }
       }
     }
 

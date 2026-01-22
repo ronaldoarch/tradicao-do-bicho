@@ -92,13 +92,14 @@ export async function verificarLimiteDescarga(
   const resultados: DescargaInfo[] = []
 
   for (const premio of premios) {
-    // Buscar limite configurado
-    const limiteConfig = await prisma.limiteDescarga.findUnique({
+    // Buscar limite configurado (busca primeiro limite geral, depois específico)
+    const limiteConfig = await prisma.limiteDescarga.findFirst({
       where: {
-        modalidade_premio: {
-          modalidade,
-          premio,
-        },
+        modalidade,
+        premio,
+        loteria: '',
+        horario: '',
+        ativo: true,
       },
     })
 
