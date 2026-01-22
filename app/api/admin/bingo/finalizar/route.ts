@@ -25,7 +25,9 @@ export async function POST(request: NextRequest) {
 
     const sala = await prisma.salaBingo.findUnique({
       where: { id: Number(salaId) },
-      include: { cartelas: true },
+      include: { 
+        cartelas: true,
+      },
     })
 
     if (!sala) {

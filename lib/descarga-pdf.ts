@@ -116,10 +116,11 @@ export async function gerarPDFRelatorioDescarga(
         { indent: 20 }
       )
       if (stat.excedente > 0) {
+        doc.fillColor('red')
         doc.text(`  Excedente: R$ ${stat.excedente.toFixed(2)}`, {
           indent: 40,
-          color: 'red',
         })
+        doc.fillColor('black')
       }
     })
   }
@@ -133,18 +134,21 @@ export async function gerarPDFRelatorioDescarga(
     doc.fontSize(10)
 
     alertasFiltrados.forEach((alerta) => {
+      doc.fillColor('red')
       doc.text(
         `⚠️ ${alerta.modalidade} - ${alerta.premio}º Prêmio`,
-        { indent: 20, color: 'red' }
+        { indent: 20 }
       )
+      doc.fillColor('black')
       doc.text(`  Total Apostado: R$ ${alerta.totalApostado.toFixed(2)}`, {
         indent: 40,
       })
       doc.text(`  Limite: R$ ${alerta.limite.toFixed(2)}`, { indent: 40 })
+      doc.fillColor('red')
       doc.text(`  Excedente: R$ ${alerta.excedente.toFixed(2)}`, {
         indent: 40,
-        color: 'red',
       })
+      doc.fillColor('black')
       doc.moveDown(0.3)
     })
   }
