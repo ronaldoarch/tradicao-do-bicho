@@ -1,4 +1,5 @@
 import { prisma } from './prisma'
+import { normalizarLoteria } from './descarga-helpers'
 
 /**
  * Interface para definir limite de descarga
@@ -119,13 +120,14 @@ export async function calcularTotalApostadoPorNumeroExtracaoPremio(
   loteria: string | null,
   horario: string | null
 ): Promise<number> {
+  // Normalizar loteria para comparação (converte ID para nome se necessário)
+  const loteriaNormalizada = normalizarLoteria(loteria)
+  
   // Buscar todas as apostas pendentes da modalidade
   const apostas = await prisma.aposta.findMany({
     where: {
       modalidade,
       status: 'pendente',
-      ...(loteria && { loteria }),
-      ...(horario && { horario }),
     },
     select: {
       valor: true,
@@ -138,8 +140,12 @@ export async function calcularTotalApostadoPorNumeroExtracaoPremio(
   let total = 0
 
   for (const aposta of apostas) {
+    // Normalizar loteria da aposta para comparação
+    const apostaLoteriaNormalizada = normalizarLoteria(aposta.loteria)
+    
     // Verificar se loteria e horário correspondem
-    if (loteria && aposta.loteria !== loteria) continue
+    // Se loteriaNormalizada está vazia (limite geral), aceita todas as loterias
+    if (loteriaNormalizada && apostaLoteriaNormalizada !== loteriaNormalizada) continue
     if (horario && aposta.horario !== horario) continue
 
     const detalhes = aposta.detalhes as any
@@ -241,12 +247,21 @@ export async function verificarLimiteDescargaPorNumero(
   horario: string | null, // Horário da extração
   valorAposta: number
 ): Promise<{ bloqueado: boolean; mensagem?: string; limite?: number; valorAtual?: number }> {
+  // Normalizar loteria para comparação (converte ID para nome se necessário)
+  const loteriaNormalizada = normalizarLoteria(loteria)
+  
   // 1. Verificar se o número já está bloqueado
-  const verificacaoBloqueio = await verificarNumeroBloqueado(modalidade, premio, numero, loteria, horario)
+  const verificacaoBloqueio = await verificarNumeroBloqueado(
+    modalidade, 
+    premio, 
+    numero, 
+    loteriaNormalizada || loteria, // Usar normalizada se disponível
+    horario
+  )
   if (verificacaoBloqueio.bloqueado && verificacaoBloqueio.dados) {
     const bloqueado = verificacaoBloqueio.dados
     const tipoNumero = numero.length === 4 ? 'milhar' : numero.length === 3 ? 'centena' : numero.length === 2 ? 'dezena' : 'número'
-    const extracaoInfo = loteria || 'extração'
+    const extracaoInfo = loteriaNormalizada || loteria || 'extração'
     const mensagem = `O ${tipoNumero} ${numero} no ${premio}º prêmio da ${extracaoInfo} está bloqueado. Limite atingido: R$ ${bloqueado.limite.toFixed(2)}.`
     
     return {
@@ -258,16 +273,19 @@ export async function verificarLimiteDescargaPorNumero(
   }
 
   // 2. Buscar limite configurado para esta modalidade + prêmio + extração
+  
   // Primeiro tenta buscar limite específico (com loteria), depois geral (sem loteria)
-  let limiteConfig = await prisma.limiteDescarga.findFirst({
-    where: {
-      modalidade,
-      premio,
-      loteria: loteria || '',
-      horario: '', // Sempre vazio, não usamos horário específico
-      ativo: true,
-    },
-  })
+  let limiteConfig = loteriaNormalizada 
+    ? await prisma.limiteDescarga.findFirst({
+        where: {
+          modalidade,
+          premio,
+          loteria: loteriaNormalizada,
+          horario: '', // Sempre vazio, não usamos horário específico
+          ativo: true,
+        },
+      })
+    : null
 
   // Se não encontrou limite específico, busca limite geral
   if (!limiteConfig) {
@@ -288,11 +306,12 @@ export async function verificarLimiteDescargaPorNumero(
   }
 
   // 3. Calcular total apostado neste número específico + extração + prêmio
+  // Usar loteria normalizada para garantir correspondência correta
   const valorAtual = await calcularTotalApostadoPorNumeroExtracaoPremio(
     modalidade,
     premio,
     numero,
-    loteria,
+    loteriaNormalizada || loteria, // Usar normalizada se disponível
     horario
   )
 
@@ -305,14 +324,15 @@ export async function verificarLimiteDescargaPorNumero(
       modalidade,
       premio,
       numero,
-      loteria,
+      loteriaNormalizada || loteria, // Usar normalizada se disponível
       horario,
       valorTotalComNovaAposta,
       limiteConfig.limite
     )
 
     const tipoNumero = numero.length === 4 ? 'milhar' : numero.length === 3 ? 'centena' : numero.length === 2 ? 'dezena' : 'número'
-    const mensagem = `O ${tipoNumero} ${numero} no ${premio}º prêmio da ${loteria || 'extração'} atingiu o limite de R$ ${limiteConfig.limite.toFixed(2)}. Total apostado: R$ ${valorAtual.toFixed(2)}.`
+    const extracaoInfo = loteriaNormalizada || loteria || 'extração'
+    const mensagem = `O ${tipoNumero} ${numero} no ${premio}º prêmio da ${extracaoInfo} atingiu o limite de R$ ${limiteConfig.limite.toFixed(2)}. Total apostado: R$ ${valorAtual.toFixed(2)}.`
     
     return {
       bloqueado: true,
