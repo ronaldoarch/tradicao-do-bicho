@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { modalidade, premio, limite, ativo } = body
+    const { modalidade, premio, limite, ativo, loteria } = body
 
     if (!modalidade || !premio || limite === undefined) {
       return NextResponse.json(
@@ -67,13 +67,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const loteriaValue = loteria || ''
+    const horarioValue = '' // Sempre vazio por enquanto
+
     const limiteCriado = await prisma.limiteDescarga.upsert({
       where: {
         modalidade_premio_loteria_horario: {
           modalidade,
           premio,
-          loteria: '', // Limite geral
-          horario: '',
+          loteria: loteriaValue,
+          horario: horarioValue,
         },
       },
       update: {
@@ -84,8 +87,8 @@ export async function POST(request: NextRequest) {
         modalidade,
         premio,
         limite: Number(limite),
-        loteria: '', // Limite geral
-        horario: '',
+        loteria: loteriaValue,
+        horario: horarioValue,
         ativo: ativo !== undefined ? Boolean(ativo) : true,
       },
     })

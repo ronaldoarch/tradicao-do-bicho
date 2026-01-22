@@ -9,6 +9,8 @@ interface LimiteDescarga {
   premio: number
   limite: number
   ativo: boolean
+  loteria: string
+  horario: string
 }
 
 interface AlertaDescarga {
@@ -70,9 +72,11 @@ export default function DescargaPage() {
     minutosAntesFechamento: '10',
     ativo: true,
   })
+  const [extracoes, setExtracoes] = useState<Array<{ id: number; name: string; time: string | null; active: boolean }>>([])
   const [formData, setFormData] = useState({
     modalidade: '',
     premio: 1,
+    loteria: '', // '' para limite geral
     limite: '',
     ativo: true,
   })
@@ -80,7 +84,20 @@ export default function DescargaPage() {
   useEffect(() => {
     carregarDados()
     carregarConfig()
+    carregarExtracoes()
   }, [activeTab])
+
+  const carregarExtracoes = async () => {
+    try {
+      const res = await fetch('/api/admin/extracoes')
+      if (res.ok) {
+        const data = await res.json()
+        setExtracoes(data.extracoes || [])
+      }
+    } catch (error) {
+      console.error('Erro ao carregar extrações:', error)
+    }
+  }
 
   const carregarConfig = async () => {
     try {
@@ -162,6 +179,7 @@ export default function DescargaPage() {
         body: JSON.stringify({
           modalidade: formData.modalidade,
           premio: formData.premio,
+          loteria: formData.loteria || '',
           limite: parseFloat(formData.limite),
           ativo: formData.ativo,
         }),
@@ -169,7 +187,7 @@ export default function DescargaPage() {
 
       if (res.ok) {
         setShowForm(false)
-        setFormData({ modalidade: '', premio: 1, limite: '', ativo: true })
+        setFormData({ modalidade: '', premio: 1, loteria: '', limite: '', ativo: true })
         carregarDados()
       } else {
         const error = await res.json()
@@ -449,7 +467,7 @@ export default function DescargaPage() {
             <button
               onClick={() => {
                 setShowForm(!showForm)
-                setFormData({ modalidade: '', premio: 1, limite: '', ativo: true })
+                setFormData({ modalidade: '', premio: 1, loteria: '', limite: '', ativo: true })
               }}
               className="px-4 py-2 bg-blue text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold shadow-md"
             >
@@ -459,22 +477,21 @@ export default function DescargaPage() {
           </div>
 
           {showForm && (
-            <div className="bg-white p-6 rounded-lg shadow mb-6 border-2 border-blue-200">
-              <h3 className="text-lg font-semibold mb-4 text-blue-900">Configurar Limite de Descarga</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Configure quanto você vai bancar para cada modalidade e prêmio
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white p-6 rounded-lg shadow-lg mb-6 border border-gray-200">
+              <h3 className="text-xl font-bold mb-6 text-gray-900">Definir Novo Limite</h3>
+              
+              <div className="space-y-6">
+                {/* Modalidade */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Modalidade *
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Modalidade
                   </label>
                   <select
                     value={formData.modalidade}
                     onChange={(e) => setFormData({ ...formData, modalidade: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-gray-900"
                   >
-                    <option value="">Selecione a modalidade...</option>
+                    <option value="">Selecione uma modalidade</option>
                     {MODALIDADES.map((mod) => (
                       <option key={mod} value={mod}>
                         {mod.replace(/_/g, ' ')}
@@ -482,14 +499,16 @@ export default function DescargaPage() {
                     ))}
                   </select>
                 </div>
+
+                {/* Prêmio */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Prêmio *
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Prêmio
                   </label>
                   <select
                     value={formData.premio}
                     onChange={(e) => setFormData({ ...formData, premio: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-gray-900"
                   >
                     {[1, 2, 3, 4, 5].map((p) => (
                       <option key={p} value={p}>
@@ -498,9 +517,35 @@ export default function DescargaPage() {
                     ))}
                   </select>
                 </div>
+
+                {/* Loteria/Extração */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Valor Máximo a Bancar (R$) *
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Loteria/Extração <span className="text-gray-500 font-normal">(Opcional)</span>
+                  </label>
+                  <select
+                    value={formData.loteria}
+                    onChange={(e) => setFormData({ ...formData, loteria: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-gray-900"
+                  >
+                    <option value="">Limite Geral (todas as extrações e horários)</option>
+                    {extracoes
+                      .filter((ext) => ext.active !== false)
+                      .map((ext) => (
+                        <option key={ext.id} value={ext.name}>
+                          {ext.name} {ext.time ? `- ${ext.time}` : ''}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Deixe vazio para limite geral em todas as extrações. Selecione uma extração para aplicar o limite a todos os horários dessa extração.
+                  </p>
+                </div>
+
+                {/* Limite por Número */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Limite por Número (R$)
                   </label>
                   <input
                     type="number"
@@ -508,18 +553,31 @@ export default function DescargaPage() {
                     min="0"
                     value={formData.limite}
                     onChange={(e) => setFormData({ ...formData, limite: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                    placeholder="0.00"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-gray-900"
+                    placeholder="0"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Valor máximo que você vai bancar</p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Quando o total apostado em um número específico (milhar/centena/dezena) atingir este limite, o número será bloqueado automaticamente. Este limite se aplica a todas as extrações e horários.
+                  </p>
                 </div>
-                <div className="flex items-end">
+
+                {/* Botões */}
+                <div className="flex gap-4 pt-4">
                   <button
                     onClick={handleSalvarLimite}
                     disabled={!formData.modalidade || !formData.limite}
-                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                    className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors shadow-md"
                   >
                     Salvar Limite
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowForm(false)
+                      setFormData({ modalidade: '', premio: 1, loteria: '', limite: '', ativo: true })
+                    }}
+                    className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition-colors"
+                  >
+                    Cancelar
                   </button>
                 </div>
               </div>
@@ -537,6 +595,9 @@ export default function DescargaPage() {
                     Prêmio
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Loteria/Extração
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Limite
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -551,10 +612,13 @@ export default function DescargaPage() {
                 {limites.map((limite) => (
                   <tr key={limite.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {limite.modalidade}
+                      {limite.modalidade.replace(/_/g, ' ')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {limite.premio}º Prêmio
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {limite.loteria || <span className="text-gray-400 italic">Geral</span>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatarMoeda(limite.limite)}
@@ -582,7 +646,7 @@ export default function DescargaPage() {
                 ))}
                 {limites.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
                       Nenhum limite configurado
                     </td>
                   </tr>
