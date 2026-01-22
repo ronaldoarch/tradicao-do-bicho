@@ -1,16 +1,47 @@
 'use client'
 
-import { useState } from 'react'
-import { MODALITIES, SPECIAL_QUOTATIONS } from '@/data/modalities'
+import { useState, useEffect } from 'react'
 import SpecialQuotationsModal from './SpecialQuotationsModal'
+
+interface Modality {
+  id: number
+  name: string
+  value: string
+  hasLink: boolean
+  active?: boolean
+}
 
 export default function QuotationGrid() {
   const [showSpecialModal, setShowSpecialModal] = useState(false)
+  const [modalidades, setModalidades] = useState<Modality[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadModalidades()
+  }, [])
+
+  const loadModalidades = async () => {
+    try {
+      const res = await fetch('/api/modalidades', { cache: 'no-store' })
+      const data = await res.json()
+      setModalidades(data.modalidades || [])
+    } catch (error) {
+      console.error('Erro ao carregar modalidades:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="text-center py-8 text-gray-500">Carregando cotações...</div>
+    )
+  }
 
   return (
     <>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {MODALITIES.map((quotation) => (
+        {modalidades.map((quotation) => (
           <div
             key={quotation.id}
             className="flex flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow"

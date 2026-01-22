@@ -5,9 +5,11 @@ import Link from 'next/link'
 
 interface Cotacao {
   id: number
-  grupo: string
-  animal: string
-  valor: string
+  name: string | null
+  value: string | null
+  grupo?: string
+  animal?: string
+  valor?: string
   active: boolean
   createdAt: string
 }
@@ -95,9 +97,9 @@ export default function CotacoesPage() {
               cotacoes.map((cotacao) => (
                 <tr key={cotacao.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cotacao.id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cotacao.grupo}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cotacao.animal}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cotacao.valor}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cotacao.name || cotacao.grupo || '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cotacao.animal || '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cotacao.value || cotacao.valor || '-'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
                       onClick={() => toggleActive(cotacao.id, cotacao.active)}
