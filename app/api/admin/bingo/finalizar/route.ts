@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
             where: { id: cartela.usuarioId },
             data: {
               saldo: { increment: premioPorCartela },
+              saldoSacavel: { increment: premioPorCartela }, // Prêmios de bingo podem ser sacados
             },
           })
         }
@@ -111,6 +112,7 @@ export async function POST(request: NextRequest) {
             where: { id: cartela.usuarioId },
             data: {
               saldo: { increment: premioPorCartela },
+              saldoSacavel: { increment: premioPorCartela }, // Prêmios de bingo podem ser sacados
             },
           })
         }
@@ -148,6 +150,7 @@ export async function POST(request: NextRequest) {
             where: { id: cartela.usuarioId },
             data: {
               saldo: { increment: premioPorCartela },
+              saldoSacavel: { increment: premioPorCartela }, // Prêmios de bingo podem ser sacados
             },
           })
         }
@@ -185,6 +188,7 @@ export async function POST(request: NextRequest) {
             where: { id: cartela.usuarioId },
             data: {
               saldo: { increment: premioPorCartela },
+              saldoSacavel: { increment: premioPorCartela }, // Prêmios de bingo podem ser sacados
             },
           })
         }

@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
       select: {
         id: true,
         saldo: true,
+        saldoSacavel: true,
         bonus: true,
         bonusBloqueado: true,
         rolloverNecessario: true,
@@ -61,15 +62,38 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verificar saldo disponível (não pode sacar bônus bloqueado)
-    const saldoDisponivelParaSaque = usuario.saldo
+    // IMPORTANTE: Apenas prêmios de apostas podem ser sacados
+    // Bônus (liberado ou bloqueado) nunca é sacável
+    const saldoDisponivelParaSaque = usuario.saldoSacavel || 0
     
     if (valor > saldoDisponivelParaSaque) {
+      const saldoTotal = usuario.saldo
+      const bonusTotal = (usuario.bonus || 0) + (usuario.bonusBloqueado || 0)
+      const saldoNaoSacavel = saldoTotal - saldoDisponivelParaSaque
+      
       return NextResponse.json(
-        { error: 'Saldo insuficiente para saque' },
+        { 
+          error: 'Saldo insuficiente para saque',
+          detalhes: {
+            saldoSacavel: saldoDisponivelParaSaque,
+            saldoTotal,
+            bonusTotal,
+            saldoNaoSacavel,
+            mensagem: `Você pode sacar apenas R$ ${saldoDisponivelParaSaque.toFixed(2)}. Bônus não pode ser sacado, apenas prêmios de apostas.`
+          }
+        },
         { status: 400 }
       )
     }
+    
+    // Debitar do saldo e saldoSacavel quando saque é criado
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        saldo: { decrement: valor },
+        saldoSacavel: { decrement: valor },
+      },
+    })
 
     // Criar solicitação de saque
     const saque = await prisma.saque.create({

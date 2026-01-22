@@ -770,10 +770,14 @@ export async function POST(request: NextRequest) {
             })
 
             // Creditar prêmio no saldo do usuário
+            // IMPORTANTE: Prêmios vão para saldo E saldoSacavel (podem ser sacados)
             await tx.usuario.update({
               where: { id: aposta.usuarioId },
               data: {
                 saldo: {
+                  increment: premioTotalAposta,
+                },
+                saldoSacavel: {
                   increment: premioTotalAposta,
                 },
               },

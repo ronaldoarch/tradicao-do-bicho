@@ -142,9 +142,10 @@ model Usuario {
   cpf                String?        @unique // CPF único para validar uma conta por CPF
   telefone           String?
   passwordHash       String?
-  saldo              Float          @default(0)
-  bonus              Float          @default(0)
-  bonusBloqueado     Float          @default(0)
+  saldo              Float          @default(0) // Saldo total (inclui prêmios + depósitos)
+  saldoSacavel       Float          @default(0) // Saldo que pode ser sacado (apenas prêmios de apostas)
+  bonus              Float          @default(0) // Bônus liberado (não sacável)
+  bonusBloqueado     Float          @default(0) // Bônus bloqueado (não sacável)
   rolloverNecessario Float          @default(0) // quanto precisa apostar para liberar o bônus
   rolloverAtual      Float          @default(0) // quanto já apostou que conta para o rollover
   bonusSemanal       Int            @default(0)

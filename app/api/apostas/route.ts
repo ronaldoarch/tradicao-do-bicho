@@ -317,6 +317,10 @@ export async function POST(request: Request) {
         // Atualizar saldo: debita aposta e credita prêmio
         const saldoFinal = usuario.saldo - debitarSaldo + premioTotal
         const bonusFinal = usuario.bonus - debitarBonus
+        // IMPORTANTE: Prêmios de apostas instantâneas vão para saldoSacavel (podem ser sacados)
+        // Debitar do saldoSacavel também quando usa saldo real
+        const saldoSacavelAtual = usuario.saldoSacavel || 0
+        const saldoSacavelFinal = saldoSacavelAtual - debitarSaldo + premioTotal
 
         // Calcular novo rolloverAtual: incrementa apenas o valor apostado com dinheiro REAL
         const novoRolloverAtual = usuario.rolloverAtual + debitarSaldo
@@ -339,6 +343,7 @@ export async function POST(request: Request) {
           where: { id: user.id },
           data: {
             saldo: saldoFinal,
+            saldoSacavel: saldoSacavelFinal,
             bonus: novoBonus,
             bonusBloqueado: novoBonusBloqueado,
             rolloverAtual: novoRolloverAtual,
@@ -367,10 +372,15 @@ export async function POST(request: Request) {
           console.log(`✅ Rollover cumprido para usuário ${user.id}. Bônus liberado: R$ ${bonusLiberado.toFixed(2)}`)
         }
         
+        // Para apostas normais, debitar do saldoSacavel também quando usa saldo real
+        const saldoSacavelAtual = usuario.saldoSacavel || 0
+        const saldoSacavelFinal = saldoSacavelAtual - debitarSaldo
+        
         await tx.usuario.update({
           where: { id: user.id },
           data: {
             saldo: usuario.saldo - debitarSaldo,
+            saldoSacavel: saldoSacavelFinal,
             bonus: novoBonus,
             bonusBloqueado: novoBonusBloqueado,
             rolloverAtual: novoRolloverAtual,
