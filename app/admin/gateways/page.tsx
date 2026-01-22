@@ -116,7 +116,7 @@ export default function GatewaysPage() {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue focus:outline-none"
-              placeholder="Receba.online"
+              placeholder="SuitPay"
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -126,7 +126,7 @@ export default function GatewaysPage() {
               value={form.baseUrl}
               onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
               className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue focus:outline-none"
-              placeholder="https://sandbox.receba.online"
+              placeholder="https://sandbox.ws.suitpay.app"
             />
           </div>
           <div className="flex flex-col gap-2 md:col-span-2">

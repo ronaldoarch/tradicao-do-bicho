@@ -25,9 +25,11 @@
 - `DATABASE_URL` - URL de conexão do PostgreSQL
 - `AUTH_SECRET` - Chave secreta para autenticação
 - `BICHO_CERTO_API` - URL da API do monitor (opcional)
-- `RECEBA_API_KEY` - Chave da API Receba (se usar PIX)
-- `RECEBA_PLATFORM_ID` - ID da plataforma Receba (se usar PIX)
-- `RECEBA_BASE_URL` - URL base da API Receba (se usar PIX)
+- `SUITPAY_CLIENT_ID` - Client ID do SuitPay Gateway
+- `SUITPAY_CLIENT_SECRET` - Client Secret do SuitPay Gateway
+- `SUITPAY_BASE_URL` - URL base da API SuitPay (sandbox ou produção)
+- `SUITPAY_USERNAME_CHECKOUT` - Username do checkout SuitPay
+- `NEXT_PUBLIC_APP_URL` - URL base da aplicação (para webhooks)
 
 ---
 
@@ -45,10 +47,15 @@ AUTH_SECRET=sua-chave-secreta-aqui-gerar-com-openssl-rand-hex-32
 # API do Monitor (opcional)
 BICHO_CERTO_API=https://seu-monitor.com/api/resultados
 
-# Receba Online (se usar PIX)
-RECEBA_API_KEY=sua-api-key-aqui
-RECEBA_PLATFORM_ID=seu-platform-id-aqui
-RECEBA_BASE_URL=https://api.receba.online
+# SuitPay Gateway (PIX)
+SUITPAY_CLIENT_ID=seu-client-id-aqui
+SUITPAY_CLIENT_SECRET=seu-client-secret-aqui
+SUITPAY_BASE_URL=https://sandbox.ws.suitpay.app  # Sandbox
+# SUITPAY_BASE_URL=https://ws.suitpay.app  # Produção
+SUITPAY_USERNAME_CHECKOUT=seu-username-checkout
+
+# URL base da aplicação (para webhooks)
+NEXT_PUBLIC_APP_URL=https://seu-dominio.com
 
 # Ambiente
 NODE_ENV=production
