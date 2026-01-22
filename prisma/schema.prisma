@@ -104,6 +104,16 @@ model Configuracao {
   updatedAt       DateTime @updatedAt
 }
 
+model ConfiguracaoDescarga {
+  id                    Int      @id @default(autoincrement())
+  whatsappNumero        String   // Número WhatsApp para receber relatórios (formato: 5511999999999)
+  ativo                 Boolean  @default(true)
+  minutosAntesFechamento Int    @default(10) // Minutos antes do fechamento para enviar
+  ultimoEnvio           DateTime? // Última vez que foi enviado relatório
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
 model Gateway {
   id        Int      @id @default(autoincrement())
   name      String

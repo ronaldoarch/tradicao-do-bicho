@@ -19,15 +19,18 @@ RUN npm ci --ignore-scripts
 # Copiar arquivos do projeto
 COPY . .
 
-# Copiar script de liquidação
+# Copiar scripts de cron
 COPY scripts/cron/liquidar.sh /app/scripts/cron/liquidar.sh
+COPY scripts/cron/descarga-relatorio.sh /app/scripts/cron/descarga-relatorio.sh
 RUN chmod +x /app/scripts/cron/liquidar.sh
+RUN chmod +x /app/scripts/cron/descarga-relatorio.sh
 
-# Configurar crontab para executar liquidação a cada 5 minutos
-RUN echo "*/5 * * * * /app/scripts/cron/liquidar.sh >> /var/log/liquidar.log 2>&1" | crontab -
+# Configurar crontab
+RUN echo "*/5 * * * * /app/scripts/cron/liquidar.sh >> /var/log/liquidar.log 2>&1" | crontab - && \
+    echo "* * * * * /app/scripts/cron/descarga-relatorio.sh >> /var/log/descarga-relatorio.log 2>&1" | crontab -
 
 # Criar diretório de logs
-RUN mkdir -p /var/log && touch /var/log/liquidar.log
+RUN mkdir -p /var/log && touch /var/log/liquidar.log && touch /var/log/descarga-relatorio.log
 
 # Script de inicialização
 COPY scripts/start-with-cron.sh /app/scripts/start-with-cron.sh

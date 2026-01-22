@@ -59,6 +59,17 @@ export default function DescargaPage() {
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false)
   const [whatsappNumero, setWhatsappNumero] = useState('')
   const [enviandoPDF, setEnviandoPDF] = useState(false)
+  const [configDescarga, setConfigDescarga] = useState<{
+    whatsappNumero: string
+    minutosAntesFechamento: number
+    ativo: boolean
+  } | null>(null)
+  const [showConfigModal, setShowConfigModal] = useState(false)
+  const [configForm, setConfigForm] = useState({
+    whatsappNumero: '',
+    minutosAntesFechamento: '10',
+    ativo: true,
+  })
   const [formData, setFormData] = useState({
     modalidade: '',
     premio: 1,
@@ -68,7 +79,51 @@ export default function DescargaPage() {
 
   useEffect(() => {
     carregarDados()
+    carregarConfig()
   }, [activeTab])
+
+  const carregarConfig = async () => {
+    try {
+      const res = await fetch('/api/admin/descarga/config')
+      const data = await res.json()
+      if (data.config) {
+        setConfigDescarga(data.config)
+        setConfigForm({
+          whatsappNumero: data.config.whatsappNumero,
+          minutosAntesFechamento: data.config.minutosAntesFechamento.toString(),
+          ativo: data.config.ativo,
+        })
+      }
+    } catch (error) {
+      console.error('Erro ao carregar configuração:', error)
+    }
+  }
+
+  const salvarConfig = async () => {
+    if (!configForm.whatsappNumero) {
+      alert('Digite o número do WhatsApp')
+      return
+    }
+
+    try {
+      const res = await fetch('/api/admin/descarga/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configForm),
+      })
+
+      if (res.ok) {
+        alert('Configuração salva com sucesso!')
+        setShowConfigModal(false)
+        carregarConfig()
+      } else {
+        alert('Erro ao salvar configuração')
+      }
+    } catch (error) {
+      console.error('Erro ao salvar configuração:', error)
+      alert('Erro ao salvar configuração')
+    }
+  }
 
   const carregarDados = async () => {
     setLoading(true)
@@ -308,6 +363,42 @@ export default function DescargaPage() {
         >
           💬 Enviar via WhatsApp
         </button>
+      </div>
+
+      {/* Configuração de Envio Automático */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold">Configuração de Envio Automático</h3>
+            <p className="text-sm text-gray-600">
+              Configure o envio automático de relatórios via WhatsApp quando limites forem atingidos
+            </p>
+          </div>
+          <button
+            onClick={() => setShowConfigModal(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            {configDescarga ? 'Editar Configuração' : 'Configurar'}
+          </button>
+        </div>
+        {configDescarga && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="text-gray-600">WhatsApp:</span>
+              <span className="ml-2 font-medium">{configDescarga.whatsappNumero}</span>
+            </div>
+            <div>
+              <span className="text-gray-600">Minutos antes:</span>
+              <span className="ml-2 font-medium">{configDescarga.minutosAntesFechamento} min</span>
+            </div>
+            <div>
+              <span className="text-gray-600">Status:</span>
+              <span className={`ml-2 font-medium ${configDescarga.ativo ? 'text-green-600' : 'text-red-600'}`}>
+                {configDescarga.ativo ? 'Ativo' : 'Inativo'}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -686,6 +777,76 @@ export default function DescargaPage() {
                 className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
               >
                 {enviandoPDF ? 'Gerando...' : 'Gerar e Enviar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Configuração */}
+      {showConfigModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-semibold mb-4">Configurar Envio Automático</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Número do WhatsApp
+                </label>
+                <input
+                  type="text"
+                  value={configForm.whatsappNumero}
+                  onChange={(e) => setConfigForm({ ...configForm, whatsappNumero: e.target.value })}
+                  placeholder="5511999999999"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Formato: código do país + DDD + número (ex: 5521999999999)
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Minutos antes do fechamento
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="60"
+                  value={configForm.minutosAntesFechamento}
+                  onChange={(e) => setConfigForm({ ...configForm, minutosAntesFechamento: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  O relatório será enviado X minutos antes do fechamento da extração
+                </p>
+              </div>
+              <div>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={configForm.ativo}
+                    onChange={(e) => setConfigForm({ ...configForm, ativo: e.target.checked })}
+                    className="rounded"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Ativar envio automático</span>
+                </label>
+              </div>
+            </div>
+            <div className="flex gap-4 mt-6">
+              <button
+                onClick={() => {
+                  setShowConfigModal(false)
+                  carregarConfig()
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={salvarConfig}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Salvar
               </button>
             </div>
           </div>
