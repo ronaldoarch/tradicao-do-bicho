@@ -352,16 +352,18 @@ export default function DescargaPage() {
         <button
           onClick={handleGerarPDF}
           disabled={loading}
-          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center gap-2"
+          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center gap-2 font-semibold shadow-md transition-colors"
         >
-          📄 Baixar PDF
+          <span>📄</span>
+          <span>Baixar PDF</span>
         </button>
         <button
           onClick={() => setShowWhatsAppModal(true)}
           disabled={loading}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 font-semibold shadow-md transition-colors"
         >
-          💬 Enviar via WhatsApp
+          <span>💬</span>
+          <span>Enviar via WhatsApp</span>
         </button>
       </div>
 
@@ -449,9 +451,9 @@ export default function DescargaPage() {
                 setShowForm(!showForm)
                 setFormData({ modalidade: '', premio: 1, limite: '', ativo: true })
               }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              className="px-4 py-2 bg-blue text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold shadow-md"
             >
-              <span>+</span>
+              <span className="text-lg">{showForm ? '✕' : '+'}</span>
               <span>{showForm ? 'Cancelar' : 'Configurar Limite'}</span>
             </button>
           </div>

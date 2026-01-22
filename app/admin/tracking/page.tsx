@@ -162,12 +162,13 @@ export default function TrackingPage() {
       <div className="mb-6 flex justify-end">
         <button
           onClick={() => {
-            setActiveTab('config')
             setShowConfigModal(true)
+            carregarConfig()
           }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          className="px-4 py-2 bg-blue text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold shadow-md"
         >
-          ⚙️ Configurações
+          <span className="text-lg">⚙️</span>
+          <span>Configurações</span>
         </button>
       </div>
 
@@ -553,8 +554,8 @@ export default function TrackingPage() {
 
       {/* Modal de Configuração */}
       {showConfigModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" onClick={() => setShowConfigModal(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-semibold mb-4">Configurações de Tracking</h3>
             <div className="space-y-4">
               <div>
@@ -626,7 +627,7 @@ export default function TrackingPage() {
               </button>
               <button
                 onClick={salvarConfig}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex-1 px-4 py-2 bg-blue text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
               >
                 Salvar
               </button>
