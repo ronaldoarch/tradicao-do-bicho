@@ -5,8 +5,9 @@
 export interface Promocao {
   id: number
   tipo: string
-  percentual?: number
-  bonus?: string
+  valor?: number // Para tipos que usam valor (percentual, etc)
+  percentual?: number // Para tipos percentuais
+  bonus?: string // Para valor fixo (string formatada)
   valorMinimo?: number
   valorMaximo?: number
   active: boolean
@@ -74,18 +75,26 @@ export function calcularBonus(
 
     case 'percentual':
       // Bônus = percentual do depósito
-      bonus = (valorDeposito * (promocaoAplicar.percentual || 0)) / 100
+      // Usa campo 'valor' como percentual ou 'percentual' se disponível
+      const percentual = promocaoAplicar.percentual || promocaoAplicar.valor || 0
+      bonus = (valorDeposito * percentual) / 100
       break
 
     case 'valor_fixo':
       // Bônus = valor fixo
-      const valorFixo = parseFloat(promocaoAplicar.bonus?.replace(/[^\d.,]/g, '').replace(',', '.') || '0')
-      bonus = valorFixo
+      // Tenta usar campo 'bonus' (string) ou 'valor' (number)
+      if (promocaoAplicar.bonus) {
+        bonus = parseFloat(promocaoAplicar.bonus.replace(/[^\d.,]/g, '').replace(',', '.')) || 0
+      } else {
+        bonus = promocaoAplicar.valor || 0
+      }
       break
 
     case 'cashback':
       // Cashback = percentual do depósito
-      bonus = (valorDeposito * (promocaoAplicar.percentual || 0)) / 100
+      // Usa campo 'valor' como percentual ou 'percentual' se disponível
+      const cashbackPercent = promocaoAplicar.percentual || promocaoAplicar.valor || 0
+      bonus = (valorDeposito * cashbackPercent) / 100
       break
 
     default:

@@ -205,11 +205,22 @@ export async function POST(request: Request) {
         throw new Error('Saldo insuficiente')
       }
 
-      // Debita primeiro do saldo, depois do bônus (se permitido)
+      // IMPORTANTE: Para rollover, o usuário precisa gastar dinheiro REAL pelo menos uma vez
+      // Se o usuário tem bônus bloqueado e rollover pendente, deve usar saldo primeiro
+      const temRolloverPendente = usuario.rolloverNecessario > 0 && usuario.rolloverAtual < usuario.rolloverNecessario
+      const temBonusBloqueado = usuario.bonusBloqueado > 0
+      
+      // Se tem rollover pendente, força uso de saldo primeiro (dinheiro real)
       let debitarBonus = 0
       let debitarSaldo = Math.min(saldoDisponivel, valorNum)
       const restante = valorNum - debitarSaldo
+      
+      // Só permite usar bônus se não tem rollover pendente OU se já gastou dinheiro real nesta aposta
       if (restante > 0) {
+        if (temRolloverPendente && debitarSaldo === 0) {
+          // Se tem rollover pendente e não tem saldo suficiente, não pode usar apenas bônus
+          throw new Error('Você precisa gastar dinheiro real pelo menos uma vez antes de usar o bônus. Faça um depósito ou aguarde liberar o bônus.')
+        }
         if (bonusDisponivel <= 0) throw new Error('Saldo insuficiente (bônus indisponível)')
         debitarBonus = restante
       }
@@ -307,22 +318,66 @@ export async function POST(request: Request) {
         const saldoFinal = usuario.saldo - debitarSaldo + premioTotal
         const bonusFinal = usuario.bonus - debitarBonus
 
+        // Calcular novo rolloverAtual: incrementa apenas o valor apostado com dinheiro REAL
+        const novoRolloverAtual = usuario.rolloverAtual + debitarSaldo
+        
+        // Verificar se rollover foi cumprido e liberar bônus bloqueado
+        let bonusLiberado = 0
+        let novoBonusBloqueado = usuario.bonusBloqueado
+        let novoBonus = bonusFinal
+        
+        if (novoRolloverAtual >= usuario.rolloverNecessario && usuario.rolloverNecessario > 0) {
+          // Rollover cumprido! Liberar bônus bloqueado
+          bonusLiberado = usuario.bonusBloqueado
+          novoBonusBloqueado = 0
+          novoBonus = bonusFinal + bonusLiberado
+          
+          console.log(`✅ Rollover cumprido para usuário ${user.id}. Bônus liberado: R$ ${bonusLiberado.toFixed(2)}`)
+        }
+        
         await tx.usuario.update({
           where: { id: user.id },
           data: {
             saldo: saldoFinal,
-            bonus: bonusFinal,
-            rolloverAtual: usuario.rolloverAtual + valorNum,
+            bonus: novoBonus,
+            bonusBloqueado: novoBonusBloqueado,
+            rolloverAtual: novoRolloverAtual,
+            // Se rollover foi cumprido, zerar rolloverNecessario também
+            ...(novoRolloverAtual >= usuario.rolloverNecessario && usuario.rolloverNecessario > 0 ? {
+              rolloverNecessario: 0,
+            } : {}),
           },
         })
       } else {
         // Aposta normal (não instantânea)
+        // Calcular novo rolloverAtual: incrementa apenas o valor apostado com dinheiro REAL
+        const novoRolloverAtual = usuario.rolloverAtual + debitarSaldo
+        
+        // Verificar se rollover foi cumprido e liberar bônus bloqueado
+        let bonusLiberado = 0
+        let novoBonusBloqueado = usuario.bonusBloqueado
+        let novoBonus = usuario.bonus - debitarBonus
+        
+        if (novoRolloverAtual >= usuario.rolloverNecessario && usuario.rolloverNecessario > 0) {
+          // Rollover cumprido! Liberar bônus bloqueado
+          bonusLiberado = usuario.bonusBloqueado
+          novoBonusBloqueado = 0
+          novoBonus = novoBonus + bonusLiberado
+          
+          console.log(`✅ Rollover cumprido para usuário ${user.id}. Bônus liberado: R$ ${bonusLiberado.toFixed(2)}`)
+        }
+        
         await tx.usuario.update({
           where: { id: user.id },
           data: {
             saldo: usuario.saldo - debitarSaldo,
-            bonus: usuario.bonus - debitarBonus,
-            rolloverAtual: usuario.rolloverAtual + valorNum,
+            bonus: novoBonus,
+            bonusBloqueado: novoBonusBloqueado,
+            rolloverAtual: novoRolloverAtual,
+            // Se rollover foi cumprido, zerar rolloverNecessario também
+            ...(novoRolloverAtual >= usuario.rolloverNecessario && usuario.rolloverNecessario > 0 ? {
+              rolloverNecessario: 0,
+            } : {}),
           },
         })
       }

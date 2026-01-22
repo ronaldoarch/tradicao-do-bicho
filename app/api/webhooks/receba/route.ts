@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { calcularBonus } from '@/lib/promocoes-calculator'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,16 +92,28 @@ export async function POST(req: NextRequest) {
       where: { usuarioId: user.id, tipo: 'deposito', status: 'pago' },
     })
 
-    // Regras de bônus
-    const bonusPercent = Number(process.env.BONUS_FIRST_DEPOSIT_PERCENT ?? 50)
-    const bonusLimit = Number(process.env.BONUS_FIRST_DEPOSIT_LIMIT ?? 100)
-    const rolloverMult = Number(process.env.BONUS_ROLLOVER_MULTIPLIER ?? 3)
+    // Buscar promoções ativas configuradas pelo admin
+    const promocoesAtivas = await prisma.promocao.findMany({
+      where: { active: true },
+      orderBy: { order: 'asc' },
+    })
 
-    let bonusAplicado = 0
-    if (depositosPagos === 0 && bonusPercent > 0) {
-      const calc = (amount * bonusPercent) / 100
-      bonusAplicado = Math.min(calc, bonusLimit)
+    // Calcular bônus usando sistema de promoções
+    const calculoBonus = calcularBonus(amount, promocoesAtivas, depositosPagos === 0)
+    let bonusAplicado = calculoBonus.bonus
+
+    // Se não aplicou promoção mas é primeiro depósito, usar regras antigas como fallback
+    if (bonusAplicado === 0 && depositosPagos === 0) {
+      const bonusPercent = Number(process.env.BONUS_FIRST_DEPOSIT_PERCENT ?? 50)
+      const bonusLimit = Number(process.env.BONUS_FIRST_DEPOSIT_LIMIT ?? 100)
+      if (bonusPercent > 0) {
+        const calc = (amount * bonusPercent) / 100
+        bonusAplicado = Math.min(calc, bonusLimit)
+      }
     }
+
+    // Multiplicador de rollover (padrão: 3x o valor do bônus)
+    const rolloverMult = Number(process.env.BONUS_ROLLOVER_MULTIPLIER ?? 3)
 
     await prisma.$transaction(async (tx) => {
       // Criar transação
