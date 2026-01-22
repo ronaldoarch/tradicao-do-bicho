@@ -311,3 +311,46 @@ model ResultadoBingo {
   @@index([salaId])
   @@index([tipo])
 }
+
+model WebhookEvent {
+  id          Int      @id @default(autoincrement())
+  source      String   // Origem do webhook (ex: "receba", "stripe", "pagseguro")
+  eventType   String   // Tipo do evento (ex: "deposit", "payment", "refund")
+  payload     Json     // Payload completo recebido
+  headers     Json?    // Headers da requisição
+  status      String   @default("received") // received, processed, failed
+  statusCode  Int?     // Status code da resposta
+  response    Json?    // Resposta enviada
+  error       String?  // Mensagem de erro se houver
+  processedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([source])
+  @@index([eventType])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model FacebookEvent {
+  id          Int      @id @default(autoincrement())
+  eventName   String   // Nome do evento (ex: "PageView", "Purchase", "Lead")
+  eventId     String?  @unique // ID único do evento do Facebook
+  pixelId     String?  // ID do pixel do Facebook
+  userData    Json?    // Dados do usuário (email, phone, etc)
+  customData  Json?    // Dados customizados do evento
+  value       Float?   // Valor do evento (para eventos de conversão)
+  currency    String?  // Moeda
+  sourceUrl   String?  // URL de origem
+  userAgent   String?  // User agent
+  ipAddress   String?  // IP do usuário
+  status      String   @default("received") // received, processed, failed
+  error       String?  // Mensagem de erro se houver
+  processedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([eventName])
+  @@index([pixelId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([eventId])
+}

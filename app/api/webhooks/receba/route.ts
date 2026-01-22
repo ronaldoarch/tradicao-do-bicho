@@ -17,8 +17,37 @@ export const dynamic = 'force-dynamic'
  * Obs: ajuste os campos conforme o payload real do Receba e faça a validação de assinatura se houver.
  */
 export async function POST(req: NextRequest) {
+  let webhookEventId: number | null = null
+  
   try {
     const body = await req.json()
+    const headersList = req.headers
+    
+    // Registrar o webhook recebido
+    try {
+      const relevantHeaders: Record<string, string> = {}
+      headersList.forEach((value, key) => {
+        if (key.toLowerCase().startsWith('x-') || 
+            key.toLowerCase() === 'authorization' ||
+            key.toLowerCase() === 'content-type') {
+          relevantHeaders[key] = value
+        }
+      })
+
+      const webhookEvent = await prisma.webhookEvent.create({
+        data: {
+          source: 'receba',
+          eventType: body.status || 'unknown',
+          payload: body,
+          headers: relevantHeaders,
+          status: 'received',
+        },
+      })
+      webhookEventId = webhookEvent.id
+    } catch (trackError) {
+      console.error('Erro ao registrar webhook:', trackError)
+      // Continua processando mesmo se falhar o tracking
+    }
     const amount = Number(body.amount || 0)
     const status = String(body.status || '').toLowerCase()
     const externalId = body.externalId ? String(body.externalId) : undefined
@@ -98,12 +127,47 @@ export async function POST(req: NextRequest) {
       })
     })
 
+    // Atualizar status do webhook para processado
+    if (webhookEventId) {
+      try {
+        await prisma.webhookEvent.update({
+          where: { id: webhookEventId },
+          data: {
+            status: 'processed',
+            statusCode: 200,
+            response: { message: 'Depósito processado', bonusAplicado },
+            processedAt: new Date(),
+          },
+        })
+      } catch (updateError) {
+        console.error('Erro ao atualizar webhook:', updateError)
+      }
+    }
+
     return NextResponse.json({
       message: 'Depósito processado',
       bonusAplicado,
     })
   } catch (error) {
     console.error('Erro no webhook Receba:', error)
+    
+    // Atualizar status do webhook para falhou
+    if (webhookEventId) {
+      try {
+        await prisma.webhookEvent.update({
+          where: { id: webhookEventId },
+          data: {
+            status: 'failed',
+            statusCode: 500,
+            error: String(error),
+            processedAt: new Date(),
+          },
+        })
+      } catch (updateError) {
+        console.error('Erro ao atualizar webhook:', updateError)
+      }
+    }
+    
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }
