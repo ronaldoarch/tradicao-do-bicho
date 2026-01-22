@@ -22,6 +22,12 @@ interface SalaBingo {
   dataInicio: string | null
   dataFim: string | null
   numerosSorteados: number[] | null
+  resultadoFinal?: Array<{
+    tipo: string
+    cartelasGanhadoras: number[]
+    premioTotal: number
+    usuariosFake?: Array<{ nome: string; avatar?: string }>
+  }> | null
   _count?: {
     cartelas: number
   }
@@ -208,6 +214,45 @@ export default function BingoPage() {
                         </span>
                       </div>
                     </div>
+
+                    {/* Exibir ganhadores quando bingo finalizado */}
+                    {sala.resultadoFinal && Array.isArray(sala.resultadoFinal) && sala.resultadoFinal.length > 0 && (
+                      <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                        <h4 className="font-semibold text-green-800 mb-2">🎉 Ganhadores:</h4>
+                        {sala.resultadoFinal.map((resultado: any, idx: number) => (
+                          <div key={idx} className="mb-2">
+                            <div className="text-sm font-medium text-green-700 capitalize mb-1">
+                              {resultado.tipo === 'bingo' ? 'Bingo Completo' : 
+                               resultado.tipo === 'diagonal' ? 'Diagonal' :
+                               resultado.tipo === 'coluna' ? 'Coluna' : 'Linha'}
+                              {' - '}
+                              {formatarMoeda(resultado.premioTotal)}
+                            </div>
+                            {resultado.usuariosFake && resultado.usuariosFake.length > 0 && (
+                              <div className="space-y-1">
+                                {resultado.usuariosFake.map((usuario: any, uIdx: number) => (
+                                  <div key={uIdx} className="flex items-center gap-2 text-sm text-gray-700">
+                                    {usuario.avatar && (
+                                      <img 
+                                        src={usuario.avatar} 
+                                        alt={usuario.nome}
+                                        className="w-6 h-6 rounded-full"
+                                      />
+                                    )}
+                                    <span className="font-medium">🏆 {usuario.nome}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {resultado.cartelasGanhadoras && resultado.cartelasGanhadoras.length > 0 && (
+                              <div className="text-xs text-gray-600 mt-1">
+                                {resultado.cartelasGanhadoras.length} cartela(s) ganhadora(s)
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {!sala.emAndamento ? (
                       <button

@@ -36,14 +36,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sala não está em andamento' }, { status: 400 })
     }
 
-    // Verificar ganhadores
+    // Verificar ganhadores reais
     const ganhadores = await verificarCartelasSala(sala.id)
+
+    // Buscar usuários fake configurados
+    const usuariosFake = (sala.usuariosFakeVencedores as Array<{
+      nome: string
+      tipo: 'linha' | 'coluna' | 'diagonal' | 'bingo'
+      avatar?: string
+    }>) || []
 
     // Processar resultados e prêmios
     const resultados: Array<{
       tipo: string
       cartelasGanhadoras: number[]
       premioTotal: number
+      usuariosFake?: Array<{ nome: string; avatar?: string }>
     }> = []
 
     // Bingo completo
@@ -69,10 +77,17 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Adicionar usuários fake do tipo bingo se configurados
+      const usuariosFakeBingo = usuariosFake.filter((u) => u.tipo === 'bingo').map((u) => ({
+        nome: u.nome,
+        avatar: u.avatar,
+      }))
+
       resultados.push({
         tipo: 'bingo',
         cartelasGanhadoras: ganhadores.bingo,
         premioTotal: sala.premioBingo,
+        usuariosFake: usuariosFakeBingo.length > 0 ? usuariosFakeBingo : undefined,
       })
     }
 
@@ -99,10 +114,17 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Adicionar usuários fake do tipo diagonal se configurados
+      const usuariosFakeDiagonal = usuariosFake.filter((u) => u.tipo === 'diagonal').map((u) => ({
+        nome: u.nome,
+        avatar: u.avatar,
+      }))
+
       resultados.push({
         tipo: 'diagonal',
         cartelasGanhadoras: ganhadores.diagonal,
         premioTotal: sala.premioDiagonal,
+        usuariosFake: usuariosFakeDiagonal.length > 0 ? usuariosFakeDiagonal : undefined,
       })
     }
 
@@ -129,10 +151,17 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Adicionar usuários fake do tipo coluna se configurados
+      const usuariosFakeColuna = usuariosFake.filter((u) => u.tipo === 'coluna').map((u) => ({
+        nome: u.nome,
+        avatar: u.avatar,
+      }))
+
       resultados.push({
         tipo: 'coluna',
         cartelasGanhadoras: ganhadores.coluna,
         premioTotal: sala.premioColuna,
+        usuariosFake: usuariosFakeColuna.length > 0 ? usuariosFakeColuna : undefined,
       })
     }
 
@@ -159,10 +188,17 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Adicionar usuários fake do tipo linha se configurados
+      const usuariosFakeLinha = usuariosFake.filter((u) => u.tipo === 'linha').map((u) => ({
+        nome: u.nome,
+        avatar: u.avatar,
+      }))
+
       resultados.push({
         tipo: 'linha',
         cartelasGanhadoras: ganhadores.linha,
         premioTotal: sala.premioLinha,
+        usuariosFake: usuariosFakeLinha.length > 0 ? usuariosFakeLinha : undefined,
       })
     }
 

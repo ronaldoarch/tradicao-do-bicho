@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
         dataInicio: true,
         dataFim: true,
         numerosSorteados: true,
+        resultadoFinal: true,
         _count: {
           select: {
             cartelas: true,

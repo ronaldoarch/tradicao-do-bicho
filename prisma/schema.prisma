@@ -265,6 +265,8 @@ model SalaBingo {
   sorteioAutomatico Boolean  @default(false) // Se os sorteios são automáticos
   intervaloSorteio  Int      @default(30) // Intervalo entre sorteios em segundos
   proximoSorteio    DateTime? // Próximo horário de sorteio automático
+  // Usuários fake vencedores (para exibir como ganhadores)
+  usuariosFakeVencedores Json? // Array de { nome: string, tipo: 'linha'|'coluna'|'diagonal'|'bingo', avatar?: string }
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

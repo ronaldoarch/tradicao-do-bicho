@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
       ativa,
       sorteioAutomatico,
       intervaloSorteio,
+      usuariosFakeVencedores,
     } = body
 
     if (!nome || valorCartela === undefined) {
@@ -100,6 +101,7 @@ export async function POST(request: NextRequest) {
         sorteioAutomatico: sorteioAutomatico !== undefined ? Boolean(sorteioAutomatico) : false,
         intervaloSorteio: intervaloSorteio ? Number(intervaloSorteio) : 30,
         proximoSorteio: proximoSorteio || null,
+        usuariosFakeVencedores: usuariosFakeVencedores || null,
       } as any,
     })
 
@@ -157,6 +159,10 @@ export async function PUT(request: NextRequest) {
 
     if (data.intervaloSorteio !== undefined) {
       updateData.intervaloSorteio = Number(data.intervaloSorteio)
+    }
+
+    if (data.usuariosFakeVencedores !== undefined) {
+      updateData.usuariosFakeVencedores = data.usuariosFakeVencedores || null
     }
 
     const sala = await prisma.salaBingo.update({

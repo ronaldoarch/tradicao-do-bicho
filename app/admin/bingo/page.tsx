@@ -21,6 +21,11 @@ interface SalaBingo {
   sorteioAutomatico: boolean
   intervaloSorteio: number
   proximoSorteio: string | null
+  usuariosFakeVencedores?: Array<{
+    nome: string
+    tipo: 'linha' | 'coluna' | 'diagonal' | 'bingo'
+    avatar?: string
+  }>
   _count?: {
     cartelas: number
     resultados: number
@@ -44,7 +49,9 @@ export default function BingoAdminPage() {
     ativa: true,
     sorteioAutomatico: false,
     intervaloSorteio: '30',
+    usuariosFakeVencedores: [] as Array<{ nome: string; tipo: 'linha' | 'coluna' | 'diagonal' | 'bingo'; avatar?: string }>,
   })
+  const [novoUsuarioFake, setNovoUsuarioFake] = useState({ nome: '', tipo: 'linha' as 'linha' | 'coluna' | 'diagonal' | 'bingo', avatar: '' })
 
   useEffect(() => {
     carregarSalas()
@@ -104,6 +111,7 @@ export default function BingoAdminPage() {
           ativa: true,
           sorteioAutomatico: false,
           intervaloSorteio: '30',
+          usuariosFakeVencedores: [],
         })
         carregarSalas()
       } else {
@@ -133,8 +141,28 @@ export default function BingoAdminPage() {
       ativa: sala.ativa,
       sorteioAutomatico: sala.sorteioAutomatico || false,
       intervaloSorteio: sala.intervaloSorteio?.toString() || '30',
+      usuariosFakeVencedores: (sala.usuariosFakeVencedores as any) || [],
     })
     setShowForm(true)
+  }
+
+  const adicionarUsuarioFake = () => {
+    if (!novoUsuarioFake.nome.trim()) {
+      alert('Digite o nome do usuário fake')
+      return
+    }
+    setFormData({
+      ...formData,
+      usuariosFakeVencedores: [...formData.usuariosFakeVencedores, { ...novoUsuarioFake, avatar: novoUsuarioFake.avatar || undefined }],
+    })
+    setNovoUsuarioFake({ nome: '', tipo: 'linha', avatar: '' })
+  }
+
+  const removerUsuarioFake = (index: number) => {
+    setFormData({
+      ...formData,
+      usuariosFakeVencedores: formData.usuariosFakeVencedores.filter((_, i) => i !== index),
+    })
   }
 
   const handleIniciar = async (salaId: number) => {
@@ -243,7 +271,9 @@ export default function BingoAdminPage() {
               ativa: true,
               sorteioAutomatico: false,
               intervaloSorteio: '30',
+              usuariosFakeVencedores: [],
             })
+            setNovoUsuarioFake({ nome: '', tipo: 'linha', avatar: '' })
           }}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold shadow-md flex items-center gap-2 transition-all hover:shadow-lg"
         >
@@ -372,6 +402,61 @@ export default function BingoAdminPage() {
                     </p>
                   </div>
                 )}
+              </div>
+            </div>
+            <div className="md:col-span-2 border-t pt-4">
+              <h4 className="text-md font-semibold text-gray-900 mb-3">Usuários Fake Vencedores</h4>
+              <p className="text-xs text-gray-500 mb-3">
+                Configure usuários fake que aparecerão como ganhadores quando o bingo for finalizado. Isso cria uma aparência de que há ganhadores reais.
+              </p>
+              <div className="space-y-3 mb-4">
+                {formData.usuariosFakeVencedores.map((usuario, index) => (
+                  <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <div className="flex-1">
+                      <span className="font-medium">{usuario.nome}</span>
+                      <span className="text-sm text-gray-600 ml-2">({usuario.tipo})</span>
+                    </div>
+                    <button
+                      onClick={() => removerUsuarioFake(index)}
+                      className="px-2 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Usuário</label>
+                  <input
+                    type="text"
+                    value={novoUsuarioFake.nome}
+                    onChange={(e) => setNovoUsuarioFake({ ...novoUsuarioFake, nome: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Ex: João Silva"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Prêmio</label>
+                  <select
+                    value={novoUsuarioFake.tipo}
+                    onChange={(e) => setNovoUsuarioFake({ ...novoUsuarioFake, tipo: e.target.value as any })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="linha">Linha</option>
+                    <option value="coluna">Coluna</option>
+                    <option value="diagonal">Diagonal</option>
+                    <option value="bingo">Bingo Completo</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={adicionarUsuarioFake}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Adicionar
+                  </button>
+                </div>
               </div>
             </div>
             <div className="md:col-span-2 border-t pt-4">
