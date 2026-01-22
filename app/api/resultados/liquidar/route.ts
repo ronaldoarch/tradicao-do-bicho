@@ -12,6 +12,7 @@ import { extracoes } from '@/data/extracoes'
 import { buscarExtracaoPorNomeEHorario } from '@/lib/extracao-helpers'
 import { getHorarioRealApuracao, temSorteioNoDia } from '@/data/horarios-reais-apuracao'
 import { buscarResultadosBichoCerto } from '@/lib/bichocerto-parser'
+import { normalizarLoteria } from '@/lib/descarga-helpers'
 
 // Configurar timeout maior para operações longas
 export const maxDuration = 60 // 60 segundos
@@ -370,19 +371,13 @@ export async function POST(request: NextRequest) {
       try {
         const { buscarResultadosBichoCerto } = await import('@/lib/bichocerto-parser')
         
-        // Coletar loterias únicas das apostas pendentes
+        // Coletar loterias únicas das apostas pendentes (normalizadas)
         const loteriasUnicas = new Set<string>()
         apostasPendentes.forEach(aposta => {
           if (aposta.loteria) {
-            // Converter ID numérico para nome se necessário
-            if (/^\d+$/.test(aposta.loteria)) {
-              const extracaoId = parseInt(aposta.loteria, 10)
-              const extracao = extracoes.find((e) => e.id === extracaoId)
-              if (extracao) {
-                loteriasUnicas.add(extracao.name)
-              }
-            } else {
-              loteriasUnicas.add(aposta.loteria)
+            const loteriaNormalizada = normalizarLoteria(aposta.loteria)
+            if (loteriaNormalizada) {
+              loteriasUnicas.add(loteriaNormalizada)
             }
           }
         })
@@ -511,15 +506,8 @@ export async function POST(request: NextRequest) {
       try {
         // Verificar se já passou o horário de apuração antes de liquidar
         if (aposta.loteria && aposta.dataConcurso) {
-          // Buscar nome da loteria se loteria for ID numérico
-          let nomeLoteria: string | null = null
-          if (/^\d+$/.test(aposta.loteria)) {
-            const extracaoId = parseInt(aposta.loteria, 10)
-            const extracao = extracoes.find((e) => e.id === extracaoId)
-            nomeLoteria = extracao?.name || null
-          } else {
-            nomeLoteria = aposta.loteria
-          }
+          // Normalizar loteria (converter ID para nome se necessário)
+          const nomeLoteria = normalizarLoteria(aposta.loteria) || null
           
           const podeLiquidar = jaPassouHorarioApuracao(
             nomeLoteria,
@@ -537,22 +525,25 @@ export async function POST(request: NextRequest) {
         let resultadosFiltrados = resultados
 
         if (aposta.loteria) {
-          // Usar match flexível para encontrar resultados
+          // Normalizar loteria antes de fazer match
+          const loteriaApostaNormalizada = normalizarLoteria(aposta.loteria)
           const antesFiltro = resultadosFiltrados.length
-          const loteriaAposta = aposta.loteria // Garantir que não é null
+          
           resultadosFiltrados = resultadosFiltrados.filter((r) => {
             if (!r.loteria) return false
-            return matchExtracao(r.loteria, loteriaAposta)
+            // Normalizar loteria do resultado também para comparação
+            const loteriaResultadoNormalizada = normalizarLoteria(r.loteria)
+            return matchExtracao(loteriaResultadoNormalizada, loteriaApostaNormalizada)
           })
           
           if (resultadosFiltrados.length === 0 && antesFiltro > 0) {
             console.log(
-              `⚠️ Nenhum resultado encontrado para "${loteriaAposta}" após filtro flexível (antes: ${antesFiltro})`
+              `⚠️ Nenhum resultado encontrado para "${loteriaApostaNormalizada}" após filtro flexível (antes: ${antesFiltro})`
             )
-            console.log(`   Nomes possíveis: ${getNomesPossiveis(loteriaAposta).join(', ')}`)
+            console.log(`   Nomes possíveis: ${getNomesPossiveis(loteriaApostaNormalizada).join(', ')}`)
           } else if (resultadosFiltrados.length > 0) {
             console.log(
-              `✅ Após filtro de loteria "${loteriaAposta}": ${resultadosFiltrados.length} resultados (antes: ${antesFiltro})`
+              `✅ Após filtro de loteria "${loteriaApostaNormalizada}": ${resultadosFiltrados.length} resultados (antes: ${antesFiltro})`
             )
           }
         }
@@ -641,8 +632,11 @@ export async function POST(request: NextRequest) {
         const betData = detalhes.betData as {
           modality: string | null
           modalityName?: string | null
-          animalBets: number[][]
-          position: string | null
+          animalBets?: number[][]
+          numberBets?: string[]
+          position?: string | null
+          customPosition?: boolean
+          customPositionValue?: string
           amount: number
           divisionType: 'all' | 'each'
         }
@@ -650,21 +644,43 @@ export async function POST(request: NextRequest) {
         const modalityType = modalityMap[betData.modalityName || aposta.modalidade || ''] || 'GRUPO'
 
         // Parsear posição
+        const positionToUse = betData.customPosition && betData.customPositionValue 
+          ? betData.customPositionValue.trim() 
+          : betData.position
+        
         let pos_from = 1
         let pos_to = 1
-        if (betData.position) {
-          if (betData.position === '1st') {
+        if (positionToUse) {
+          if (positionToUse === '1st' || positionToUse === '1') {
             pos_from = 1
             pos_to = 1
-          } else if (betData.position.includes('-')) {
-            const [from, to] = betData.position.split('-').map(Number)
+          } else if (positionToUse.includes('-')) {
+            const [from, to] = positionToUse.split('-').map(Number)
             pos_from = from || 1
             pos_to = to || 1
+          } else {
+            const singlePos = parseInt(positionToUse.replace(/º/g, '').replace(/\s/g, ''), 10)
+            if (!isNaN(singlePos) && singlePos >= 1 && singlePos <= 7) {
+              pos_from = singlePos
+              pos_to = singlePos
+            }
           }
         }
 
         // Calcular valor por palpite
-        const qtdPalpites = betData.animalBets.length
+        const isNumberModality = modalityType.includes('DEZENA') || 
+                                 modalityType.includes('CENTENA') || 
+                                 modalityType.includes('MILHAR')
+        
+        const qtdPalpites = isNumberModality 
+          ? (betData.numberBets?.length || 0)
+          : (betData.animalBets?.length || 0)
+        
+        if (qtdPalpites === 0) {
+          console.log(`Aposta ${aposta.id} não tem palpites válidos`)
+          continue
+        }
+        
         const valorPorPalpite = calcularValorPorPalpite(
           betData.amount,
           qtdPalpites,
@@ -674,41 +690,65 @@ export async function POST(request: NextRequest) {
         // Conferir cada palpite
         let premioTotalAposta = 0
 
-        for (const animalBet of betData.animalBets) {
-          const gruposApostados = animalBet.map((animalId) => {
-            const animal = ANIMALS.find((a) => a.id === animalId)
-            if (!animal) {
-              throw new Error(`Animal não encontrado: ${animalId}`)
-            }
-            return animal.group
-          })
-
-          let palpiteData: { grupos?: number[]; numero?: string } = {}
-
-          if (
-            modalityType.includes('GRUPO') ||
-            modalityType === 'PASSE' ||
-            modalityType === 'PASSE_VAI_E_VEM'
-          ) {
-            palpiteData = { grupos: gruposApostados }
-          } else {
-            // Para modalidades numéricas, precisaríamos do número apostado
-            // Por enquanto, pulamos modalidades numéricas
-            console.log(`Modalidade numérica ${modalityType} ainda não suportada na liquidação`)
+        if (isNumberModality) {
+          // Modalidades numéricas (Milhar, Centena, Dezena)
+          if (!betData.numberBets || betData.numberBets.length === 0) {
+            console.log(`Aposta ${aposta.id} é modalidade numérica mas não tem numberBets`)
             continue
           }
 
-          const conferencia = conferirPalpite(
-            resultadoOficial,
-            modalityType,
-            palpiteData,
-            pos_from,
-            pos_to,
-            valorPorPalpite,
-            betData.divisionType
-          )
+          for (const numeroApostado of betData.numberBets) {
+            const numeroLimpo = numeroApostado.replace(/\D/g, '') // Remove formatação
+            
+            if (!numeroLimpo) {
+              console.log(`Número apostado inválido: ${numeroApostado}`)
+              continue
+            }
 
-          premioTotalAposta += conferencia.totalPrize
+            const palpiteData: { grupos?: number[]; numero?: string } = { numero: numeroLimpo }
+
+            const conferencia = conferirPalpite(
+              resultadoOficial,
+              modalityType,
+              palpiteData,
+              pos_from,
+              pos_to,
+              valorPorPalpite,
+              betData.divisionType
+            )
+
+            premioTotalAposta += conferencia.totalPrize
+          }
+        } else {
+          // Modalidades de grupo
+          if (!betData.animalBets || betData.animalBets.length === 0) {
+            console.log(`Aposta ${aposta.id} é modalidade de grupo mas não tem animalBets`)
+            continue
+          }
+
+          for (const animalBet of betData.animalBets) {
+            const gruposApostados = animalBet.map((animalId) => {
+              const animal = ANIMALS.find((a) => a.id === animalId)
+              if (!animal) {
+                throw new Error(`Animal não encontrado: ${animalId}`)
+              }
+              return animal.group
+            })
+
+            const palpiteData: { grupos?: number[]; numero?: string } = { grupos: gruposApostados }
+
+            const conferencia = conferirPalpite(
+              resultadoOficial,
+              modalityType,
+              palpiteData,
+              pos_from,
+              pos_to,
+              valorPorPalpite,
+              betData.divisionType
+            )
+
+            premioTotalAposta += conferencia.totalPrize
+          }
         }
 
         // Atualizar aposta e saldo do usuário
