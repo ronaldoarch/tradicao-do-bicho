@@ -35,10 +35,23 @@ interface FacebookEvent {
 }
 
 export default function TrackingPage() {
-  const [activeTab, setActiveTab] = useState<'webhooks' | 'facebook'>('webhooks')
+  const [activeTab, setActiveTab] = useState<'webhooks' | 'facebook' | 'config'>('webhooks')
   const [webhookEvents, setWebhookEvents] = useState<WebhookEvent[]>([])
   const [facebookEvents, setFacebookEvents] = useState<FacebookEvent[]>([])
   const [loading, setLoading] = useState(false)
+  const [showConfigModal, setShowConfigModal] = useState(false)
+  const [config, setConfig] = useState<{
+    facebookPixelId: string | null
+    facebookAccessToken: string | null
+    webhookUrl: string | null
+    ativo: boolean
+  } | null>(null)
+  const [configForm, setConfigForm] = useState({
+    facebookPixelId: '',
+    facebookAccessToken: '',
+    webhookUrl: '',
+    ativo: true,
+  })
   const [filters, setFilters] = useState({
     source: '',
     eventType: '',
@@ -48,8 +61,51 @@ export default function TrackingPage() {
   })
 
   useEffect(() => {
-    carregarEventos()
+    if (activeTab === 'config') {
+      carregarConfig()
+    } else {
+      carregarEventos()
+    }
   }, [activeTab, filters])
+
+  const carregarConfig = async () => {
+    try {
+      const res = await fetch('/api/admin/tracking/config')
+      const data = await res.json()
+      if (data.config) {
+        setConfig(data.config)
+        setConfigForm({
+          facebookPixelId: data.config.facebookPixelId || '',
+          facebookAccessToken: data.config.facebookAccessToken || '',
+          webhookUrl: data.config.webhookUrl || '',
+          ativo: data.config.ativo,
+        })
+      }
+    } catch (error) {
+      console.error('Erro ao carregar configuração:', error)
+    }
+  }
+
+  const salvarConfig = async () => {
+    try {
+      const res = await fetch('/api/admin/tracking/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configForm),
+      })
+
+      if (res.ok) {
+        alert('Configuração salva com sucesso!')
+        setShowConfigModal(false)
+        carregarConfig()
+      } else {
+        alert('Erro ao salvar configuração')
+      }
+    } catch (error) {
+      console.error('Erro ao salvar configuração:', error)
+      alert('Erro ao salvar configuração')
+    }
+  }
 
   const carregarEventos = async () => {
     setLoading(true)
@@ -100,6 +156,19 @@ export default function TrackingPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Tracking de Eventos</h1>
         <p className="text-gray-600 mt-2">Monitore webhooks e eventos do Facebook em tempo real</p>
+      </div>
+
+      {/* Botão de Configuração */}
+      <div className="mb-6 flex justify-end">
+        <button
+          onClick={() => {
+            setActiveTab('config')
+            setShowConfigModal(true)
+          }}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+        >
+          ⚙️ Configurações
+        </button>
       </div>
 
       {/* Tabs */}
@@ -478,6 +547,90 @@ export default function TrackingPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Configuração */}
+      {showConfigModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-semibold mb-4">Configurações de Tracking</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Facebook Pixel ID
+                </label>
+                <input
+                  type="text"
+                  value={configForm.facebookPixelId}
+                  onChange={(e) => setConfigForm({ ...configForm, facebookPixelId: e.target.value })}
+                  placeholder="123456789012345"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  ID do Pixel do Facebook para rastreamento de eventos
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Facebook Access Token
+                </label>
+                <input
+                  type="password"
+                  value={configForm.facebookAccessToken}
+                  onChange={(e) => setConfigForm({ ...configForm, facebookAccessToken: e.target.value })}
+                  placeholder="EAAxxxxxxxxxxxxx"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Token de acesso do Facebook para enviar eventos via Conversions API
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  URL do Webhook
+                </label>
+                <input
+                  type="url"
+                  value={configForm.webhookUrl}
+                  onChange={(e) => setConfigForm({ ...configForm, webhookUrl: e.target.value })}
+                  placeholder="https://exemplo.com/webhook"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  URL para receber todos os eventos da plataforma (webhooks, Facebook, etc.)
+                </p>
+              </div>
+              <div>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={configForm.ativo}
+                    onChange={(e) => setConfigForm({ ...configForm, ativo: e.target.checked })}
+                    className="rounded"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Ativar tracking</span>
+                </label>
+              </div>
+            </div>
+            <div className="flex gap-4 mt-6">
+              <button
+                onClick={() => {
+                  setShowConfigModal(false)
+                  carregarConfig()
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={salvarConfig}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Salvar
+              </button>
+            </div>
           </div>
         </div>
       )}

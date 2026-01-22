@@ -114,6 +114,16 @@ model ConfiguracaoDescarga {
   updatedAt             DateTime @updatedAt
 }
 
+model ConfiguracaoTracking {
+  id                    Int      @id @default(autoincrement())
+  facebookPixelId       String?  // ID do Pixel do Facebook
+  facebookAccessToken   String?  // Token de acesso do Facebook
+  webhookUrl            String?  // URL do webhook para receber todos os eventos
+  ativo                 Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
 model Gateway {
   id        Int      @id @default(autoincrement())
   name      String
