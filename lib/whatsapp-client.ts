@@ -125,74 +125,25 @@ export async function getWhatsAppClient(): Promise<Client> {
       whatsappClient = client
       currentQRCode = null // Limpar QR code após conexão
       readyTimestamp = Date.now() // Registrar timestamp quando ficou pronto
-      console.log('⏳ Aguardando 20 segundos para garantir que LID está completamente carregado...')
       
-      // Aguardar mais tempo antes de resolver para garantir que LID está carregado
-      // Aumentado para 20 segundos para garantir que tudo está carregado
-      setTimeout(async () => {
-        // Tentar uma verificação adicional: verificar se pode acessar o estado interno
-        try {
-          // Verificar se o cliente tem acesso ao estado necessário
-          if (client.info && client.info.wid && client.info.wid.user) {
-            // Tentar verificar se o estado interno está carregado
-            try {
-              const page = (client as any).pupPage
-              if (page) {
-                const storeLoaded = await page.evaluate(() => {
-                  return typeof window !== 'undefined' && !!(window as any).Store
-                }).catch(() => false)
-                
-                if (storeLoaded) {
-                  console.log('✅ Cliente WhatsApp completamente pronto para enviar mensagens!')
-                  isInitializing = false
-                  if (resolveLock) resolveLock()
-                  initLock = null
-                  resolve(client)
-                  return
-                } else {
-                  console.warn('⚠️ Store ainda não carregado, aguardando mais 10 segundos...')
-                  setTimeout(() => {
-                    console.log('✅ Cliente WhatsApp pronto após verificação adicional!')
-                    isInitializing = false
-                    if (resolveLock) resolveLock()
-                    initLock = null
-                    resolve(client)
-                  }, 10000)
-                  return
-                }
-              }
-            } catch (error) {
-              console.warn('⚠️ Não foi possível verificar Store, continuando...', error)
-            }
-            
-            console.log('✅ Cliente WhatsApp completamente pronto para enviar mensagens!')
-            isInitializing = false
-            if (resolveLock) resolveLock()
-            initLock = null
-            resolve(client)
-          } else {
-            console.warn('⚠️ Cliente pronto mas info ainda não está completo, aguardando mais...')
-            // Aguardar mais 10 segundos
-            setTimeout(() => {
-              console.log('✅ Cliente WhatsApp pronto após delay adicional!')
-              isInitializing = false
-              if (resolveLock) resolveLock()
-              initLock = null
-              resolve(client)
-            }, 10000)
-          }
-        } catch (error) {
-          console.error('❌ Erro ao verificar estado do cliente:', error)
-          // Mesmo assim, resolver após o delay
-          setTimeout(() => {
-            console.log('✅ Cliente WhatsApp pronto (com aviso)')
-            isInitializing = false
-            if (resolveLock) resolveLock()
-            initLock = null
-            resolve(client)
-          }, 10000)
-        }
-      }, 20000) // 20 segundos de delay após 'ready' para garantir LID está carregado
+      // Aguardar um pouco antes de começar a verificar o Store
+      // O WhatsApp Web precisa de alguns segundos para carregar recursos
+      await new Promise(resolve => setTimeout(resolve, 3000))
+      
+      // Verificar o Store de forma mais eficiente com polling
+      console.log('🔍 Verificando se Store está carregado...')
+      const storeCarregado = await aguardarStoreCarregar(client, 60000) // Timeout de 60 segundos
+      
+      if (storeCarregado) {
+        console.log('✅ Store carregado! Cliente WhatsApp completamente pronto para enviar mensagens!')
+      } else {
+        console.warn('⚠️ Store não carregou completamente após 60 segundos, mas continuando...')
+      }
+      
+      isInitializing = false
+      if (resolveLock) resolveLock()
+      initLock = null
+      resolve(client)
     })
 
     client.on('authenticated', () => {
@@ -324,6 +275,71 @@ async function aguardarClientePronto(timeoutMs: number = 90000): Promise<Client>
   }
   
   throw new Error('Timeout aguardando cliente WhatsApp ficar pronto. Verifique se o WhatsApp está conectado.')
+}
+
+/**
+ * Aguarda até que o Store esteja carregado com polling inteligente
+ */
+async function aguardarStoreCarregar(client: Client, timeoutMs: number = 60000): Promise<boolean> {
+  const startTime = Date.now()
+  let tentativas = 0
+  const intervaloInicial = 1000 // Começar verificando a cada 1 segundo
+  const intervaloMaximo = 5000 // Máximo de 5 segundos entre verificações
+  
+  while (Date.now() - startTime < timeoutMs) {
+    tentativas++
+    try {
+      const page = (client as any).pupPage
+      if (!page) {
+        await new Promise(resolve => setTimeout(resolve, intervaloInicial))
+        continue
+      }
+
+      const storeInfo = await page.evaluate(() => {
+        try {
+          if (typeof window === 'undefined') return { store: false, me: false, msg: false }
+          const Store = (window as any).Store
+          if (!Store) return { store: false, me: false, msg: false }
+          
+          return {
+            store: true,
+            me: !!(Store.Me && Store.Me.wid),
+            msg: !!(Store.Msg && Store.Msg.send),
+            widFactory: !!(Store.WidFactory && Store.WidFactory.createWid),
+          }
+        } catch (error) {
+          return { store: false, me: false, msg: false, error: String(error) }
+        }
+      }).catch(() => ({ store: false, me: false, msg: false }))
+
+      if (storeInfo.store) {
+        if (storeInfo.me || storeInfo.msg || storeInfo.widFactory) {
+          console.log(`✅ Store carregado após ${tentativas} tentativa(s) (${Math.round((Date.now() - startTime) / 1000)}s)`)
+          return true
+        } else {
+          // Store existe mas ainda não tem tudo carregado
+          if (tentativas % 5 === 0) {
+            console.log(`⏳ Store existe mas ainda carregando componentes... (tentativa ${tentativas})`)
+          }
+        }
+      } else {
+        if (tentativas % 5 === 0) {
+          console.log(`⏳ Aguardando Store carregar... (tentativa ${tentativas}, ${Math.round((Date.now() - startTime) / 1000)}s)`)
+        }
+      }
+    } catch (error) {
+      if (tentativas % 10 === 0) {
+        console.warn(`⚠️ Erro ao verificar Store (tentativa ${tentativas}):`, error)
+      }
+    }
+    
+    // Aumentar intervalo gradualmente para não sobrecarregar
+    const intervalo = Math.min(intervaloInicial * Math.floor(tentativas / 5), intervaloMaximo)
+    await new Promise(resolve => setTimeout(resolve, intervalo))
+  }
+  
+  console.warn(`⚠️ Timeout aguardando Store carregar após ${tentativas} tentativas (${Math.round(timeoutMs / 1000)}s)`)
+  return false
 }
 
 /**
