@@ -19,6 +19,7 @@ let whatsappClient: Client | null = null
 let isInitializing = false
 let initializationPromise: Promise<Client> | null = null
 let currentQRCode: string | null = null // Armazenar QR code atual
+let readyTimestamp: number | null = null // Timestamp quando cliente ficou pronto
 
 /**
  * Inicializa cliente WhatsApp
@@ -67,7 +68,11 @@ export async function getWhatsAppClient(): Promise<Client> {
       whatsappClient = client
       isInitializing = false
       currentQRCode = null // Limpar QR code após conexão
-      resolve(client)
+      readyTimestamp = Date.now() // Registrar timestamp quando ficou pronto
+      // Aguardar um pouco antes de resolver para garantir que LID está carregado
+      setTimeout(() => {
+        resolve(client)
+      }, 3000) // 3 segundos de delay após 'ready' para garantir LID está carregado
     })
 
     client.on('authenticated', () => {
@@ -87,6 +92,7 @@ export async function getWhatsAppClient(): Promise<Client> {
       whatsappClient = null
       initializationPromise = null
       isInitializing = false
+      readyTimestamp = null // Limpar timestamp ao desconectar
     })
 
     client.on('error', (error) => {
@@ -112,18 +118,26 @@ export async function getWhatsAppClient(): Promise<Client> {
 
 /**
  * Verifica se o cliente está pronto e completamente autenticado
+ * Aguarda pelo menos 3 segundos após o evento 'ready' para garantir que LID está carregado
  */
 export function isWhatsAppReady(): boolean {
-  return (
-    whatsappClient !== null &&
-    whatsappClient.info !== null &&
-    whatsappClient.info.wid !== undefined &&
-    whatsappClient.info.wid !== null
-  )
+  if (!whatsappClient || !whatsappClient.info || !whatsappClient.info.wid) {
+    return false
+  }
+  
+  // Se não tem timestamp de quando ficou pronto, não está pronto ainda
+  if (!readyTimestamp) {
+    return false
+  }
+  
+  // Aguardar pelo menos 3 segundos após o evento 'ready'
+  const tempoDesdeReady = Date.now() - readyTimestamp
+  return tempoDesdeReady >= 3000
 }
 
 /**
  * Aguarda até que o cliente esteja pronto e autenticado
+ * Garante que pelo menos 3 segundos se passaram desde o evento 'ready'
  */
 async function aguardarClientePronto(timeoutMs: number = 30000): Promise<Client> {
   const startTime = Date.now()
@@ -132,18 +146,34 @@ async function aguardarClientePronto(timeoutMs: number = 30000): Promise<Client>
   try {
     const client = await getWhatsAppClient()
     
-    // Verificar se está pronto
-    if (client && client.info && client.info.wid && client.info.wid.user) {
+    // Verificar se está pronto (com delay de 3 segundos após ready)
+    if (client && client.info && client.info.wid && client.info.wid.user && readyTimestamp) {
+      const tempoDesdeReady = Date.now() - readyTimestamp
+      if (tempoDesdeReady >= 3000) {
+        return client
+      }
+      // Se ainda não passou 3 segundos, aguardar o restante
+      const tempoRestante = 3000 - tempoDesdeReady
+      await new Promise(resolve => setTimeout(resolve, tempoRestante))
       return client
     }
   } catch (error) {
     // Cliente pode estar inicializando, continuar verificando
   }
   
-  // Aguardar até estar pronto
+  // Aguardar até estar pronto (com delay de 3 segundos após ready)
   while (Date.now() - startTime < timeoutMs) {
-    if (whatsappClient && whatsappClient.info && whatsappClient.info.wid && whatsappClient.info.wid.user) {
-      return whatsappClient
+    if (whatsappClient && whatsappClient.info && whatsappClient.info.wid && whatsappClient.info.wid.user && readyTimestamp) {
+      const tempoDesdeReady = Date.now() - readyTimestamp
+      if (tempoDesdeReady >= 3000) {
+        return whatsappClient
+      }
+      // Se ainda não passou 3 segundos, aguardar o restante
+      const tempoRestante = Math.min(3000 - tempoDesdeReady, 1000)
+      await new Promise(resolve => setTimeout(resolve, tempoRestante))
+      if (whatsappClient && whatsappClient.info && whatsappClient.info.wid && whatsappClient.info.wid.user) {
+        return whatsappClient
+      }
     }
     
     // Aguardar um pouco antes de verificar novamente
@@ -151,7 +181,13 @@ async function aguardarClientePronto(timeoutMs: number = 30000): Promise<Client>
   }
   
   // Última tentativa
-  if (whatsappClient && whatsappClient.info && whatsappClient.info.wid && whatsappClient.info.wid.user) {
+  if (whatsappClient && whatsappClient.info && whatsappClient.info.wid && whatsappClient.info.wid.user && readyTimestamp) {
+    const tempoDesdeReady = Date.now() - readyTimestamp
+    if (tempoDesdeReady >= 3000) {
+      return whatsappClient
+    }
+    // Aguardar o restante do tempo
+    await new Promise(resolve => setTimeout(resolve, 3000 - tempoDesdeReady))
     return whatsappClient
   }
   
@@ -319,6 +355,7 @@ export async function desconectarWhatsApp(): Promise<void> {
     initializationPromise = null
     isInitializing = false
     currentQRCode = null
+    readyTimestamp = null // Limpar timestamp ao desconectar
   }
 }
 
