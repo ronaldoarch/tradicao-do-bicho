@@ -310,10 +310,33 @@ export function clearQRCode(): void {
  */
 export async function desconectarWhatsApp(): Promise<void> {
   if (whatsappClient) {
-    await whatsappClient.destroy()
+    try {
+      await whatsappClient.destroy()
+    } catch (error) {
+      console.error('Erro ao destruir cliente WhatsApp:', error)
+    }
     whatsappClient = null
     initializationPromise = null
     isInitializing = false
     currentQRCode = null
+  }
+}
+
+/**
+ * Força reconexão do WhatsApp (desconecta e reconecta)
+ */
+export async function reconectarWhatsApp(): Promise<void> {
+  console.log('🔄 Forçando reconexão do WhatsApp...')
+  await desconectarWhatsApp()
+  
+  // Aguardar um pouco antes de reconectar
+  await new Promise(resolve => setTimeout(resolve, 2000))
+  
+  // Tentar reconectar
+  try {
+    await getWhatsAppClient()
+  } catch (error) {
+    console.error('Erro ao reconectar WhatsApp:', error)
+    throw error
   }
 }

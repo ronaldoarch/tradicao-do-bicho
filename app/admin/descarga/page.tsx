@@ -16,6 +16,7 @@ function WhatsAppConnectionSection() {
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [conectando, setConectando] = useState(false)
+  const [reconectando, setReconectando] = useState(false)
 
   useEffect(() => {
     carregarStatus()
@@ -109,6 +110,36 @@ function WhatsAppConnectionSection() {
       console.error('Erro ao conectar WhatsApp:', error)
       alert('Erro ao conectar WhatsApp. Verifique os logs do servidor.')
       setConectando(false)
+    }
+  }
+
+  const handleReconectar = async () => {
+    if (!confirm('Tem certeza que deseja reconectar o WhatsApp? Isso pode gerar um novo QR code.')) {
+      return
+    }
+
+    setReconectando(true)
+    try {
+      const res = await fetch('/api/admin/whatsapp/reconectar', {
+        method: 'POST',
+      })
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        alert('✅ WhatsApp reconectado! Aguarde alguns segundos e verifique o status.')
+        // Aguardar um pouco e recarregar status
+        setTimeout(() => {
+          carregarStatus()
+          carregarQRCode()
+        }, 3000)
+      } else {
+        alert(data.error || 'Erro ao reconectar WhatsApp')
+      }
+    } catch (error) {
+      console.error('Erro ao reconectar WhatsApp:', error)
+      alert('Erro ao reconectar WhatsApp. Verifique os logs do servidor.')
+    } finally {
+      setReconectando(false)
     }
   }
 
