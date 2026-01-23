@@ -88,7 +88,10 @@ export async function gerarPDFRelatorioDescarga(
   }
 
   // Criar PDF
-  const doc = new PDFDocument({ margin: 50 })
+  const doc = new PDFDocument({ 
+    margin: 50,
+    autoFirstPage: true,
+  })
   const buffers: Buffer[] = []
 
   doc.on('data', buffers.push.bind(buffers))

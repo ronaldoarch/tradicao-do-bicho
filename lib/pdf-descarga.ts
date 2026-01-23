@@ -35,6 +35,7 @@ export async function gerarPDFDescarga(
       const doc = new PDFDocument({
         size: 'A4',
         margins: { top: 50, bottom: 50, left: 50, right: 50 },
+        autoFirstPage: true,
       })
 
       const chunks: Buffer[] = []
@@ -43,17 +44,26 @@ export async function gerarPDFDescarga(
       doc.on('end', () => resolve(Buffer.concat(chunks)))
       doc.on('error', reject)
 
+      // Função helper para usar fonte com fallback
+      const usarFonte = (nomeFonte: string) => {
+        try {
+          doc.font(nomeFonte)
+        } catch (error) {
+          // Se falhar, usar fonte padrão (Helvetica é padrão)
+          console.warn(`Fonte ${nomeFonte} não disponível, usando padrão`)
+          // Não precisa fazer nada, PDFKit usa Helvetica como padrão
+        }
+      }
+
       // Cabeçalho
-      doc
-        .fontSize(20)
-        .font('Helvetica-Bold')
-        .text('RELATÓRIO DE DESCARGA / CONTROLE DE BANCA', { align: 'center' })
+      doc.fontSize(20)
+      usarFonte('Helvetica-Bold')
+      doc.text('RELATÓRIO DE DESCARGA / CONTROLE DE BANCA', { align: 'center' })
 
       doc.moveDown()
-      doc
-        .fontSize(12)
-        .font('Helvetica')
-        .text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, { align: 'center' })
+      doc.fontSize(12)
+      usarFonte('Helvetica')
+      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, { align: 'center' })
 
       if (dataConcurso) {
         doc.text(`Data do Concurso: ${dataConcurso.toLocaleDateString('pt-BR')}`, {
@@ -65,9 +75,12 @@ export async function gerarPDFDescarga(
 
       // Limites Configurados
       if (incluirLimites) {
-        doc.fontSize(16).font('Helvetica-Bold').text('LIMITES CONFIGURADOS')
+        doc.fontSize(16)
+        usarFonte('Helvetica-Bold')
+        doc.text('LIMITES CONFIGURADOS')
         doc.moveDown(0.5)
-        doc.fontSize(10).font('Helvetica')
+        doc.fontSize(10)
+        usarFonte('Helvetica')
 
         const limites = await prisma.limiteDescarga.findMany({
           where: {
@@ -84,14 +97,14 @@ export async function gerarPDFDescarga(
         if (limites.length === 0) {
           doc.text('Nenhum limite configurado.', { indent: 20 })
         } else {
-          doc.font('Helvetica-Bold')
+          usarFonte('Helvetica-Bold')
           doc.text('Modalidade', 50, doc.y, { continued: true, width: 150 })
           doc.text('Prêmio', { continued: true, width: 80 })
           doc.text('Limite (R$)', { continued: true, width: 120 })
           doc.text('Status', { width: 80 })
           doc.moveDown(0.3)
 
-          doc.font('Helvetica')
+          usarFonte('Helvetica')
           limites.forEach((limite) => {
             const y = doc.y
             if (y > 750) {
@@ -111,9 +124,12 @@ export async function gerarPDFDescarga(
 
       // Alertas
       if (incluirAlertas) {
-        doc.fontSize(16).font('Helvetica-Bold').text('ALERTAS DE DESCARGA')
+        doc.fontSize(16)
+        usarFonte('Helvetica-Bold')
+        doc.text('ALERTAS DE DESCARGA')
         doc.moveDown(0.5)
-        doc.fontSize(10).font('Helvetica')
+        doc.fontSize(10)
+        usarFonte('Helvetica')
 
         const alertas = await prisma.alertaDescarga.findMany({
           where: {
@@ -136,14 +152,14 @@ export async function gerarPDFDescarga(
         if (alertas.length === 0) {
           doc.text('Nenhum alerta pendente.', { indent: 20 })
         } else {
-          doc.font('Helvetica-Bold')
+          usarFonte('Helvetica-Bold')
           doc.text('Modalidade', 50, doc.y, { continued: true, width: 120 })
           doc.text('Prêmio', { continued: true, width: 60 })
           doc.text('Total (R$)', { continued: true, width: 100 })
           doc.text('Excedente (R$)', { width: 120 })
           doc.moveDown(0.3)
 
-          doc.font('Helvetica')
+          usarFonte('Helvetica')
           alertas.forEach((alerta) => {
             const y = doc.y
             if (y > 750) {
@@ -153,10 +169,10 @@ export async function gerarPDFDescarga(
             doc.text(alerta.modalidade, 50, doc.y, { continued: true, width: 120 })
             doc.text(`${alerta.premio}º`, { continued: true, width: 60 })
             doc.text(formatarMoeda(alerta.totalApostado), { continued: true, width: 100 })
-            doc.font('Helvetica-Bold')
+            usarFonte('Helvetica-Bold')
             doc.fillColor('red')
             doc.text(formatarMoeda(alerta.excedente), { width: 120 })
-            doc.font('Helvetica')
+            usarFonte('Helvetica')
             doc.fillColor('black')
             doc.moveDown(0.3)
           })
@@ -167,16 +183,19 @@ export async function gerarPDFDescarga(
 
       // Estatísticas
       if (incluirEstatisticas) {
-        doc.fontSize(16).font('Helvetica-Bold').text('ESTATÍSTICAS DE DESCARGA')
+        doc.fontSize(16)
+        usarFonte('Helvetica-Bold')
+        doc.text('ESTATÍSTICAS DE DESCARGA')
         doc.moveDown(0.5)
-        doc.fontSize(10).font('Helvetica')
+        doc.fontSize(10)
+        usarFonte('Helvetica')
 
         const estatisticas = await buscarEstatisticasDescarga(modalidade, premio, dataConcurso)
 
         if (estatisticas.length === 0) {
           doc.text('Nenhuma estatística disponível.', { indent: 20 })
         } else {
-          doc.font('Helvetica-Bold')
+          usarFonte('Helvetica-Bold')
           doc.text('Modalidade', 50, doc.y, { continued: true, width: 120 })
           doc.text('Prêmio', { continued: true, width: 60 })
           doc.text('Total (R$)', { continued: true, width: 100 })
@@ -184,7 +203,7 @@ export async function gerarPDFDescarga(
           doc.text('Status', { width: 100 })
           doc.moveDown(0.3)
 
-          doc.font('Helvetica')
+          usarFonte('Helvetica')
           estatisticas.forEach((stat) => {
             const y = doc.y
             if (y > 750) {
@@ -199,14 +218,15 @@ export async function gerarPDFDescarga(
               width: 100,
             })
             if (stat.ultrapassou) {
-              doc.font('Helvetica-Bold')
+              usarFonte('Helvetica-Bold')
               doc.fillColor('red')
               doc.text(`Ultrapassado (+${formatarMoeda(stat.excedente)})`, { width: 100 })
             } else {
               doc.fillColor('green')
               doc.text('Dentro do limite', { width: 100 })
             }
-            doc.font('Helvetica').fillColor('black')
+            usarFonte('Helvetica')
+            doc.fillColor('black')
             doc.moveDown(0.3)
           })
         }
@@ -218,15 +238,14 @@ export async function gerarPDFDescarga(
       const totalPages = doc.bufferedPageRange().count
       for (let i = 0; i < totalPages; i++) {
         doc.switchToPage(i)
-        doc
-          .fontSize(8)
-          .font('Helvetica')
-          .text(
-            `Página ${i + 1} de ${totalPages} - Tradição do Bicho - Sistema de Descarga`,
-            50,
-            doc.page.height - 30,
-            { align: 'center' }
-          )
+        doc.fontSize(8)
+        usarFonte('Helvetica')
+        doc.text(
+          `Página ${i + 1} de ${totalPages} - Tradição do Bicho - Sistema de Descarga`,
+          50,
+          doc.page.height - 30,
+          { align: 'center' }
+        )
       }
 
       doc.end()

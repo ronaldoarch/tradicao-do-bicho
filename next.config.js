@@ -18,6 +18,16 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Garantir que pdfkit seja tratado como módulo externo no servidor
+      config.externals = config.externals || []
+      config.externals.push({
+        'pdfkit': 'commonjs pdfkit',
+      })
+    }
+    return config
+  },
 }
 
 module.exports = nextConfig
