@@ -337,7 +337,7 @@ async function aguardarStoreCarregar(client: Client, timeoutMs: number = 30000):
         } catch (error) {
           return { store: false, me: false, msg: false, ready: false, error: String(error) }
         }
-      }).catch((error) => {
+      }).catch((error: any) => {
         return { store: false, me: false, msg: false, ready: false, error: String(error) }
       })
 
