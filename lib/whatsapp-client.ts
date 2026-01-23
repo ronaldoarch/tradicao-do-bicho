@@ -24,8 +24,8 @@ let currentQRCode: string | null = null // Armazenar QR code atual
  * Inicializa cliente WhatsApp
  */
 export async function getWhatsAppClient(): Promise<Client> {
-  // Se já existe cliente inicializado, retornar
-  if (whatsappClient && whatsappClient.info) {
+  // Se já existe cliente inicializado e autenticado, retornar
+  if (whatsappClient && whatsappClient.info && whatsappClient.info.wid) {
     return whatsappClient
   }
 
