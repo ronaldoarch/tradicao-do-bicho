@@ -118,6 +118,24 @@ export function isWhatsAppReady(): boolean {
 }
 
 /**
+ * Aguarda até que o cliente esteja pronto e autenticado
+ */
+async function aguardarClientePronto(timeoutMs: number = 30000): Promise<Client> {
+  const startTime = Date.now()
+  
+  while (Date.now() - startTime < timeoutMs) {
+    if (whatsappClient && whatsappClient.info && whatsappClient.info.wid) {
+      return whatsappClient
+    }
+    
+    // Aguardar um pouco antes de verificar novamente
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
+  
+  throw new Error('Timeout aguardando cliente WhatsApp ficar pronto')
+}
+
+/**
  * Envia PDF via WhatsApp usando whatsapp-web.js
  */
 export async function enviarPDFViaWhatsAppWeb(
@@ -126,8 +144,24 @@ export async function enviarPDFViaWhatsAppWeb(
   mensagem?: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    // Obter cliente (aguarda inicialização se necessário)
-    const client = await getWhatsAppClient()
+    // Verificar se cliente está pronto
+    if (!isWhatsAppReady()) {
+      return {
+        success: false,
+        error: 'WhatsApp não está conectado. Por favor, conecte o WhatsApp primeiro.',
+      }
+    }
+
+    // Obter cliente e aguardar até estar completamente pronto
+    const client = await aguardarClientePronto()
+
+    // Verificar novamente se tem info válido
+    if (!client.info || !client.info.wid) {
+      return {
+        success: false,
+        error: 'WhatsApp não está completamente autenticado. Por favor, reconecte.',
+      }
+    }
 
     // Formatar número (remover caracteres não numéricos, adicionar código do país se necessário)
     const numeroFormatado = formatarNumeroWhatsApp(numero)
@@ -151,9 +185,16 @@ export async function enviarPDFViaWhatsAppWeb(
     }
   } catch (error: any) {
     console.error('Erro ao enviar PDF via WhatsApp Web:', error)
+    
+    // Mensagem de erro mais amigável
+    let errorMessage = error.message || 'Erro desconhecido'
+    if (errorMessage.includes('LID') || errorMessage.includes('No LID')) {
+      errorMessage = 'WhatsApp não está completamente autenticado. Por favor, desconecte e reconecte o WhatsApp.'
+    }
+    
     return {
       success: false,
-      error: error.message || 'Erro desconhecido',
+      error: errorMessage,
     }
   }
 }
@@ -166,8 +207,24 @@ export async function enviarMensagemViaWhatsAppWeb(
   mensagem: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    // Obter cliente (aguarda inicialização se necessário)
-    const client = await getWhatsAppClient()
+    // Verificar se cliente está pronto
+    if (!isWhatsAppReady()) {
+      return {
+        success: false,
+        error: 'WhatsApp não está conectado. Por favor, conecte o WhatsApp primeiro.',
+      }
+    }
+
+    // Obter cliente e aguardar até estar completamente pronto
+    const client = await aguardarClientePronto()
+
+    // Verificar novamente se tem info válido
+    if (!client.info || !client.info.wid) {
+      return {
+        success: false,
+        error: 'WhatsApp não está completamente autenticado. Por favor, reconecte.',
+      }
+    }
 
     // Formatar número
     const numeroFormatado = formatarNumeroWhatsApp(numero)
@@ -182,9 +239,16 @@ export async function enviarMensagemViaWhatsAppWeb(
     }
   } catch (error: any) {
     console.error('Erro ao enviar mensagem via WhatsApp Web:', error)
+    
+    // Mensagem de erro mais amigável
+    let errorMessage = error.message || 'Erro desconhecido'
+    if (errorMessage.includes('LID') || errorMessage.includes('No LID')) {
+      errorMessage = 'WhatsApp não está completamente autenticado. Por favor, desconecte e reconecte o WhatsApp.'
+    }
+    
     return {
       success: false,
-      error: error.message || 'Erro desconhecido',
+      error: errorMessage,
     }
   }
 }
