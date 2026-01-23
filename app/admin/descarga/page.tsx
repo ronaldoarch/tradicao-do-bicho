@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { QRCodeSVG } from 'qrcode.react'
 
 // Componente para gerenciar conexão WhatsApp
 function WhatsAppConnectionSection() {
@@ -12,13 +13,27 @@ function WhatsAppConnectionSection() {
     plataforma?: string
     mensagem?: string
   } | null>(null)
+  const [qrCode, setQrCode] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [conectando, setConectando] = useState(false)
 
   useEffect(() => {
     carregarStatus()
-    // Atualizar status a cada 5 segundos
-    const interval = setInterval(carregarStatus, 5000)
+    carregarQRCode()
+    
+    // Atualizar status e QR code a cada 2 segundos quando não conectado
+    const interval = setInterval(async () => {
+      await carregarStatus()
+      // Verificar status atual antes de buscar QR code
+      const res = await fetch('/api/admin/whatsapp/status').catch(() => null)
+      if (res) {
+        const data = await res.json()
+        if (!data.conectado) {
+          carregarQRCode()
+        }
+      }
+    }, 2000)
+    
     return () => clearInterval(interval)
   }, [])
 
@@ -27,10 +42,28 @@ function WhatsAppConnectionSection() {
       const res = await fetch('/api/admin/whatsapp/status')
       const data = await res.json()
       setStatus(data)
+      if (data.conectado) {
+        setQrCode(null) // Limpar QR code quando conectado
+      }
     } catch (error) {
       console.error('Erro ao carregar status WhatsApp:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const carregarQRCode = async () => {
+    try {
+      const res = await fetch('/api/admin/whatsapp/qr-code')
+      const data = await res.json()
+      if (data.qrCode) {
+        setQrCode(data.qrCode)
+      } else if (data.autenticado) {
+        setQrCode(null)
+        carregarStatus() // Recarregar status se autenticado
+      }
+    } catch (error) {
+      console.error('Erro ao carregar QR code:', error)
     }
   }
 
@@ -44,13 +77,37 @@ function WhatsAppConnectionSection() {
       if (data.autenticado) {
         alert('WhatsApp já está conectado!')
         carregarStatus()
-      } else {
-        alert('WhatsApp está sendo inicializado. Verifique os logs do servidor para ver o QR code.\n\nExecute no terminal: npm run init:whatsapp')
+        setConectando(false)
+        return
       }
+      
+      // Aguardar e buscar QR code (pode levar alguns segundos para gerar)
+      let tentativas = 0
+      const buscarQRCode = setInterval(async () => {
+        tentativas++
+        await carregarQRCode()
+        const qrRes = await fetch('/api/admin/whatsapp/qr-code').catch(() => null)
+        if (qrRes) {
+          const qrData = await qrRes.json()
+          if (qrData.qrCode) {
+            setQrCode(qrData.qrCode)
+            clearInterval(buscarQRCode)
+            setConectando(false)
+          } else if (qrData.autenticado) {
+            clearInterval(buscarQRCode)
+            setConectando(false)
+            carregarStatus()
+          } else if (tentativas >= 15) {
+            // Timeout após 15 tentativas (30 segundos)
+            clearInterval(buscarQRCode)
+            setConectando(false)
+            alert('QR code não foi gerado. Verifique os logs do servidor.')
+          }
+        }
+      }, 2000)
     } catch (error) {
       console.error('Erro ao conectar WhatsApp:', error)
       alert('Erro ao conectar WhatsApp. Verifique os logs do servidor.')
-    } finally {
       setConectando(false)
     }
   }
@@ -97,24 +154,45 @@ function WhatsAppConnectionSection() {
           <p className="text-sm text-yellow-700 mb-4">
             {status?.mensagem || 'Você precisa conectar um WhatsApp para enviar relatórios automaticamente.'}
           </p>
-          <div className="space-y-2">
-            <button
-              onClick={handleConectar}
-              disabled={conectando}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-            >
-              {conectando ? 'Conectando...' : 'Conectar WhatsApp'}
-            </button>
-            <div className="text-xs text-yellow-600 bg-yellow-100 p-3 rounded mt-2">
-              <strong>Como conectar:</strong>
-              <ol className="list-decimal list-inside mt-1 space-y-1">
-                <li>Clique em "Conectar WhatsApp" acima</li>
-                <li>Execute no terminal: <code className="bg-yellow-200 px-1 rounded">npm run init:whatsapp</code></li>
-                <li>Escaneie o QR code exibido no terminal com seu WhatsApp</li>
-                <li>Aguarde a confirmação de conexão</li>
-              </ol>
+          
+          {qrCode ? (
+            <div className="space-y-4">
+              <div className="bg-white rounded-lg p-4 border-2 border-yellow-300">
+                <p className="text-sm font-semibold text-center mb-3 text-gray-800">
+                  Escaneie este QR code com seu WhatsApp:
+                </p>
+                <div className="flex justify-center">
+                  <QRCodeSVG value={qrCode} size={256} level="M" />
+                </div>
+                <p className="text-xs text-center text-gray-600 mt-3">
+                  1. Abra o WhatsApp no celular<br />
+                  2. Vá em Configurações → Aparelhos conectados → Conectar um aparelho<br />
+                  3. Escaneie o QR code acima
+                </p>
+              </div>
+              <button
+                onClick={carregarStatus}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Verificar Conexão
+              </button>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <button
+                onClick={handleConectar}
+                disabled={conectando}
+                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {conectando ? 'Conectando...' : 'Conectar WhatsApp'}
+              </button>
+              {conectando && (
+                <p className="text-xs text-center text-yellow-600">
+                  Aguardando geração do QR code...
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -18,6 +18,7 @@ if (!existsSync(SESSION_DIR)) {
 let whatsappClient: Client | null = null
 let isInitializing = false
 let initializationPromise: Promise<Client> | null = null
+let currentQRCode: string | null = null // Armazenar QR code atual
 
 /**
  * Inicializa cliente WhatsApp
@@ -57,14 +58,15 @@ export async function getWhatsAppClient(): Promise<Client> {
     // Eventos do cliente
     client.on('qr', (qr) => {
       console.log('📱 QR Code gerado para autenticação WhatsApp. Escaneie com seu celular.')
-      console.log('QR Code:', qr)
-      // Em produção, você pode salvar o QR code em um arquivo ou exibir em uma página admin
+      // Armazenar QR code para acesso via API
+      currentQRCode = qr
     })
 
     client.on('ready', () => {
       console.log('✅ WhatsApp conectado e pronto!')
       whatsappClient = client
       isInitializing = false
+      currentQRCode = null // Limpar QR code após conexão
       resolve(client)
     })
 
@@ -203,6 +205,20 @@ function formatarNumeroWhatsApp(numero: string): string {
 }
 
 /**
+ * Obtém QR code atual (se disponível)
+ */
+export function getCurrentQRCode(): string | null {
+  return currentQRCode
+}
+
+/**
+ * Limpa QR code atual
+ */
+export function clearQRCode(): void {
+  currentQRCode = null
+}
+
+/**
  * Desconecta cliente WhatsApp
  */
 export async function desconectarWhatsApp(): Promise<void> {
@@ -211,5 +227,6 @@ export async function desconectarWhatsApp(): Promise<void> {
     whatsappClient = null
     initializationPromise = null
     isInitializing = false
+    currentQRCode = null
   }
 }

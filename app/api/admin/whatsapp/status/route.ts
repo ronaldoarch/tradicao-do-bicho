@@ -26,16 +26,25 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // Tentar inicializar se não estiver pronto
+    try {
+      getWhatsAppClient().catch(() => {
+        // Cliente pode estar inicializando, continuar
+      })
+    } catch (error) {
+      // Ignorar erros de inicialização
+    }
+
     return NextResponse.json({
       conectado: false,
-      mensagem: 'WhatsApp não está conectado. Inicializando...',
+      mensagem: 'WhatsApp não está conectado. Clique em "Conectar WhatsApp" para gerar o QR code.',
     })
   } catch (error: any) {
     console.error('Erro ao verificar status do WhatsApp:', error)
     return NextResponse.json(
       {
         conectado: false,
-        error: error.message || 'Erro ao verificar status',
+        mensagem: error.message || 'Erro ao verificar status',
       },
       { status: 500 }
     )
