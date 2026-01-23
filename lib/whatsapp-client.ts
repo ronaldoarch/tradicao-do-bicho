@@ -128,8 +128,21 @@ export function isWhatsAppReady(): boolean {
 async function aguardarClientePronto(timeoutMs: number = 30000): Promise<Client> {
   const startTime = Date.now()
   
+  // Primeiro, tentar obter o cliente (pode estar inicializando)
+  try {
+    const client = await getWhatsAppClient()
+    
+    // Verificar se está pronto
+    if (client && client.info && client.info.wid && client.info.wid.user) {
+      return client
+    }
+  } catch (error) {
+    // Cliente pode estar inicializando, continuar verificando
+  }
+  
+  // Aguardar até estar pronto
   while (Date.now() - startTime < timeoutMs) {
-    if (whatsappClient && whatsappClient.info && whatsappClient.info.wid) {
+    if (whatsappClient && whatsappClient.info && whatsappClient.info.wid && whatsappClient.info.wid.user) {
       return whatsappClient
     }
     
@@ -137,7 +150,12 @@ async function aguardarClientePronto(timeoutMs: number = 30000): Promise<Client>
     await new Promise(resolve => setTimeout(resolve, 500))
   }
   
-  throw new Error('Timeout aguardando cliente WhatsApp ficar pronto')
+  // Última tentativa
+  if (whatsappClient && whatsappClient.info && whatsappClient.info.wid && whatsappClient.info.wid.user) {
+    return whatsappClient
+  }
+  
+  throw new Error('Timeout aguardando cliente WhatsApp ficar pronto. Verifique se o WhatsApp está conectado.')
 }
 
 /**

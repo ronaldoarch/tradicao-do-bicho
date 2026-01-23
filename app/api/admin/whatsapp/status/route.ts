@@ -14,16 +14,34 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Verificar se cliente está pronto
     const ready = isWhatsAppReady()
     
     if (ready) {
-      const client = await getWhatsAppClient()
-      return NextResponse.json({
-        conectado: true,
-        numero: client.info?.wid.user || 'N/A',
-        nome: client.info?.pushname || 'N/A',
-        plataforma: client.info?.platform || 'N/A',
-      })
+      try {
+        const client = await getWhatsAppClient()
+        
+        // Verificação adicional: garantir que wid existe
+        if (!client.info || !client.info.wid || !client.info.wid.user) {
+          return NextResponse.json({
+            conectado: false,
+            mensagem: 'WhatsApp não está completamente autenticado. Por favor, reconecte.',
+          })
+        }
+        
+        return NextResponse.json({
+          conectado: true,
+          numero: client.info.wid.user,
+          nome: client.info.pushname || 'N/A',
+          plataforma: client.info.platform || 'N/A',
+        })
+      } catch (error) {
+        // Se houver erro ao obter cliente, considerar desconectado
+        return NextResponse.json({
+          conectado: false,
+          mensagem: 'Erro ao verificar status do cliente WhatsApp.',
+        })
+      }
     }
 
     // Tentar inicializar se não estiver pronto
