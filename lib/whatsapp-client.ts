@@ -327,6 +327,73 @@ async function aguardarClientePronto(timeoutMs: number = 90000): Promise<Client>
 }
 
 /**
+ * Verifica se o LID está disponível no cliente WhatsApp
+ */
+async function verificarLIDDisponivel(client: Client): Promise<boolean> {
+  try {
+    const page = (client as any).pupPage
+    if (!page) {
+      console.warn('⚠️ Não foi possível acessar a página do Puppeteer')
+      return false
+    }
+
+    // Verificar se o Store está carregado e se o LID está disponível
+    const lidDisponivel = await page.evaluate(() => {
+      try {
+        if (typeof window === 'undefined') return false
+        const Store = (window as any).Store
+        if (!Store) return false
+        
+        // Tentar acessar o LID através do Store
+        // O LID geralmente está em Store.Me ou Store.WidFactory
+        if (Store.Me && Store.Me.wid) {
+          return true
+        }
+        if (Store.WidFactory && Store.WidFactory.createWid) {
+          return true
+        }
+        
+        // Verificar se há algum método de envio disponível
+        if (Store.Msg && Store.Msg.send) {
+          return true
+        }
+        
+        return false
+      } catch (error) {
+        console.error('Erro ao verificar LID:', error)
+        return false
+      }
+    }).catch(() => false)
+
+    return lidDisponivel
+  } catch (error) {
+    console.warn('⚠️ Erro ao verificar LID:', error)
+    return false
+  }
+}
+
+/**
+ * Aguarda até que o LID esteja disponível
+ */
+async function aguardarLIDDisponivel(client: Client, timeoutMs: number = 30000): Promise<boolean> {
+  const startTime = Date.now()
+  
+  while (Date.now() - startTime < timeoutMs) {
+    const lidDisponivel = await verificarLIDDisponivel(client)
+    if (lidDisponivel) {
+      console.log('✅ LID confirmado como disponível!')
+      return true
+    }
+    
+    // Aguardar 2 segundos antes de verificar novamente
+    await new Promise(resolve => setTimeout(resolve, 2000))
+  }
+  
+  console.warn('⚠️ Timeout aguardando LID ficar disponível')
+  return false
+}
+
+/**
  * Envia PDF via WhatsApp usando whatsapp-web.js
  */
 export async function enviarPDFViaWhatsAppWeb(
@@ -354,6 +421,18 @@ export async function enviarPDFViaWhatsAppWeb(
       }
     }
 
+    // Verificar se o LID está disponível antes de tentar enviar
+    console.log('🔍 Verificando se LID está disponível antes de enviar...')
+    const lidDisponivel = await aguardarLIDDisponivel(client, 30000)
+    
+    if (!lidDisponivel) {
+      console.warn('⚠️ LID não está disponível após 30 segundos de espera')
+      return {
+        success: false,
+        error: 'WhatsApp não está completamente autenticado. O LID ainda não está disponível. Por favor, desconecte e reconecte o WhatsApp.',
+      }
+    }
+
     // Formatar número (remover caracteres não numéricos, adicionar código do país se necessário)
     const numeroFormatado = formatarNumeroWhatsApp(numero)
 
@@ -364,33 +443,14 @@ export async function enviarPDFViaWhatsAppWeb(
       `relatorio_descarga_${new Date().toISOString().split('T')[0]}.pdf`
     )
 
-    // Verificação adicional: tentar acessar o estado interno do cliente
-    // Isso garante que o LID está realmente carregado
-    try {
-      // Tentar acessar o estado do cliente para verificar se LID está disponível
-      const page = (client as any).pupPage
-      if (page) {
-        // Verificar se o estado do WhatsApp está carregado
-        await page.evaluate(() => {
-          // Verificar se window.Store existe (indica que WhatsApp está carregado)
-          if (typeof window !== 'undefined' && (window as any).Store) {
-            return true
-          }
-          return false
-        }).catch(() => {
-          // Se falhar, continuar mesmo assim
-        })
-      }
-    } catch (error) {
-      console.warn('⚠️ Não foi possível verificar estado interno do cliente, continuando...', error)
-    }
-
     // Enviar mensagem com PDF
+    console.log(`📤 Enviando PDF para ${numeroFormatado}...`)
     const chatId = `${numeroFormatado}@c.us`
     const message = await client.sendMessage(chatId, media, {
       caption: mensagem || '📊 Relatório de Descarga',
     })
 
+    console.log('✅ PDF enviado com sucesso!')
     return {
       success: true,
       messageId: message.id._serialized,
@@ -401,7 +461,7 @@ export async function enviarPDFViaWhatsAppWeb(
     // Mensagem de erro mais amigável
     let errorMessage = error.message || 'Erro desconhecido'
     if (errorMessage.includes('LID') || errorMessage.includes('No LID')) {
-      errorMessage = 'WhatsApp não está completamente autenticado. Por favor, desconecte e reconecte o WhatsApp.'
+      errorMessage = 'WhatsApp não está completamente autenticado. O LID não está disponível. Por favor, desconecte e reconecte o WhatsApp.'
     }
     
     return {
@@ -438,13 +498,27 @@ export async function enviarMensagemViaWhatsAppWeb(
       }
     }
 
+    // Verificar se o LID está disponível antes de tentar enviar
+    console.log('🔍 Verificando se LID está disponível antes de enviar mensagem...')
+    const lidDisponivel = await aguardarLIDDisponivel(client, 30000)
+    
+    if (!lidDisponivel) {
+      console.warn('⚠️ LID não está disponível após 30 segundos de espera')
+      return {
+        success: false,
+        error: 'WhatsApp não está completamente autenticado. O LID ainda não está disponível. Por favor, desconecte e reconecte o WhatsApp.',
+      }
+    }
+
     // Formatar número
     const numeroFormatado = formatarNumeroWhatsApp(numero)
 
     // Enviar mensagem
+    console.log(`📤 Enviando mensagem para ${numeroFormatado}...`)
     const chatId = `${numeroFormatado}@c.us`
     const message = await client.sendMessage(chatId, mensagem)
 
+    console.log('✅ Mensagem enviada com sucesso!')
     return {
       success: true,
       messageId: message.id._serialized,
@@ -455,7 +529,7 @@ export async function enviarMensagemViaWhatsAppWeb(
     // Mensagem de erro mais amigável
     let errorMessage = error.message || 'Erro desconhecido'
     if (errorMessage.includes('LID') || errorMessage.includes('No LID')) {
-      errorMessage = 'WhatsApp não está completamente autenticado. Por favor, desconecte e reconecte o WhatsApp.'
+      errorMessage = 'WhatsApp não está completamente autenticado. O LID não está disponível. Por favor, desconecte e reconecte o WhatsApp.'
     }
     
     return {
