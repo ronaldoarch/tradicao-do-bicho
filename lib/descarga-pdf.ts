@@ -2,6 +2,8 @@ import PDFDocument from 'pdfkit'
 import { buscarEstatisticasDescarga } from './descarga-helpers'
 import { prisma } from './prisma'
 import { getHorarioRealApuracao } from '@/data/horarios-reais-apuracao'
+import { extracoes } from '@/data/extracoes'
+import { estaNoHorarioEnvio } from '@/data/horarios-envio-descarga'
 
 export interface RelatorioDescargaData {
   data: Date
@@ -175,16 +177,58 @@ export async function gerarPDFRelatorioDescarga(
 /**
  * Verifica se está X minutos antes do fechamento de uma extração
  */
+/**
+ * Verifica se está próximo do horário de fechamento
+ * Agora usa os horários de envio mapeados da tabela oficial
+ */
 export function estaProximoDoFechamento(
   loteria: string,
   horario: string,
   minutosAntes: number = 10
 ): boolean {
-  const horarioReal = getHorarioRealApuracao(loteria, horario)
-  if (!horarioReal) return false
+  // NOVO: Usar horários de envio mapeados da tabela oficial
+  // Isso garante que o relatório seja enviado nos horários corretos
+  // Permite executar 1 minuto antes até 2 minutos depois do horário de envio
+  if (estaNoHorarioEnvio(loteria, horario, 1, 2)) {
+    return true
+  }
+  
+  // Fallback: usar lógica antiga se não houver mapeamento específico
+  const extracao = extracoes.find(
+    (e) => e.name === loteria && e.time === horario && e.active
+  )
+  
+  if (!extracao) {
+    // Fallback: tentar usar horarios-reais-apuracao.ts
+    const horarioReal = getHorarioRealApuracao(loteria, horario)
+    if (!horarioReal) return false
+    
+    const agora = new Date()
+    const [horaFechamento, minutoFechamento] = horarioReal.closeTimeReal
+      .split(':')
+      .map(Number)
+
+    const dataFechamento = new Date()
+    dataFechamento.setHours(horaFechamento, minutoFechamento, 0, 0)
+
+    // Se já passou o horário hoje, considerar amanhã
+    if (dataFechamento < agora) {
+      dataFechamento.setDate(dataFechamento.getDate() + 1)
+    }
+
+    const diferencaMinutos =
+      (dataFechamento.getTime() - agora.getTime()) / (1000 * 60)
+
+    return diferencaMinutos <= minutosAntes && diferencaMinutos >= 0
+  }
+
+  // Usar realCloseTime se disponível, senão usar closeTime
+  const horarioFechamento = extracao.realCloseTime || extracao.closeTime || extracao.time
+  
+  if (!horarioFechamento) return false
 
   const agora = new Date()
-  const [horaFechamento, minutoFechamento] = horarioReal.closeTimeReal
+  const [horaFechamento, minutoFechamento] = horarioFechamento
     .split(':')
     .map(Number)
 

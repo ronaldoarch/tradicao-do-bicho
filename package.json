@@ -17,7 +17,8 @@
     "prisma:studio": "prisma studio",
     "prisma:push": "prisma db push",
     "init:db": "node scripts/check-db.js",
-    "create-admin": "tsx scripts/create-admin.ts"
+    "create-admin": "tsx scripts/create-admin.ts",
+    "init:whatsapp": "tsx scripts/init-whatsapp.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",
@@ -27,7 +28,8 @@
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "swiper": "^11.0.0"
+    "swiper": "^11.0.0",
+    "whatsapp-web.js": "^1.34.4"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

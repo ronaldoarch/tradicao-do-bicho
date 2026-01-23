@@ -34,5 +34,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 public/uploads/
+public/pdfs-pendentes/
 
 /lib/generated/prisma
+
+# WhatsApp Web.js session
+.wwebjs_auth/
+.wwebjs_cache/

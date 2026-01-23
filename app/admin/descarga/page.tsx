@@ -3,6 +3,124 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
+// Componente para gerenciar conexão WhatsApp
+function WhatsAppConnectionSection() {
+  const [status, setStatus] = useState<{
+    conectado: boolean
+    numero?: string
+    nome?: string
+    plataforma?: string
+    mensagem?: string
+  } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [conectando, setConectando] = useState(false)
+
+  useEffect(() => {
+    carregarStatus()
+    // Atualizar status a cada 5 segundos
+    const interval = setInterval(carregarStatus, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const carregarStatus = async () => {
+    try {
+      const res = await fetch('/api/admin/whatsapp/status')
+      const data = await res.json()
+      setStatus(data)
+    } catch (error) {
+      console.error('Erro ao carregar status WhatsApp:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleConectar = async () => {
+    setConectando(true)
+    try {
+      // Inicializar WhatsApp (vai gerar QR code se necessário)
+      const res = await fetch('/api/admin/whatsapp/qr-code')
+      const data = await res.json()
+      
+      if (data.autenticado) {
+        alert('WhatsApp já está conectado!')
+        carregarStatus()
+      } else {
+        alert('WhatsApp está sendo inicializado. Verifique os logs do servidor para ver o QR code.\n\nExecute no terminal: npm run init:whatsapp')
+      }
+    } catch (error) {
+      console.error('Erro ao conectar WhatsApp:', error)
+      alert('Erro ao conectar WhatsApp. Verifique os logs do servidor.')
+    } finally {
+      setConectando(false)
+    }
+  }
+
+  if (loading) {
+    return <div className="text-center py-4">Carregando status...</div>
+  }
+
+  return (
+    <div className="space-y-4">
+      {status?.conectado ? (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-2xl">✅</span>
+            <span className="font-semibold text-green-800">WhatsApp Conectado</span>
+          </div>
+          <div className="text-sm text-green-700 space-y-1">
+            {status.numero && (
+              <div>
+                <span className="font-medium">Número:</span> {status.numero}
+              </div>
+            )}
+            {status.nome && (
+              <div>
+                <span className="font-medium">Nome:</span> {status.nome}
+              </div>
+            )}
+            {status.plataforma && (
+              <div>
+                <span className="font-medium">Plataforma:</span> {status.plataforma}
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-green-600 mt-2">
+            Este WhatsApp será usado para <strong>ENVIAR</strong> relatórios automaticamente.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-2xl">⚠️</span>
+            <span className="font-semibold text-yellow-800">WhatsApp Não Conectado</span>
+          </div>
+          <p className="text-sm text-yellow-700 mb-4">
+            {status?.mensagem || 'Você precisa conectar um WhatsApp para enviar relatórios automaticamente.'}
+          </p>
+          <div className="space-y-2">
+            <button
+              onClick={handleConectar}
+              disabled={conectando}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+            >
+              {conectando ? 'Conectando...' : 'Conectar WhatsApp'}
+            </button>
+            <div className="text-xs text-yellow-600 bg-yellow-100 p-3 rounded mt-2">
+              <strong>Como conectar:</strong>
+              <ol className="list-decimal list-inside mt-1 space-y-1">
+                <li>Clique em "Conectar WhatsApp" acima</li>
+                <li>Execute no terminal: <code className="bg-yellow-200 px-1 rounded">npm run init:whatsapp</code></li>
+                <li>Escaneie o QR code exibido no terminal com seu WhatsApp</li>
+                <li>Aguarde a confirmação de conexão</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface LimiteDescarga {
   id: number
   modalidade: string
@@ -385,13 +503,26 @@ export default function DescargaPage() {
         </button>
       </div>
 
+      {/* Conexão WhatsApp (Bot que ENVIA) */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold">📱 Conexão WhatsApp (Bot que Envia)</h3>
+            <p className="text-sm text-gray-600">
+              Conecte o WhatsApp que será usado para enviar os relatórios automaticamente
+            </p>
+          </div>
+        </div>
+        <WhatsAppConnectionSection />
+      </div>
+
       {/* Configuração de Envio Automático */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold">Configuração de Envio Automático</h3>
+            <h3 className="text-lg font-semibold">⚙️ Configuração de Envio Automático</h3>
             <p className="text-sm text-gray-600">
-              Configure o envio automático de relatórios via WhatsApp quando limites forem atingidos
+              Configure o número que vai RECEBER os relatórios e ative o envio automático
             </p>
           </div>
           <button
@@ -404,7 +535,7 @@ export default function DescargaPage() {
         {configDescarga && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div>
-              <span className="text-gray-600">WhatsApp:</span>
+              <span className="text-gray-600">WhatsApp que RECEBE:</span>
               <span className="ml-2 font-medium">{configDescarga.whatsappNumero}</span>
             </div>
             <div>

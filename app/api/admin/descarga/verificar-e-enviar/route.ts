@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { gerarPDFRelatorioDescarga, estaProximoDoFechamento } from '@/lib/descarga-pdf'
+import { gerarPDFRelatorioDescarga } from '@/lib/descarga-pdf'
 import { enviarPDFWhatsApp } from '@/lib/whatsapp-sender'
 import { prisma } from '@/lib/prisma'
 import { buscarAlertasDescarga } from '@/lib/descarga-helpers'
 import { extracoes } from '@/data/extracoes'
-import { getHorarioRealApuracao } from '@/data/horarios-reais-apuracao'
+import { estaNoHorarioEnvio } from '@/data/horarios-envio-descarga'
+// Inicializar WhatsApp automaticamente quando endpoint for chamado
+import '@/lib/init-whatsapp-on-startup'
 
 /**
  * POST /api/admin/descarga/verificar-e-enviar
@@ -51,17 +53,11 @@ export async function POST(request: NextRequest) {
 
     // Verificar cada extração ativa
     for (const extracao of extracoes.filter((e) => e.active)) {
-      const horarioReal = getHorarioRealApuracao(extracao.name, extracao.time)
-      if (!horarioReal) continue
+      // Verificar se está no horário de envio (15 minutos antes do fechamento)
+      // Usa os horários mapeados em horarios-envio-descarga.ts
+      const estaNoHorario = estaNoHorarioEnvio(extracao.name, extracao.time, 1, 2)
 
-      // Verificar se está próximo do fechamento (10 minutos antes)
-      const estaProximo = estaProximoDoFechamento(
-        extracao.name,
-        extracao.time,
-        config.minutosAntesFechamento
-      )
-
-      if (!estaProximo) continue
+      if (!estaNoHorario) continue
 
       // Verificar se já foi enviado recentemente para esta extração (evitar duplicatas)
       const ultimoEnvio = config.ultimoEnvio
@@ -130,9 +126,9 @@ export async function POST(request: NextRequest) {
         const mensagem =
           `📊 Relatório de Descarga - ${extracao.name} ${extracao.time}\n\n` +
           `Data: ${agora.toLocaleDateString('pt-BR')}\n` +
-          `Horário de Fechamento: ${horarioReal.closeTimeReal}\n` +
+          `Horário de Fechamento: ${extracao.closeTime || extracao.time}\n` +
           `\n⚠️ ${alertasRelevantes.length} alerta(s) de limite atingido\n` +
-          `⏰ Enviado ${config.minutosAntesFechamento} minutos antes do fechamento`
+          `⏰ Enviado 15 minutos antes do fechamento`
 
         const resultado = await enviarPDFWhatsApp(
           config.whatsappNumero,
@@ -151,6 +147,9 @@ export async function POST(request: NextRequest) {
             loteria: extracao.name,
             horario: extracao.time,
             enviado: true,
+            motivo: resultado.whatsappLink 
+              ? `PDF salvo. Link: ${resultado.whatsappLink}` 
+              : 'Enviado via API',
           })
         } else {
           resultados.push({
