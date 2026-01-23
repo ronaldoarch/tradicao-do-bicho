@@ -20,6 +20,7 @@ let isInitializing = false
 let initializationPromise: Promise<Client> | null = null
 let currentQRCode: string | null = null // Armazenar QR code atual
 let readyTimestamp: number | null = null // Timestamp quando cliente ficou pronto
+let initLock: Promise<void> | null = null // Lock para evitar inicializações simultâneas
 
 // Exportar isInitializing para verificação externa
 export function getIsInitializing(): boolean {
@@ -33,27 +34,45 @@ export async function getWhatsAppClient(): Promise<Client> {
   // Se já existe cliente inicializado e autenticado, retornar
   if (whatsappClient && whatsappClient.info && whatsappClient.info.wid && readyTimestamp) {
     const tempoDesdeReady = Date.now() - readyTimestamp
-    // Se já passou 15 segundos desde ready, está pronto
-    if (tempoDesdeReady >= 15000) {
+    // Se já passou 20 segundos desde ready, está pronto
+    if (tempoDesdeReady >= 20000) {
       return whatsappClient
     }
   }
 
   // Se já está inicializando, aguardar (CRÍTICO: não tentar inicializar novamente)
   if (isInitializing && initializationPromise) {
-    console.log('⏳ Cliente já está inicializando, aguardando...')
+    console.log('⏳ Cliente já está inicializando, aguardando promise existente...')
     try {
       return await initializationPromise
     } catch (error: any) {
-      // Se a inicialização falhou, limpar estado e tentar novamente
+      // Se a inicialização falhou, limpar estado
       console.error('❌ Inicialização anterior falhou, limpando estado:', error?.message)
       isInitializing = false
       initializationPromise = null
       whatsappClient = null
       readyTimestamp = null
+      initLock = null
       // Aguardar um pouco antes de tentar novamente para evitar loop
       await new Promise(resolve => setTimeout(resolve, 2000))
       // Continuar para tentar inicializar novamente
+    }
+  }
+
+  // Aguardar lock se existir
+  if (initLock) {
+    console.log('⏳ Aguardando lock de inicialização...')
+    await initLock
+    // Após aguardar lock, verificar novamente se cliente está pronto
+    if (whatsappClient && whatsappClient.info && whatsappClient.info.wid && readyTimestamp) {
+      const tempoDesdeReady = Date.now() - readyTimestamp
+      if (tempoDesdeReady >= 20000) {
+        return whatsappClient
+      }
+    }
+    // Se ainda não está pronto mas está inicializando, aguardar promise
+    if (isInitializing && initializationPromise) {
+      return await initializationPromise
     }
   }
 
@@ -64,6 +83,12 @@ export async function getWhatsAppClient(): Promise<Client> {
       return initializationPromise
     }
   }
+  
+  // Criar lock para evitar múltiplas inicializações simultâneas
+  let resolveLock: (() => void) | null = null
+  initLock = new Promise((resolve) => {
+    resolveLock = resolve
+  })
   
   isInitializing = true
   console.log('🚀 Iniciando cliente WhatsApp...')
@@ -98,13 +123,12 @@ export async function getWhatsAppClient(): Promise<Client> {
     client.on('ready', async () => {
       console.log('✅ WhatsApp conectado e pronto!')
       whatsappClient = client
-      isInitializing = false
       currentQRCode = null // Limpar QR code após conexão
       readyTimestamp = Date.now() // Registrar timestamp quando ficou pronto
-      console.log('⏳ Aguardando 15 segundos para garantir que LID está completamente carregado...')
+      console.log('⏳ Aguardando 20 segundos para garantir que LID está completamente carregado...')
       
       // Aguardar mais tempo antes de resolver para garantir que LID está carregado
-      // Aumentado para 15 segundos para garantir que tudo está carregado
+      // Aumentado para 20 segundos para garantir que tudo está carregado
       setTimeout(async () => {
         // Tentar uma verificação adicional: verificar se pode acessar o estado interno
         try {
@@ -120,14 +144,20 @@ export async function getWhatsAppClient(): Promise<Client> {
                 
                 if (storeLoaded) {
                   console.log('✅ Cliente WhatsApp completamente pronto para enviar mensagens!')
+                  isInitializing = false
+                  if (resolveLock) resolveLock()
+                  initLock = null
                   resolve(client)
                   return
                 } else {
-                  console.warn('⚠️ Store ainda não carregado, aguardando mais 5 segundos...')
+                  console.warn('⚠️ Store ainda não carregado, aguardando mais 10 segundos...')
                   setTimeout(() => {
                     console.log('✅ Cliente WhatsApp pronto após verificação adicional!')
+                    isInitializing = false
+                    if (resolveLock) resolveLock()
+                    initLock = null
                     resolve(client)
-                  }, 5000)
+                  }, 10000)
                   return
                 }
               }
@@ -136,24 +166,33 @@ export async function getWhatsAppClient(): Promise<Client> {
             }
             
             console.log('✅ Cliente WhatsApp completamente pronto para enviar mensagens!')
+            isInitializing = false
+            if (resolveLock) resolveLock()
+            initLock = null
             resolve(client)
           } else {
             console.warn('⚠️ Cliente pronto mas info ainda não está completo, aguardando mais...')
-            // Aguardar mais 5 segundos
+            // Aguardar mais 10 segundos
             setTimeout(() => {
               console.log('✅ Cliente WhatsApp pronto após delay adicional!')
+              isInitializing = false
+              if (resolveLock) resolveLock()
+              initLock = null
               resolve(client)
-            }, 5000)
+            }, 10000)
           }
         } catch (error) {
           console.error('❌ Erro ao verificar estado do cliente:', error)
           // Mesmo assim, resolver após o delay
           setTimeout(() => {
             console.log('✅ Cliente WhatsApp pronto (com aviso)')
+            isInitializing = false
+            if (resolveLock) resolveLock()
+            initLock = null
             resolve(client)
-          }, 5000)
+          }, 10000)
         }
-      }, 15000) // 15 segundos de delay após 'ready' para garantir LID está carregado
+      }, 20000) // 20 segundos de delay após 'ready' para garantir LID está carregado
     })
 
     client.on('authenticated', () => {
@@ -165,6 +204,8 @@ export async function getWhatsAppClient(): Promise<Client> {
       isInitializing = false
       whatsappClient = null
       initializationPromise = null
+      if (resolveLock) resolveLock()
+      initLock = null
       reject(new Error(`Falha na autenticação: ${msg}`))
     })
 
@@ -174,6 +215,8 @@ export async function getWhatsAppClient(): Promise<Client> {
       initializationPromise = null
       isInitializing = false
       readyTimestamp = null // Limpar timestamp ao desconectar
+      if (resolveLock) resolveLock()
+      initLock = null
     })
 
     client.on('error', (error) => {
@@ -181,6 +224,8 @@ export async function getWhatsAppClient(): Promise<Client> {
       if (!whatsappClient) {
         isInitializing = false
         initializationPromise = null
+        if (resolveLock) resolveLock()
+        initLock = null
         reject(error)
       }
     })
@@ -190,6 +235,8 @@ export async function getWhatsAppClient(): Promise<Client> {
       console.error('❌ Erro ao inicializar WhatsApp:', error)
       isInitializing = false
       initializationPromise = null
+      if (resolveLock) resolveLock()
+      initLock = null
       reject(error)
     })
   })
@@ -199,7 +246,7 @@ export async function getWhatsAppClient(): Promise<Client> {
 
 /**
  * Verifica se o cliente está pronto e completamente autenticado
- * Aguarda pelo menos 15 segundos após o evento 'ready' para garantir que LID está carregado
+ * Aguarda pelo menos 20 segundos após o evento 'ready' para garantir que LID está carregado
  */
 export function isWhatsAppReady(): boolean {
   if (!whatsappClient || !whatsappClient.info || !whatsappClient.info.wid) {
@@ -211,30 +258,30 @@ export function isWhatsAppReady(): boolean {
     return false
   }
   
-  // Aguardar pelo menos 15 segundos após o evento 'ready'
+  // Aguardar pelo menos 20 segundos após o evento 'ready'
   const tempoDesdeReady = Date.now() - readyTimestamp
-  return tempoDesdeReady >= 15000
+  return tempoDesdeReady >= 20000
 }
 
 /**
  * Aguarda até que o cliente esteja pronto e autenticado
- * Garante que pelo menos 15 segundos se passaram desde o evento 'ready'
+ * Garante que pelo menos 20 segundos se passaram desde o evento 'ready'
  */
-async function aguardarClientePronto(timeoutMs: number = 60000): Promise<Client> {
+async function aguardarClientePronto(timeoutMs: number = 90000): Promise<Client> {
   const startTime = Date.now()
   
   // Primeiro, tentar obter o cliente (pode estar inicializando)
   try {
     const client = await getWhatsAppClient()
     
-    // Verificar se está pronto (com delay de 15 segundos após ready)
+    // Verificar se está pronto (com delay de 20 segundos após ready)
     if (client && client.info && client.info.wid && client.info.wid.user && readyTimestamp) {
       const tempoDesdeReady = Date.now() - readyTimestamp
-      if (tempoDesdeReady >= 15000) {
+      if (tempoDesdeReady >= 20000) {
         return client
       }
-      // Se ainda não passou 15 segundos, aguardar o restante
-      const tempoRestante = 15000 - tempoDesdeReady
+      // Se ainda não passou 20 segundos, aguardar o restante
+      const tempoRestante = 20000 - tempoDesdeReady
       console.log(`⏳ Aguardando mais ${Math.ceil(tempoRestante / 1000)} segundos para garantir LID está carregado...`)
       await new Promise(resolve => setTimeout(resolve, tempoRestante))
       return client
@@ -244,15 +291,15 @@ async function aguardarClientePronto(timeoutMs: number = 60000): Promise<Client>
     console.log('⏳ Cliente ainda inicializando, aguardando...')
   }
   
-  // Aguardar até estar pronto (com delay de 15 segundos após ready)
+  // Aguardar até estar pronto (com delay de 20 segundos após ready)
   while (Date.now() - startTime < timeoutMs) {
     if (whatsappClient && whatsappClient.info && whatsappClient.info.wid && whatsappClient.info.wid.user && readyTimestamp) {
       const tempoDesdeReady = Date.now() - readyTimestamp
-      if (tempoDesdeReady >= 15000) {
+      if (tempoDesdeReady >= 20000) {
         return whatsappClient
       }
-      // Se ainda não passou 15 segundos, aguardar o restante
-      const tempoRestante = Math.min(15000 - tempoDesdeReady, 1000)
+      // Se ainda não passou 20 segundos, aguardar o restante
+      const tempoRestante = Math.min(20000 - tempoDesdeReady, 1000)
       await new Promise(resolve => setTimeout(resolve, tempoRestante))
       if (whatsappClient && whatsappClient.info && whatsappClient.info.wid && whatsappClient.info.wid.user) {
         return whatsappClient
@@ -266,11 +313,11 @@ async function aguardarClientePronto(timeoutMs: number = 60000): Promise<Client>
   // Última tentativa
   if (whatsappClient && whatsappClient.info && whatsappClient.info.wid && whatsappClient.info.wid.user && readyTimestamp) {
     const tempoDesdeReady = Date.now() - readyTimestamp
-    if (tempoDesdeReady >= 15000) {
+    if (tempoDesdeReady >= 20000) {
       return whatsappClient
     }
     // Aguardar o restante do tempo
-    const tempoRestante = 15000 - tempoDesdeReady
+    const tempoRestante = 20000 - tempoDesdeReady
     console.log(`⏳ Aguardando mais ${Math.ceil(tempoRestante / 1000)} segundos para garantir LID está carregado...`)
     await new Promise(resolve => setTimeout(resolve, tempoRestante))
     return whatsappClient
@@ -434,6 +481,14 @@ function formatarNumeroWhatsApp(numero: string): string {
 }
 
 /**
+ * Obtém instância do cliente WhatsApp (se disponível)
+ * Use apenas para leitura, não para inicialização
+ */
+export function getWhatsAppClientInstance(): Client | null {
+  return whatsappClient
+}
+
+/**
  * Obtém QR code atual (se disponível)
  */
 export function getCurrentQRCode(): string | null {
@@ -462,6 +517,12 @@ export async function desconectarWhatsApp(): Promise<void> {
     isInitializing = false
     currentQRCode = null
     readyTimestamp = null // Limpar timestamp ao desconectar
+    if (initLock) {
+      // Resolver lock se existir
+      const lock = initLock
+      initLock = null
+      // Não podemos resolver diretamente, mas podemos limpar
+    }
   }
 }
 

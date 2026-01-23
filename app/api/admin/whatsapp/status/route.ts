@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
-import { getWhatsAppClient, isWhatsAppReady } from '@/lib/whatsapp-client'
+import { isWhatsAppReady, getWhatsAppClientInstance } from '@/lib/whatsapp-client'
 
 /**
  * GET /api/admin/whatsapp/status
@@ -14,12 +14,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Verificar se cliente está pronto
+    // Verificar se cliente está pronto SEM chamar getWhatsAppClient() para evitar inicializações desnecessárias
     const ready = isWhatsAppReady()
+    const client = getWhatsAppClientInstance()
     
-    if (ready) {
+    if (ready && client) {
       try {
-        const client = await getWhatsAppClient()
+        // Usar cliente existente diretamente, sem chamar getWhatsAppClient()
         
         // Verificação adicional: garantir que wid existe
         if (!client.info || !client.info.wid || !client.info.wid.user) {
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
           plataforma: client.info.platform || 'N/A',
         })
       } catch (error) {
-        // Se houver erro ao obter cliente, considerar desconectado
+        // Se houver erro ao verificar cliente, considerar desconectado
         return NextResponse.json({
           conectado: false,
           mensagem: 'Erro ao verificar status do cliente WhatsApp.',
