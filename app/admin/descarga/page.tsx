@@ -151,9 +151,18 @@ function WhatsAppConnectionSection() {
     <div className="space-y-4">
       {status?.conectado ? (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-2xl">✅</span>
-            <span className="font-semibold text-green-800">WhatsApp Conectado</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">✅</span>
+              <span className="font-semibold text-green-800">WhatsApp Conectado</span>
+            </div>
+            <button
+              onClick={handleReconectar}
+              disabled={reconectando}
+              className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              {reconectando ? 'Reconectando...' : '🔄 Reconectar'}
+            </button>
           </div>
           <div className="text-sm text-green-700 space-y-1">
             {status.numero && (
