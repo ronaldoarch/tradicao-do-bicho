@@ -28,9 +28,13 @@ export async function GET(request: NextRequest) {
 
     // Tentar inicializar cliente (vai gerar QR code se necessário)
     // Não aguardar a promise completa, apenas iniciar o processo
-    getWhatsAppClient().catch(() => {
-      // Cliente pode estar inicializando ou falhando, continuar
-    })
+    // Mas verificar se já está inicializando para evitar múltiplas inicializações
+    const { getIsInitializing } = await import('@/lib/whatsapp-client')
+    if (!getIsInitializing()) {
+      getWhatsAppClient().catch(() => {
+        // Cliente pode estar inicializando ou falhando, continuar
+      })
+    }
 
     // Buscar QR code atual
     const qrCode = getCurrentQRCode()

@@ -44,14 +44,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Tentar inicializar se não estiver pronto
-    try {
-      getWhatsAppClient().catch(() => {
-        // Cliente pode estar inicializando, continuar
-      })
-    } catch (error) {
-      // Ignorar erros de inicialização
-    }
+    // NÃO tentar inicializar automaticamente aqui para evitar múltiplas inicializações
+    // O usuário deve clicar em "Conectar WhatsApp" explicitamente
 
     return NextResponse.json({
       conectado: false,
