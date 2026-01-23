@@ -79,6 +79,14 @@ export default function TemasPage() {
         })
 
         if (response.ok) {
+          // Aplicar tema imediatamente se estiver ativo
+          if (editingTema.ativo) {
+            applyTemaPreview(formData.cores)
+            // Limpar cache para forçar recarregamento
+            localStorage.removeItem('tema_cache')
+            localStorage.removeItem('tema_cache_time')
+          }
+          
           alert('Tema atualizado com sucesso!')
           setShowForm(false)
           setEditingTema(null)
@@ -86,6 +94,17 @@ export default function TemasPage() {
           loadTemas()
           // Dispara evento para recarregar tema no frontend
           window.dispatchEvent(new Event('tema-updated'))
+          
+          // Recarregar tema do servidor
+          if (editingTema.ativo) {
+            fetch('/api/tema?t=' + Date.now(), { cache: 'no-store' })
+              .then(res => res.json())
+              .then(data => {
+                if (data.tema) {
+                  applyTemaPreview(data.tema.cores)
+                }
+              })
+          }
         } else {
           alert('Erro ao atualizar tema')
         }
@@ -109,6 +128,35 @@ export default function TemasPage() {
     } catch (error) {
       console.error('Erro:', error)
       alert('Erro ao salvar tema')
+    }
+  }
+
+  // Função para aplicar preview do tema em tempo real
+  const applyTemaPreview = (cores: typeof formData.cores) => {
+    const root = document.documentElement
+    root.style.setProperty('--tema-primaria', cores.primaria)
+    root.style.setProperty('--tema-secundaria', cores.secundaria)
+    root.style.setProperty('--tema-acento', cores.acento)
+    root.style.setProperty('--tema-sucesso', cores.sucesso)
+    root.style.setProperty('--tema-texto', cores.texto)
+    root.style.setProperty('--tema-texto-secundario', cores.textoSecundario)
+    root.style.setProperty('--tema-texto-link', cores.textoLink || cores.primaria)
+    root.style.setProperty('--tema-texto-paragrafo', cores.textoParagrafo || cores.texto)
+    root.style.setProperty('--tema-texto-titulo', cores.textoTitulo || cores.texto)
+    root.style.setProperty('--tema-fundo', cores.fundo)
+    root.style.setProperty('--tema-fundo-secundario', cores.fundoSecundario)
+  }
+
+  // Helper para atualizar cor com preview em tempo real
+  const updateCor = (campo: keyof typeof formData.cores, valor: string) => {
+    const novasCores = { ...formData.cores, [campo]: valor }
+    setFormData({
+      ...formData,
+      cores: novasCores,
+    })
+    // Preview em tempo real se estiver editando tema ativo
+    if (editingTema?.ativo) {
+      applyTemaPreview(novasCores)
     }
   }
 
@@ -155,10 +203,28 @@ export default function TemasPage() {
       })
 
       if (response.ok) {
+        const data = await response.json()
+        // Aplicar tema imediatamente
+        if (data.tema) {
+          applyTemaPreview(data.tema.cores)
+          // Limpar cache para forçar recarregamento
+          localStorage.removeItem('tema_cache')
+          localStorage.removeItem('tema_cache_time')
+        }
+        
         alert('Tema ativado com sucesso!')
         loadTemas()
         // Dispara evento para recarregar tema no frontend
         window.dispatchEvent(new Event('tema-updated'))
+        
+        // Recarregar tema do servidor
+        fetch('/api/tema?t=' + Date.now(), { cache: 'no-store' })
+          .then(res => res.json())
+          .then(data => {
+            if (data.tema) {
+              applyTemaPreview(data.tema.cores)
+            }
+          })
       } else {
         alert('Erro ao ativar tema')
       }
@@ -187,7 +253,20 @@ export default function TemasPage() {
     })
   }
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
+    // Se estava editando tema ativo, restaurar tema original
+    if (editingTema?.ativo) {
+      try {
+        const response = await fetch('/api/tema?t=' + Date.now(), { cache: 'no-store' })
+        const data = await response.json()
+        if (data.tema) {
+          applyTemaPreview(data.tema.cores)
+        }
+      } catch (error) {
+        console.error('Erro ao restaurar tema:', error)
+      }
+    }
+    
     setShowForm(false)
     setEditingTema(null)
     resetForm()
@@ -237,23 +316,13 @@ export default function TemasPage() {
                   <input
                     type="color"
                     value={formData.cores.primaria}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, primaria: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('primaria', e.target.value)}
                     className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
                     type="text"
                     value={formData.cores.primaria}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, primaria: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('primaria', e.target.value)}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
                   />
                 </div>
@@ -265,23 +334,13 @@ export default function TemasPage() {
                   <input
                     type="color"
                     value={formData.cores.secundaria}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, secundaria: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('secundaria', e.target.value)}
                     className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
                     type="text"
                     value={formData.cores.secundaria}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, secundaria: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('secundaria', e.target.value)}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
                   />
                 </div>
@@ -293,23 +352,13 @@ export default function TemasPage() {
                   <input
                     type="color"
                     value={formData.cores.acento}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, acento: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('acento', e.target.value)}
                     className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
                     type="text"
                     value={formData.cores.acento}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, acento: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('acento', e.target.value)}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
                   />
                 </div>
@@ -321,23 +370,13 @@ export default function TemasPage() {
                   <input
                     type="color"
                     value={formData.cores.sucesso}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, sucesso: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('sucesso', e.target.value)}
                     className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
                     type="text"
                     value={formData.cores.sucesso}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, sucesso: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('sucesso', e.target.value)}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
                   />
                 </div>
@@ -349,23 +388,13 @@ export default function TemasPage() {
                   <input
                     type="color"
                     value={formData.cores.texto}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, texto: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('texto', e.target.value)}
                     className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
                     type="text"
                     value={formData.cores.texto}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, texto: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('texto', e.target.value)}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
                   />
                 </div>
@@ -377,23 +406,13 @@ export default function TemasPage() {
                   <input
                     type="color"
                     value={formData.cores.textoSecundario}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, textoSecundario: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('textoSecundario', e.target.value)}
                     className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
                     type="text"
                     value={formData.cores.textoSecundario}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, textoSecundario: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('textoSecundario', e.target.value)}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
                   />
                 </div>
@@ -405,23 +424,13 @@ export default function TemasPage() {
                   <input
                     type="color"
                     value={formData.cores.fundo}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, fundo: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('fundo', e.target.value)}
                     className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
                     type="text"
                     value={formData.cores.fundo}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, fundo: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('fundo', e.target.value)}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
                   />
                 </div>
@@ -433,23 +442,13 @@ export default function TemasPage() {
                   <input
                     type="color"
                     value={formData.cores.fundoSecundario}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, fundoSecundario: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('fundoSecundario', e.target.value)}
                     className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
                     type="text"
                     value={formData.cores.fundoSecundario}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, fundoSecundario: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('fundoSecundario', e.target.value)}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
                   />
                 </div>
@@ -461,23 +460,13 @@ export default function TemasPage() {
                   <input
                     type="color"
                     value={formData.cores.textoLink}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, textoLink: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('textoLink', e.target.value)}
                     className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
                     type="text"
                     value={formData.cores.textoLink}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, textoLink: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('textoLink', e.target.value)}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
                   />
                 </div>
@@ -489,23 +478,13 @@ export default function TemasPage() {
                   <input
                     type="color"
                     value={formData.cores.textoParagrafo}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, textoParagrafo: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('textoParagrafo', e.target.value)}
                     className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
                     type="text"
                     value={formData.cores.textoParagrafo}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, textoParagrafo: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('textoParagrafo', e.target.value)}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
                   />
                 </div>
@@ -517,23 +496,13 @@ export default function TemasPage() {
                   <input
                     type="color"
                     value={formData.cores.textoTitulo}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, textoTitulo: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('textoTitulo', e.target.value)}
                     className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
                     type="text"
                     value={formData.cores.textoTitulo}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        cores: { ...formData.cores, textoTitulo: e.target.value },
-                      })
-                    }
+                    onChange={(e) => updateCor('textoTitulo', e.target.value)}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
                   />
                 </div>

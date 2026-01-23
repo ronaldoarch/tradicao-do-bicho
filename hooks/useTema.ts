@@ -48,6 +48,12 @@ export function useTema() {
 
   const loadTema = async () => {
     try {
+      // Limpar cache ao recarregar
+      try {
+        localStorage.removeItem('tema_cache')
+        localStorage.removeItem('tema_cache_time')
+      } catch(e) {}
+      
       const response = await fetch(`/api/tema?t=${Date.now()}`, {
         cache: 'no-store',
         headers: {
@@ -60,6 +66,12 @@ export function useTema() {
       if (data.tema) {
         setTema(data.tema)
         applyTema(data.tema)
+        
+        // Salvar no cache
+        try {
+          localStorage.setItem('tema_cache', JSON.stringify(data.tema))
+          localStorage.setItem('tema_cache_time', Date.now().toString())
+        } catch(e) {}
       }
     } catch (error) {
       console.error('Erro ao carregar tema:', error)

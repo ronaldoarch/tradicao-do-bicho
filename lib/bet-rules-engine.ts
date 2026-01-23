@@ -504,6 +504,9 @@ export function conferirNumero(
 
 /**
  * Confere um palpite de grupo simples.
+ * 
+ * IMPORTANTE: Paga por cada posição que o grupo aparece (igual modalidades numéricas).
+ * Exemplo: Se apostou grupo 1 para 1º ao 5º e o grupo aparece no 1º, 3º e 5º, paga 3 vezes.
  */
 export function conferirGrupoSimples(
   resultado: number[],
@@ -512,7 +515,8 @@ export function conferirGrupoSimples(
   pos_to: number
 ): PrizeCalculation {
   const grupos = gruposNoResultado(resultado, pos_from, pos_to)
-  const hits = grupos.includes(grupoApostado) ? 1 : 0
+  // Contar quantas vezes o grupo aparece (pagar por posição)
+  const hits = grupos.filter(g => g === grupoApostado).length
   
   return {
     hits,

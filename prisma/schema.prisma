@@ -105,23 +105,23 @@ model Configuracao {
 }
 
 model ConfiguracaoDescarga {
-  id                    Int      @id @default(autoincrement())
-  whatsappNumero        String   // Número WhatsApp para receber relatórios (formato: 5511999999999)
-  ativo                 Boolean  @default(true)
-  minutosAntesFechamento Int    @default(10) // Minutos antes do fechamento para enviar
-  ultimoEnvio           DateTime? // Última vez que foi enviado relatório
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                     Int       @id @default(autoincrement())
+  whatsappNumero         String // Número WhatsApp para receber relatórios (formato: 5511999999999)
+  ativo                  Boolean   @default(true)
+  minutosAntesFechamento Int       @default(10) // Minutos antes do fechamento para enviar
+  ultimoEnvio            DateTime? // Última vez que foi enviado relatório
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 }
 
 model ConfiguracaoTracking {
-  id                    Int      @id @default(autoincrement())
-  facebookPixelId       String?  // ID do Pixel do Facebook
-  facebookAccessToken   String?  // Token de acesso do Facebook
-  webhookUrl            String?  // URL do webhook para receber todos os eventos
-  ativo                 Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                  Int      @id @default(autoincrement())
+  facebookPixelId     String? // ID do Pixel do Facebook
+  facebookAccessToken String? // Token de acesso do Facebook
+  webhookUrl          String? // URL do webhook para receber todos os eventos
+  ativo               Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model Gateway {
@@ -228,17 +228,17 @@ model LimiteDescarga {
 }
 
 model NumeroBloqueado {
-  id         Int      @id @default(autoincrement())
-  modalidade String   // Nome da modalidade
-  premio     Int      // 1 ao 5 (prêmio)
-  numero     String   // Número bloqueado (milhar/centena/dezena)
-  loteria    String   // Loteria/extracao
-  horario    String   // Horário da extração
-  valorAtual Float    // Valor total apostado neste número
-  limite     Float    // Limite que foi atingido
+  id          Int      @id @default(autoincrement())
+  modalidade  String // Nome da modalidade
+  premio      Int // 1 ao 5 (prêmio)
+  numero      String // Número bloqueado (milhar/centena/dezena)
+  loteria     String // Loteria/extracao
+  horario     String // Horário da extração
+  valorAtual  Float // Valor total apostado neste número
+  limite      Float // Limite que foi atingido
   bloqueadoEm DateTime @default(now())
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@unique([modalidade, premio, numero, loteria, horario])
   @@index([modalidade, premio, loteria, horario])
@@ -256,8 +256,8 @@ model AlertaDescarga {
   resolvido     Boolean   @default(false)
   resolvidoEm   DateTime?
   resolvidoPor  Int? // ID do admin que resolveu
-  loteria       String?  // Loteria/extracao - null para alerta geral
-  horario       String?  // Horário da extração - null para alerta geral
+  loteria       String? // Loteria/extracao - null para alerta geral
+  horario       String? // Horário da extração - null para alerta geral
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -267,29 +267,29 @@ model AlertaDescarga {
 }
 
 model SalaBingo {
-  id               Int       @id @default(autoincrement())
-  nome             String
-  descricao        String?
-  valorCartela     Float     @default(0)
-  premioTotal      Float     @default(0)
-  premioLinha      Float     @default(0)
-  premioColuna     Float     @default(0)
-  premioDiagonal   Float     @default(0)
-  premioBingo      Float     @default(0)
-  ativa            Boolean   @default(true)
-  emAndamento      Boolean   @default(false)
-  dataInicio       DateTime?
-  dataFim          DateTime?
-  numerosSorteados Json? // Array de números sorteados
-  resultadoFinal   Json? // Resultado final do bingo
+  id                     Int       @id @default(autoincrement())
+  nome                   String
+  descricao              String?
+  valorCartela           Float     @default(0)
+  premioTotal            Float     @default(0)
+  premioLinha            Float     @default(0)
+  premioColuna           Float     @default(0)
+  premioDiagonal         Float     @default(0)
+  premioBingo            Float     @default(0)
+  ativa                  Boolean   @default(true)
+  emAndamento            Boolean   @default(false)
+  dataInicio             DateTime?
+  dataFim                DateTime?
+  numerosSorteados       Json? // Array de números sorteados
+  resultadoFinal         Json? // Resultado final do bingo
   // Configuração de sorteios automáticos
-  sorteioAutomatico Boolean  @default(false) // Se os sorteios são automáticos
-  intervaloSorteio  Int      @default(30) // Intervalo entre sorteios em segundos
-  proximoSorteio    DateTime? // Próximo horário de sorteio automático
+  sorteioAutomatico      Boolean   @default(false) // Se os sorteios são automáticos
+  intervaloSorteio       Int       @default(30) // Intervalo entre sorteios em segundos
+  proximoSorteio         DateTime? // Próximo horário de sorteio automático
   // Usuários fake vencedores (para exibir como ganhadores)
   usuariosFakeVencedores Json? // Array de { nome: string, tipo: 'linha'|'coluna'|'diagonal'|'bingo', avatar?: string }
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   cartelas   CartelaBingo[]
   resultados ResultadoBingo[]
@@ -334,17 +334,17 @@ model ResultadoBingo {
 }
 
 model WebhookEvent {
-  id          Int      @id @default(autoincrement())
-  source      String   // Origem do webhook (ex: "receba", "stripe", "pagseguro")
-  eventType   String   // Tipo do evento (ex: "deposit", "payment", "refund")
-  payload     Json     // Payload completo recebido
-  headers     Json?    // Headers da requisição
-  status      String   @default("received") // received, processed, failed
-  statusCode  Int?     // Status code da resposta
-  response    Json?    // Resposta enviada
-  error       String?  // Mensagem de erro se houver
+  id          Int       @id @default(autoincrement())
+  source      String // Origem do webhook (ex: "receba", "stripe", "pagseguro")
+  eventType   String // Tipo do evento (ex: "deposit", "payment", "refund")
+  payload     Json // Payload completo recebido
+  headers     Json? // Headers da requisição
+  status      String    @default("received") // received, processed, failed
+  statusCode  Int? // Status code da resposta
+  response    Json? // Resposta enviada
+  error       String? // Mensagem de erro se houver
   processedAt DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   @@index([source])
   @@index([eventType])
@@ -353,21 +353,21 @@ model WebhookEvent {
 }
 
 model FacebookEvent {
-  id          Int      @id @default(autoincrement())
-  eventName   String   // Nome do evento (ex: "PageView", "Purchase", "Lead")
-  eventId     String?  @unique // ID único do evento do Facebook
-  pixelId     String?  // ID do pixel do Facebook
-  userData    Json?    // Dados do usuário (email, phone, etc)
-  customData  Json?    // Dados customizados do evento
-  value       Float?   // Valor do evento (para eventos de conversão)
-  currency    String?  // Moeda
-  sourceUrl   String?  // URL de origem
-  userAgent   String?  // User agent
-  ipAddress   String?  // IP do usuário
-  status      String   @default("received") // received, processed, failed
-  error       String?  // Mensagem de erro se houver
+  id          Int       @id @default(autoincrement())
+  eventName   String // Nome do evento (ex: "PageView", "Purchase", "Lead")
+  eventId     String?   @unique // ID único do evento do Facebook
+  pixelId     String? // ID do pixel do Facebook
+  userData    Json? // Dados do usuário (email, phone, etc)
+  customData  Json? // Dados customizados do evento
+  value       Float? // Valor do evento (para eventos de conversão)
+  currency    String? // Moeda
+  sourceUrl   String? // URL de origem
+  userAgent   String? // User agent
+  ipAddress   String? // IP do usuário
+  status      String    @default("received") // received, processed, failed
+  error       String? // Mensagem de erro se houver
   processedAt DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   @@index([eventName])
   @@index([pixelId])

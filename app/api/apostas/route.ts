@@ -6,6 +6,11 @@ import {
   gerarResultadoInstantaneo,
   conferirPalpite,
   calcularValorPorPalpite,
+  calcularGrupo,
+  calcularNumero,
+  buscarOdd,
+  calcularPremioUnidade,
+  calcularPremioPalpite,
   type ModalityType,
 } from '@/lib/bet-rules-engine'
 import { ANIMALS } from '@/data/animals'
@@ -355,6 +360,102 @@ export async function POST(request: Request) {
         })
       } else {
         // Aposta normal (não instantânea)
+        // Calcular retorno previsto para apostas normais
+        // Assumindo que cada palpite acerta em 1 posição (cenário otimista mas realista)
+        if (detalhes && typeof detalhes === 'object' && 'betData' in detalhes) {
+          const betData = (detalhes as any).betData as {
+            modality: string | null
+            modalityName?: string | null
+            animalBets?: number[][]
+            numberBets?: string[]
+            position?: string | null
+            customPosition?: boolean
+            customPositionValue?: string
+            amount: number
+            divisionType: 'all' | 'each'
+          }
+
+          // Mapear nome da modalidade para tipo
+          const modalityMap: Record<string, ModalityType> = {
+            'Grupo': 'GRUPO',
+            'Dupla de Grupo': 'DUPLA_GRUPO',
+            'Terno de Grupo': 'TERNO_GRUPO',
+            'Quadra de Grupo': 'QUADRA_GRUPO',
+            'Dezena': 'DEZENA',
+            'Centena': 'CENTENA',
+            'Milhar': 'MILHAR',
+            'Dezena Invertida': 'DEZENA_INVERTIDA',
+            'Centena Invertida': 'CENTENA_INVERTIDA',
+            'Milhar Invertida': 'MILHAR_INVERTIDA',
+            'Milhar/Centena': 'MILHAR_CENTENA',
+            'Passe vai': 'PASSE',
+            'Passe vai e vem': 'PASSE_VAI_E_VEM',
+          }
+
+          const modalityType = modalityMap[betData.modalityName || modalidade || ''] || 'GRUPO'
+
+          // Parsear posição
+          const positionToUse = betData.customPosition && betData.customPositionValue 
+            ? betData.customPositionValue.trim() 
+            : betData.position
+          
+          const { pos_from, pos_to } = parsePosition(positionToUse)
+
+          // Calcular valor por palpite
+          const isNumberModality = modalityType.includes('DEZENA') || 
+                                   modalityType.includes('CENTENA') || 
+                                   modalityType.includes('MILHAR')
+          const isPasse = modalityType === 'PASSE' || modalityType === 'PASSE_VAI_E_VEM'
+          
+          const qtdPalpites = isNumberModality 
+            ? (betData.numberBets?.length || 0)
+            : (betData.animalBets?.length || 0)
+          
+          if (qtdPalpites > 0) {
+            const valorPorPalpite = calcularValorPorPalpite(
+              betData.amount,
+              qtdPalpites,
+              betData.divisionType
+            )
+
+            // Calcular retorno previsto usando fórmula direta
+            // Assumindo que cada palpite acerta em 1 posição (cenário otimista mas realista)
+            for (let i = 0; i < qtdPalpites; i++) {
+              let calculation
+              
+              if (isPasse) {
+                // Passe: cálculo fixo (1 combinação, 1 unidade)
+                calculation = {
+                  combinations: 1,
+                  positions: 1, // Fixo 1º-2º
+                  units: 1,
+                  unitValue: valorPorPalpite,
+                }
+              } else if (isNumberModality && betData.numberBets) {
+                // Modalidade numérica
+                const numero = betData.numberBets[i]
+                calculation = calcularNumero(modalityType, numero, pos_from, pos_to, valorPorPalpite)
+              } else if (betData.animalBets && betData.animalBets[i]) {
+                // Modalidade de grupo
+                const qtdGrupos = betData.animalBets[i].length
+                calculation = calcularGrupo(modalityType, qtdGrupos, pos_from, pos_to, valorPorPalpite)
+              } else {
+                continue
+              }
+
+              // Buscar odd e calcular prêmio assumindo 1 acerto
+              const odd = buscarOdd(modalityType, pos_from, pos_to)
+              const premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
+              // Assumir 1 acerto por palpite para cálculo do retorno previsto
+              // (Para modalidades de grupo múltiplo como DUPLA, TERNO, QUADRA, o acerto é 0 ou 1)
+              // Para GRUPO simples e números, pode acertar em múltiplas posições, mas assumimos 1 para retorno previsto
+              const premioPalpite = calcularPremioPalpite(1, premioUnidade)
+              
+              premioTotal += premioPalpite
+            }
+          }
+        }
+        
         // Calcular novo rolloverAtual: incrementa apenas o valor apostado com dinheiro REAL
         const novoRolloverAtual = usuario.rolloverAtual + debitarSaldo
         
