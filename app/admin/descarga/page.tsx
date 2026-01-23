@@ -370,38 +370,6 @@ export default function DescargaPage() {
     }
   }
 
-  const handleTestarEnvio = async () => {
-    if (!configDescarga || !configDescarga.whatsappNumero) {
-      alert('Configure o número do WhatsApp primeiro!')
-      setShowConfigModal(true)
-      return
-    }
-
-    setEnviandoPDF(true)
-    try {
-      const res = await fetch('/api/admin/descarga/enviar-relatorio', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          numeroWhatsApp: configDescarga.whatsappNumero,
-        }),
-      })
-
-      const data = await res.json()
-
-      if (res.ok && data.enviado) {
-        alert('✅ Relatório enviado com sucesso! Verifique o WhatsApp.')
-      } else {
-        alert(data.motivo || data.error || 'Erro ao enviar relatório. Verifique se o WhatsApp está conectado.')
-      }
-    } catch (error) {
-      console.error('Erro ao testar envio:', error)
-      alert('Erro ao testar envio. Verifique se o WhatsApp está conectado.')
-    } finally {
-      setEnviandoPDF(false)
-    }
-  }
-
   const carregarDados = async () => {
     setLoading(true)
     try {
