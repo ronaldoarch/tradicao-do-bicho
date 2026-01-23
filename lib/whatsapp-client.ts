@@ -112,7 +112,7 @@ export async function getWhatsAppClient(): Promise<Client> {
           if (client.info && client.info.wid && client.info.wid.user) {
             // Tentar verificar se o estado interno está carregado
             try {
-              const page = await client.pupPage?.()
+              const page = (client as any).pupPage
               if (page) {
                 const storeLoaded = await page.evaluate(() => {
                   return typeof window !== 'undefined' && !!(window as any).Store
@@ -321,7 +321,7 @@ export async function enviarPDFViaWhatsAppWeb(
     // Isso garante que o LID está realmente carregado
     try {
       // Tentar acessar o estado do cliente para verificar se LID está disponível
-      const page = await client.pupPage?.()
+      const page = (client as any).pupPage
       if (page) {
         // Verificar se o estado do WhatsApp está carregado
         await page.evaluate(() => {
