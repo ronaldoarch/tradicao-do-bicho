@@ -37,23 +37,22 @@ export async function POST(request: NextRequest) {
 
     // Verificar se há alertas (limites atingidos)
     const alertas = await buscarAlertasDescarga(false)
-    if (alertas.length === 0) {
-      return NextResponse.json({
-        message: 'Nenhum alerta de descarga encontrado',
-        enviado: false,
-      })
-    }
+    // Permitir envio mesmo sem alertas para teste
+    const mensagemAlerta = alertas.length > 0 
+      ? `\n⚠️ ${alertas.length} alerta(s) de limite atingido`
+      : '\n✅ Nenhum alerta de descarga no momento'
 
     // Gerar PDF
     const data = new Date()
     const pdfBuffer = await gerarPDFRelatorioDescarga(data, loteria, horario)
 
     // Enviar via WhatsApp
-    const mensagem = `📊 Relatório de Descarga\n\n` +
+    const mensagem = `📊 Relatório de Descarga - TESTE\n\n` +
       `Data: ${data.toLocaleDateString('pt-BR')}\n` +
+      `Hora: ${data.toLocaleTimeString('pt-BR')}\n` +
       (loteria ? `Loteria: ${loteria}\n` : '') +
       (horario ? `Horário: ${horario}\n` : '') +
-      `\n⚠️ ${alertas.length} alerta(s) de limite atingido`
+      mensagemAlerta
 
     const resultado = await enviarPDFWhatsApp(numero, pdfBuffer, mensagem)
 
@@ -66,6 +65,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
+        enviado: true,
         message: 'Relatório enviado com sucesso',
         messageId: resultado.messageId,
       })
@@ -73,7 +73,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
+          enviado: false,
           error: resultado.error || 'Erro ao enviar relatório',
+          motivo: resultado.error || 'Erro ao enviar relatório',
         },
         { status: 500 }
       )

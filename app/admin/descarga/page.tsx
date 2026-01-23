@@ -338,6 +338,70 @@ export default function DescargaPage() {
     }
   }
 
+  const handleTestarEnvio = async () => {
+    if (!configDescarga || !configDescarga.whatsappNumero) {
+      alert('Configure o número do WhatsApp primeiro!')
+      setShowConfigModal(true)
+      return
+    }
+
+    setEnviandoPDF(true)
+    try {
+      const res = await fetch('/api/admin/descarga/enviar-relatorio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          numeroWhatsApp: configDescarga.whatsappNumero,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        alert('✅ Relatório enviado com sucesso! Verifique o WhatsApp.')
+      } else {
+        alert(data.motivo || data.error || 'Erro ao enviar relatório. Verifique se o WhatsApp está conectado.')
+      }
+    } catch (error) {
+      console.error('Erro ao testar envio:', error)
+      alert('Erro ao testar envio. Verifique se o WhatsApp está conectado.')
+    } finally {
+      setEnviandoPDF(false)
+    }
+  }
+
+  const handleTestarEnvio = async () => {
+    if (!configDescarga || !configDescarga.whatsappNumero) {
+      alert('Configure o número do WhatsApp primeiro!')
+      setShowConfigModal(true)
+      return
+    }
+
+    setEnviandoPDF(true)
+    try {
+      const res = await fetch('/api/admin/descarga/enviar-relatorio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          numeroWhatsApp: configDescarga.whatsappNumero,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.enviado) {
+        alert('✅ Relatório enviado com sucesso! Verifique o WhatsApp.')
+      } else {
+        alert(data.motivo || data.error || 'Erro ao enviar relatório. Verifique se o WhatsApp está conectado.')
+      }
+    } catch (error) {
+      console.error('Erro ao testar envio:', error)
+      alert('Erro ao testar envio. Verifique se o WhatsApp está conectado.')
+    } finally {
+      setEnviandoPDF(false)
+    }
+  }
+
   const carregarDados = async () => {
     setLoading(true)
     try {
@@ -596,19 +660,31 @@ export default function DescargaPage() {
 
       {/* Configuração de Envio Automático */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
           <div>
             <h3 className="text-lg font-semibold">⚙️ Configuração de Envio Automático</h3>
             <p className="text-sm text-gray-600">
               Configure o número que vai RECEBER os relatórios e ative o envio automático
             </p>
           </div>
-          <button
-            onClick={() => setShowConfigModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            {configDescarga ? 'Editar Configuração' : 'Configurar'}
-          </button>
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              onClick={() => setShowConfigModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold shadow-md transition-colors whitespace-nowrap"
+            >
+              {configDescarga ? 'Editar Configuração' : 'Configurar'}
+            </button>
+            {configDescarga && (
+              <button
+                onClick={handleTestarEnvio}
+                disabled={enviandoPDF}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-semibold shadow-md transition-colors flex items-center gap-2 whitespace-nowrap"
+              >
+                <span>🧪</span>
+                <span>{enviandoPDF ? 'Enviando...' : 'Testar Envio'}</span>
+              </button>
+            )}
+          </div>
         </div>
         {configDescarga && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
