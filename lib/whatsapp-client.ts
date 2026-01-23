@@ -128,16 +128,18 @@ export async function getWhatsAppClient(): Promise<Client> {
       
       // Aguardar um pouco antes de começar a verificar o Store
       // O WhatsApp Web precisa de alguns segundos para carregar recursos
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      await new Promise(resolve => setTimeout(resolve, 2000))
       
-      // Verificar o Store de forma mais eficiente com polling
+      // Verificar o Store de forma mais eficiente com polling (timeout reduzido para 30s)
       console.log('🔍 Verificando se Store está carregado...')
-      const storeCarregado = await aguardarStoreCarregar(client, 60000) // Timeout de 60 segundos
+      const storeCarregado = await aguardarStoreCarregar(client, 30000) // Timeout de 30 segundos
       
       if (storeCarregado) {
         console.log('✅ Store carregado! Cliente WhatsApp completamente pronto para enviar mensagens!')
       } else {
-        console.warn('⚠️ Store não carregou completamente após 60 segundos, mas continuando...')
+        console.warn('⚠️ Store não foi detectado após 30 segundos')
+        console.warn('⚠️ Continuando mesmo assim - o whatsapp-web.js pode funcionar sem detecção explícita do Store')
+        console.warn('⚠️ Se ocorrer erro "No LID", tente reconectar o WhatsApp')
       }
       
       isInitializing = false
@@ -279,12 +281,13 @@ async function aguardarClientePronto(timeoutMs: number = 90000): Promise<Client>
 
 /**
  * Aguarda até que o Store esteja carregado com polling inteligente
+ * Tenta múltiplas formas de acessar o Store
  */
-async function aguardarStoreCarregar(client: Client, timeoutMs: number = 60000): Promise<boolean> {
+async function aguardarStoreCarregar(client: Client, timeoutMs: number = 30000): Promise<boolean> {
   const startTime = Date.now()
   let tentativas = 0
-  const intervaloInicial = 1000 // Começar verificando a cada 1 segundo
-  const intervaloMaximo = 5000 // Máximo de 5 segundos entre verificações
+  const intervaloInicial = 500 // Começar verificando a cada 500ms
+  const intervaloMaximo = 3000 // Máximo de 3 segundos entre verificações
   
   while (Date.now() - startTime < timeoutMs) {
     tentativas++
@@ -295,50 +298,78 @@ async function aguardarStoreCarregar(client: Client, timeoutMs: number = 60000):
         continue
       }
 
+      // Tentar múltiplas formas de acessar o Store
       const storeInfo = await page.evaluate(() => {
         try {
-          if (typeof window === 'undefined') return { store: false, me: false, msg: false }
+          if (typeof window === 'undefined') return { store: false, me: false, msg: false, ready: false }
+          
+          // Tentar acessar Store diretamente
           const Store = (window as any).Store
-          if (!Store) return { store: false, me: false, msg: false }
+          if (!Store) {
+            // Tentar acessar através de outros caminhos
+            const webpackChunk = (window as any).webpackChunkwhatsapp_web_client
+            if (webpackChunk) {
+              // Store pode estar dentro do webpack chunk
+              return { store: false, me: false, msg: false, ready: false, webpack: true }
+            }
+            return { store: false, me: false, msg: false, ready: false }
+          }
+          
+          // Verificar diferentes propriedades do Store
+          const hasMe = !!(Store.Me && Store.Me.wid)
+          const hasMsg = !!(Store.Msg && (Store.Msg.send || Store.Msg.sendMessage))
+          const hasWidFactory = !!(Store.WidFactory && Store.WidFactory.createWid)
+          const hasContacts = !!(Store.Contacts && Store.Contacts.get)
+          const hasChat = !!(Store.Chat && Store.Chat.get)
+          
+          // Considerar pronto se tiver pelo menos Me ou Msg
+          const ready = hasMe || hasMsg || (hasWidFactory && hasContacts)
           
           return {
             store: true,
-            me: !!(Store.Me && Store.Me.wid),
-            msg: !!(Store.Msg && Store.Msg.send),
-            widFactory: !!(Store.WidFactory && Store.WidFactory.createWid),
+            me: hasMe,
+            msg: hasMsg,
+            widFactory: hasWidFactory,
+            contacts: hasContacts,
+            chat: hasChat,
+            ready: ready,
           }
         } catch (error) {
-          return { store: false, me: false, msg: false, error: String(error) }
+          return { store: false, me: false, msg: false, ready: false, error: String(error) }
         }
-      }).catch(() => ({ store: false, me: false, msg: false }))
+      }).catch((error) => {
+        return { store: false, me: false, msg: false, ready: false, error: String(error) }
+      })
 
-      if (storeInfo.store) {
-        if (storeInfo.me || storeInfo.msg || storeInfo.widFactory) {
-          console.log(`✅ Store carregado após ${tentativas} tentativa(s) (${Math.round((Date.now() - startTime) / 1000)}s)`)
-          return true
-        } else {
-          // Store existe mas ainda não tem tudo carregado
-          if (tentativas % 5 === 0) {
-            console.log(`⏳ Store existe mas ainda carregando componentes... (tentativa ${tentativas})`)
-          }
+      if (storeInfo.store && storeInfo.ready) {
+        console.log(`✅ Store carregado e pronto após ${tentativas} tentativa(s) (${Math.round((Date.now() - startTime) / 1000)}s)`)
+        if (storeInfo.me) console.log('  ✓ Store.Me disponível')
+        if (storeInfo.msg) console.log('  ✓ Store.Msg disponível')
+        if (storeInfo.widFactory) console.log('  ✓ Store.WidFactory disponível')
+        return true
+      } else if (storeInfo.store) {
+        // Store existe mas ainda não tem tudo carregado
+        if (tentativas % 10 === 0) {
+          console.log(`⏳ Store existe mas ainda carregando componentes... (tentativa ${tentativas}, ${Math.round((Date.now() - startTime) / 1000)}s)`)
         }
       } else {
-        if (tentativas % 5 === 0) {
+        if (tentativas % 10 === 0) {
           console.log(`⏳ Aguardando Store carregar... (tentativa ${tentativas}, ${Math.round((Date.now() - startTime) / 1000)}s)`)
         }
       }
     } catch (error) {
-      if (tentativas % 10 === 0) {
+      if (tentativas % 20 === 0) {
         console.warn(`⚠️ Erro ao verificar Store (tentativa ${tentativas}):`, error)
       }
     }
     
     // Aumentar intervalo gradualmente para não sobrecarregar
-    const intervalo = Math.min(intervaloInicial * Math.floor(tentativas / 5), intervaloMaximo)
+    const intervalo = Math.min(intervaloInicial * Math.floor(tentativas / 10), intervaloMaximo)
     await new Promise(resolve => setTimeout(resolve, intervalo))
   }
   
   console.warn(`⚠️ Timeout aguardando Store carregar após ${tentativas} tentativas (${Math.round(timeoutMs / 1000)}s)`)
+  console.warn('⚠️ Continuando mesmo sem confirmação do Store - o whatsapp-web.js pode funcionar mesmo assim')
   return false
 }
 
@@ -437,17 +468,9 @@ export async function enviarPDFViaWhatsAppWeb(
       }
     }
 
-    // Verificar se o LID está disponível antes de tentar enviar
-    console.log('🔍 Verificando se LID está disponível antes de enviar...')
-    const lidDisponivel = await aguardarLIDDisponivel(client, 30000)
-    
-    if (!lidDisponivel) {
-      console.warn('⚠️ LID não está disponível após 30 segundos de espera')
-      return {
-        success: false,
-        error: 'WhatsApp não está completamente autenticado. O LID ainda não está disponível. Por favor, desconecte e reconecte o WhatsApp.',
-      }
-    }
+    // Tentar enviar diretamente - se falhar com "No LID", trataremos o erro
+    // Não vamos bloquear o envio esperando pelo LID, pois isso pode não ser necessário
+    // O whatsapp-web.js pode funcionar mesmo sem detectarmos o Store explicitamente
 
     // Formatar número (remover caracteres não numéricos, adicionar código do país se necessário)
     const numeroFormatado = formatarNumeroWhatsApp(numero)
@@ -514,17 +537,8 @@ export async function enviarMensagemViaWhatsAppWeb(
       }
     }
 
-    // Verificar se o LID está disponível antes de tentar enviar
-    console.log('🔍 Verificando se LID está disponível antes de enviar mensagem...')
-    const lidDisponivel = await aguardarLIDDisponivel(client, 30000)
-    
-    if (!lidDisponivel) {
-      console.warn('⚠️ LID não está disponível após 30 segundos de espera')
-      return {
-        success: false,
-        error: 'WhatsApp não está completamente autenticado. O LID ainda não está disponível. Por favor, desconecte e reconecte o WhatsApp.',
-      }
-    }
+    // Tentar enviar diretamente - se falhar com "No LID", trataremos o erro
+    // Não vamos bloquear o envio esperando pelo LID, pois isso pode não ser necessário
 
     // Formatar número
     const numeroFormatado = formatarNumeroWhatsApp(numero)
