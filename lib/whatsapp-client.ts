@@ -33,8 +33,8 @@ export async function getWhatsAppClient(): Promise<Client> {
   // Se já existe cliente inicializado e autenticado, retornar
   if (whatsappClient && whatsappClient.info && whatsappClient.info.wid && readyTimestamp) {
     const tempoDesdeReady = Date.now() - readyTimestamp
-    // Se já passou 10 segundos desde ready, está pronto
-    if (tempoDesdeReady >= 10000) {
+    // Se já passou 15 segundos desde ready, está pronto
+    if (tempoDesdeReady >= 15000) {
       return whatsappClient
     }
   }
