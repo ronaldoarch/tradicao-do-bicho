@@ -111,10 +111,15 @@ export async function getWhatsAppClient(): Promise<Client> {
 }
 
 /**
- * Verifica se o cliente está pronto
+ * Verifica se o cliente está pronto e completamente autenticado
  */
 export function isWhatsAppReady(): boolean {
-  return whatsappClient !== null && whatsappClient.info !== null
+  return (
+    whatsappClient !== null &&
+    whatsappClient.info !== null &&
+    whatsappClient.info.wid !== undefined &&
+    whatsappClient.info.wid !== null
+  )
 }
 
 /**
