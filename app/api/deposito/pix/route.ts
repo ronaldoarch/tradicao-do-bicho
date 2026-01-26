@@ -3,11 +3,13 @@ import { cookies } from 'next/headers'
 import { parseSessionToken } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { suitpayCreatePix, buscarCodigoIBGEPorCEP, type SuitPayCreatePixPayload } from '@/lib/suitpay-client'
+import { getGateboxConfig, gateboxCreatePix, type GateboxCreatePixPayload } from '@/lib/gatebox-client'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Cria um pagamento PIX via SuitPay e retorna o QR code
+ * Cria um pagamento PIX usando o gateway configurado (Gatebox ou SuitPay)
+ * Prioriza Gatebox se estiver ativo, caso contrário usa SuitPay
  */
 export async function POST(req: NextRequest) {
   try {
@@ -48,17 +50,112 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Client ID e Client Secret são obrigatórios
-    const clientId = process.env.SUITPAY_CLIENT_ID
-    const clientSecret = process.env.SUITPAY_CLIENT_SECRET
-    
-    if (!clientId || !clientSecret) {
-      console.error('SUITPAY_CLIENT_ID ou SUITPAY_CLIENT_SECRET não configurados')
-      return NextResponse.json(
-        { error: 'Configuração do gateway não encontrada. Entre em contato com o suporte.' },
-        { status: 500 }
-      )
+    // Verificar qual gateway está configurado (prioridade: Gatebox > SuitPay)
+    const gateboxConfig = await getGateboxConfig()
+    const useGatebox = !!gateboxConfig
+
+    // Se não usar Gatebox, verificar SuitPay
+    if (!useGatebox) {
+      const clientId = process.env.SUITPAY_CLIENT_ID
+      const clientSecret = process.env.SUITPAY_CLIENT_SECRET
+      
+      if (!clientId || !clientSecret) {
+        console.error('Nenhum gateway configurado (Gatebox ou SuitPay)')
+        return NextResponse.json(
+          { error: 'Configuração do gateway não encontrada. Configure o Gatebox no painel administrativo ou as variáveis de ambiente do SuitPay.' },
+          { status: 500 }
+        )
+      }
     }
+
+    // Construir URL do webhook
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                   (req.headers.get('host') ? `https://${req.headers.get('host')}` : 'http://localhost:3001')
+
+    // Usar Gatebox se configurado
+    if (useGatebox && gateboxConfig) {
+      // Validar telefone - deve ter pelo menos 10 dígitos
+      const phoneClean = (user.telefone || '').replace(/\D/g, '')
+      let phoneFormatted = phoneClean
+      if (phoneFormatted.length >= 10) {
+        // Formatar para +55XXXXXXXXXXX se não começar com +
+        if (!phoneFormatted.startsWith('+')) {
+          if (phoneFormatted.length === 11 && phoneFormatted.startsWith('0')) {
+            phoneFormatted = '55' + phoneFormatted.substring(1)
+          } else if (phoneFormatted.length === 10 || phoneFormatted.length === 11) {
+            phoneFormatted = '55' + phoneFormatted
+          }
+          phoneFormatted = '+' + phoneFormatted
+        }
+      }
+
+      const callbackUrl = `${baseUrl}/api/webhooks/gatebox`
+      const externalId = `deposito_${user.id}_${Date.now()}`
+
+      const pixPayload: GateboxCreatePixPayload = {
+        externalId,
+        amount: parseFloat(valor.toFixed(2)),
+        document: cpfLimpo,
+        name: user.nome.trim(),
+        email: user.email.trim().toLowerCase(),
+        phone: phoneFormatted || undefined,
+        identification: `Depósito - ${user.nome}`,
+        expire: 3600,
+        description: `Depósito na plataforma - R$ ${valor.toFixed(2)}`,
+      }
+
+      console.log('=== DEBUG GATEBOX PIX ===')
+      console.log('Base URL:', gateboxConfig.baseUrl)
+      console.log('Username:', gateboxConfig.username ? `${gateboxConfig.username.substring(0, 10)}...` : 'MISSING')
+      console.log('External ID:', externalId)
+      console.log('========================')
+
+      try {
+        const pixResponse = await gateboxCreatePix(gateboxConfig, pixPayload)
+
+        console.log('Resposta Gatebox:', { 
+          transactionId: pixResponse.transactionId, 
+          endToEnd: pixResponse.endToEnd,
+          qrCode: pixResponse.qrCode ? 'Presente' : 'Ausente',
+          qrCodeText: pixResponse.qrCodeText ? 'Presente' : 'Ausente',
+        })
+
+        if (!pixResponse.transactionId && !pixResponse.endToEnd) {
+          console.error('Resposta inválida da Gatebox:', pixResponse)
+          return NextResponse.json({ error: 'Resposta inválida da API' }, { status: 500 })
+        }
+
+        // Criar registro da transação pendente
+        await prisma.transacao.create({
+          data: {
+            usuarioId: user.id,
+            tipo: 'deposito',
+            status: 'pendente',
+            valor,
+            referenciaExterna: externalId,
+            descricao: `Depósito PIX via Gatebox - Aguardando pagamento`,
+          },
+        })
+
+        const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString()
+
+        return NextResponse.json({
+          qrCode: pixResponse.qrCode,
+          qrCodeText: pixResponse.qrCodeText || pixResponse.qrCode,
+          transactionId: pixResponse.transactionId || pixResponse.endToEnd,
+          valor,
+          status: 'pending',
+          expiresAt,
+        })
+      } catch (gateboxError: any) {
+        console.error('Erro ao criar PIX via Gatebox:', gateboxError)
+        throw gateboxError
+      }
+    }
+
+    // Usar SuitPay como fallback
+    const clientId = process.env.SUITPAY_CLIENT_ID!
+    const clientSecret = process.env.SUITPAY_CLIENT_SECRET!
 
     // Validar telefone - deve ter pelo menos 10 dígitos
     const phoneClean = (user.telefone || '').replace(/\D/g, '')
@@ -93,19 +190,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Construir URL do webhook
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
-                   (req.headers.get('host') ? `https://${req.headers.get('host')}` : 'http://localhost:3001')
     const callbackUrl = `${baseUrl}/api/webhooks/suitpay`
-
-    // Request number único
     const requestNumber = `deposito_${user.id}_${Date.now()}`
-
-    // Data de vencimento (hoje para PIX)
     const hoje = new Date()
-    const dueDate = hoje.toISOString().split('T')[0] // AAAA-MM-DD
+    const dueDate = hoje.toISOString().split('T')[0]
 
-    // Payload conforme documentação SuitPay
     const pixPayload: SuitPayCreatePixPayload = {
       requestNumber,
       dueDate,
@@ -134,7 +223,6 @@ export async function POST(req: NextRequest) {
     console.log('Request Number:', requestNumber)
     console.log('========================')
 
-    // Criar pagamento PIX via SuitPay
     const baseUrlSuitPay = process.env.SUITPAY_BASE_URL || 'https://sandbox.ws.suitpay.app'
     const pixResponse = await suitpayCreatePix(
       {
@@ -170,12 +258,12 @@ export async function POST(req: NextRequest) {
     })
 
     return NextResponse.json({
-      qrCode: pixResponse.qrCodeImage, // Imagem base64 do QR code (se disponível)
-      qrCodeText: pixResponse.qrCode, // Texto do QR code para copiar e colar
+      qrCode: pixResponse.qrCodeImage,
+      qrCodeText: pixResponse.qrCode,
       transactionId: pixResponse.idTransaction,
       valor,
       status: 'pending',
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
     })
   } catch (error: any) {
     console.error('Erro ao criar pagamento PIX:', error)
