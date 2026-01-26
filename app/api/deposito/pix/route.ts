@@ -80,6 +80,18 @@ export async function POST(req: NextRequest) {
 
     // Usar Gatebox se configurado
     if (useGatebox) {
+      // Verificar se username e password estão presentes
+      if (!gatewayConfig.username || !gatewayConfig.password) {
+        console.error('Configuração Gatebox incompleta:', { 
+          username: !!gatewayConfig.username, 
+          password: !!gatewayConfig.password 
+        })
+        return NextResponse.json(
+          { error: 'Configuração do gateway Gatebox incompleta. Verifique username e senha no painel administrativo.' },
+          { status: 500 }
+        )
+      }
+
       // Validar telefone - deve ter pelo menos 10 dígitos
       const phoneClean = (user.telefone || '').replace(/\D/g, '')
       let phoneFormatted = phoneClean
