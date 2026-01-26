@@ -171,7 +171,7 @@ export default function GatewaysPage() {
               <input
                 required={form.type === 'suitpay'}
                 type="password"
-                value={form.apiKey}
+                value={form.apiKey || ''}
                 onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
                 className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue focus:outline-none"
                 placeholder="clientId|clientSecret"
@@ -187,7 +187,7 @@ export default function GatewaysPage() {
                 <label className="text-sm font-semibold text-gray-700">Username (CNPJ)</label>
                 <input
                   required={form.type === 'gatebox'}
-                  value={form.username}
+                  value={form.username || ''}
                   onChange={(e) => setForm({ ...form, username: e.target.value })}
                   className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue focus:outline-none"
                   placeholder="93892492000158"
@@ -199,7 +199,7 @@ export default function GatewaysPage() {
                 <input
                   required={form.type === 'gatebox' && !editingId}
                   type="password"
-                  value={form.password}
+                  value={form.password || ''}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue focus:outline-none"
                   placeholder={editingId && form.password === '***' ? 'Deixe em branco para manter ou digite nova senha' : 'Digite a senha'}
