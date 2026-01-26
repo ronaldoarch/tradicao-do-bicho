@@ -11,14 +11,6 @@ interface Configuracoes {
   logoSite: string
 }
 
-interface GateboxConfig {
-  username: string
-  password: string
-  baseUrl: string
-  ativo: boolean
-  passwordSet: boolean
-}
-
 export default function ConfiguracoesPage() {
   const [config, setConfig] = useState<Configuracoes>({
     nomePlataforma: 'Tradição do Bicho',
@@ -30,18 +22,9 @@ export default function ConfiguracoesPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
-  const [gateboxConfig, setGateboxConfig] = useState<GateboxConfig>({
-    username: '',
-    password: '',
-    baseUrl: 'https://api.gatebox.com.br',
-    ativo: false,
-    passwordSet: false,
-  })
-  const [savingGatebox, setSavingGatebox] = useState(false)
 
   useEffect(() => {
     loadConfig()
-    loadGateboxConfig()
   }, [])
 
   const loadConfig = async () => {
@@ -53,56 +36,6 @@ export default function ConfiguracoesPage() {
       console.error('Erro ao carregar configurações:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const loadGateboxConfig = async () => {
-    try {
-      const response = await fetch('/api/admin/gatebox/config')
-      const data = await response.json()
-      if (data.config) {
-        setGateboxConfig({
-          username: data.config.username || '',
-          password: '', // Não carregar senha
-          baseUrl: data.config.baseUrl || 'https://api.gatebox.com.br',
-          ativo: data.config.ativo || false,
-          passwordSet: data.config.passwordSet || false,
-        })
-      }
-    } catch (error) {
-      console.error('Erro ao carregar configuração Gatebox:', error)
-    }
-  }
-
-  const handleGateboxSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSavingGatebox(true)
-
-    try {
-      const response = await fetch('/api/admin/gatebox/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: gateboxConfig.username,
-          password: gateboxConfig.password || (gateboxConfig.passwordSet ? '***' : ''),
-          baseUrl: gateboxConfig.baseUrl,
-          ativo: gateboxConfig.ativo,
-        }),
-      })
-
-      if (response.ok) {
-        alert('Configuração do Gatebox salva com sucesso!')
-        loadGateboxConfig()
-        setGateboxConfig({ ...gateboxConfig, password: '' }) // Limpar campo de senha
-      } else {
-        const error = await response.json()
-        alert(error.error || 'Erro ao salvar configuração do Gatebox')
-      }
-    } catch (error) {
-      console.error('Erro:', error)
-      alert('Erro ao salvar configuração do Gatebox')
-    } finally {
-      setSavingGatebox(false)
     }
   }
 
@@ -275,84 +208,6 @@ export default function ConfiguracoesPage() {
         </div>
       </form>
 
-      {/* Configuração Gatebox */}
-      <form onSubmit={handleGateboxSubmit} className="bg-white rounded-xl shadow-md p-6 space-y-6 mt-8">
-        <div className="border-b border-gray-200 pb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Configuração Gatebox</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Configure as credenciais do gateway Gatebox para processar depósitos PIX.
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Username (CNPJ)
-          </label>
-          <input
-            type="text"
-            value={gateboxConfig.username}
-            onChange={(e) => setGateboxConfig({ ...gateboxConfig, username: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
-            placeholder="93892492000158"
-          />
-          <p className="text-xs text-gray-500 mt-1">CNPJ ou username fornecido pela Gatebox</p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Senha
-          </label>
-          <input
-            type="password"
-            value={gateboxConfig.password}
-            onChange={(e) => setGateboxConfig({ ...gateboxConfig, password: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
-            placeholder={gateboxConfig.passwordSet ? '••••••••' : 'Digite a senha'}
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            {gateboxConfig.passwordSet 
-              ? 'Senha já configurada. Deixe em branco para manter a atual ou digite uma nova para alterar.'
-              : 'Senha fornecida pela Gatebox'}
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Base URL
-          </label>
-          <input
-            type="text"
-            value={gateboxConfig.baseUrl}
-            onChange={(e) => setGateboxConfig({ ...gateboxConfig, baseUrl: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
-            placeholder="https://api.gatebox.com.br"
-          />
-          <p className="text-xs text-gray-500 mt-1">URL base da API Gatebox</p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="gatebox-ativo"
-            checked={gateboxConfig.ativo}
-            onChange={(e) => setGateboxConfig({ ...gateboxConfig, ativo: e.target.checked })}
-            className="w-4 h-4 text-blue border-gray-300 rounded focus:ring-blue"
-          />
-          <label htmlFor="gatebox-ativo" className="text-sm font-medium text-gray-700">
-            Ativar Gateway Gatebox
-          </label>
-        </div>
-
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            disabled={savingGatebox}
-            className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-          >
-            {savingGatebox ? 'Salvando...' : 'Salvar Configuração Gatebox'}
-          </button>
-        </div>
-      </form>
     </div>
   )
 }

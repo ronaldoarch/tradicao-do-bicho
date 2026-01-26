@@ -11,6 +11,14 @@ interface Gateway {
   active: boolean
 }
 
+interface GateboxConfig {
+  username: string
+  password: string
+  baseUrl: string
+  ativo: boolean
+  passwordSet: boolean
+}
+
 const emptyForm: Omit<Gateway, 'id'> = {
   name: '',
   baseUrl: '',
@@ -25,6 +33,15 @@ export default function GatewaysPage() {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<Omit<Gateway, 'id'>>(emptyForm)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [gateboxConfig, setGateboxConfig] = useState<GateboxConfig>({
+    username: '',
+    password: '',
+    baseUrl: 'https://api.gatebox.com.br',
+    ativo: false,
+    passwordSet: false,
+  })
+  const [savingGatebox, setSavingGatebox] = useState(false)
+  const [showGateboxConfig, setShowGateboxConfig] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -41,7 +58,59 @@ export default function GatewaysPage() {
 
   useEffect(() => {
     load()
+    loadGateboxConfig()
   }, [])
+
+  const loadGateboxConfig = async () => {
+    try {
+      const res = await fetch('/api/admin/gatebox/config')
+      const data = await res.json()
+      if (data.config) {
+        setGateboxConfig({
+          username: data.config.username || '',
+          password: '',
+          baseUrl: data.config.baseUrl || 'https://api.gatebox.com.br',
+          ativo: data.config.ativo || false,
+          passwordSet: data.config.passwordSet || false,
+        })
+      }
+    } catch (error) {
+      console.error('Erro ao carregar configuração Gatebox:', error)
+    }
+  }
+
+  const handleGateboxSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingGatebox(true)
+
+    try {
+      const res = await fetch('/api/admin/gatebox/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: gateboxConfig.username,
+          password: gateboxConfig.password || (gateboxConfig.passwordSet ? '***' : ''),
+          baseUrl: gateboxConfig.baseUrl,
+          ativo: gateboxConfig.ativo,
+        }),
+      })
+
+      if (res.ok) {
+        alert('Configuração do Gatebox salva com sucesso!')
+        loadGateboxConfig()
+        setGateboxConfig({ ...gateboxConfig, password: '' })
+        setShowGateboxConfig(false)
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Erro ao salvar configuração do Gatebox')
+      }
+    } catch (error) {
+      console.error('Erro:', error)
+      alert('Erro ao salvar configuração do Gatebox')
+    } finally {
+      setSavingGatebox(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -102,7 +171,97 @@ export default function GatewaysPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Gateways</h1>
+        <button
+          onClick={() => setShowGateboxConfig(!showGateboxConfig)}
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        >
+          {showGateboxConfig ? 'Ocultar' : 'Configurar'} Gatebox
+        </button>
       </div>
+
+      {/* Configuração Gatebox */}
+      {showGateboxConfig && (
+        <section className="bg-white rounded-xl shadow p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Configuração Gatebox</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Configure as credenciais do gateway Gatebox para processar depósitos PIX.
+          </p>
+          <form onSubmit={handleGateboxSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-gray-700">Username (CNPJ)</label>
+              <input
+                type="text"
+                value={gateboxConfig.username}
+                onChange={(e) => setGateboxConfig({ ...gateboxConfig, username: e.target.value })}
+                className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue focus:outline-none"
+                placeholder="93892492000158"
+              />
+              <p className="text-xs text-gray-500">CNPJ ou username fornecido pela Gatebox</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-gray-700">Base URL</label>
+              <input
+                type="text"
+                value={gateboxConfig.baseUrl}
+                onChange={(e) => setGateboxConfig({ ...gateboxConfig, baseUrl: e.target.value })}
+                className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue focus:outline-none"
+                placeholder="https://api.gatebox.com.br"
+              />
+            </div>
+            <div className="flex flex-col gap-2 md:col-span-2">
+              <label className="text-sm font-semibold text-gray-700">Senha</label>
+              <input
+                type="password"
+                value={gateboxConfig.password}
+                onChange={(e) => setGateboxConfig({ ...gateboxConfig, password: e.target.value })}
+                className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue focus:outline-none"
+                placeholder={gateboxConfig.passwordSet ? '•••••••• (deixe em branco para manter)' : 'Digite a senha'}
+              />
+              <p className="text-xs text-gray-500">
+                {gateboxConfig.passwordSet 
+                  ? 'Senha já configurada. Deixe em branco para manter a atual ou digite uma nova para alterar.'
+                  : 'Senha fornecida pela Gatebox'}
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={gateboxConfig.ativo}
+                  onChange={(e) => setGateboxConfig({ ...gateboxConfig, ativo: e.target.checked })}
+                />
+                Ativo
+              </label>
+            </div>
+            <div className="md:col-span-2 flex gap-3">
+              <button
+                type="submit"
+                disabled={savingGatebox}
+                className="rounded-lg bg-green-600 px-4 py-2 font-semibold text-white hover:bg-green-700 transition-colors disabled:opacity-60"
+              >
+                {savingGatebox ? 'Salvando...' : 'Salvar Configuração Gatebox'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGateboxConfig(false)
+                  loadGateboxConfig()
+                }}
+                className="rounded-lg border border-gray-300 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+          {gateboxConfig.ativo && (
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm text-green-800">
+                ✓ Gatebox está ativo e pronto para processar depósitos PIX
+              </p>
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="bg-white rounded-xl shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">

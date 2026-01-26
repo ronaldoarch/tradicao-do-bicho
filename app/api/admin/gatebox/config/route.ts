@@ -131,12 +131,13 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET /api/admin/gatebox/config/decrypt
- * Retorna a senha descriptografada (apenas para uso interno)
+ * Função auxiliar para obter senha descriptografada (apenas para uso interno)
  */
-export async function getDecryptedPassword(): Promise<string | null> {
+async function getDecryptedPassword(): Promise<string | null> {
   try {
-    const config = await prisma.configuracaoGatebox.findFirst()
+    const config = await prisma.configuracaoGatebox.findFirst({
+      where: { ativo: true },
+    })
     if (!config || !config.password) {
       return null
     }
