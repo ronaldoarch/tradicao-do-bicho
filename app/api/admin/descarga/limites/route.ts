@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { parseSessionToken } from '@/lib/auth'
+import { requireAdminAPI } from '@/lib/admin-auth'
 import { prisma } from '@/lib/prisma'
 
 /**
  * GET /api/admin/descarga/limites
  * Lista todos os limites de descarga configurados
  */
-export async function GET() {
-  const session = cookies().get('lotbicho_session')?.value
-  const user = parseSessionToken(session)
-
-  if (!user || !user.isAdmin) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
+export async function GET(request: NextRequest) {
+  // Verificar se é admin
+  const adminCheck = await requireAdminAPI(request)
+  if (adminCheck instanceof NextResponse) {
+    return adminCheck
   }
 
   try {
@@ -35,11 +33,10 @@ export async function GET() {
  * Cria ou atualiza um limite de descarga
  */
 export async function POST(request: NextRequest) {
-  const session = cookies().get('lotbicho_session')?.value
-  const user = parseSessionToken(session)
-
-  if (!user || !user.isAdmin) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
+  // Verificar se é admin
+  const adminCheck = await requireAdminAPI(request)
+  if (adminCheck instanceof NextResponse) {
+    return adminCheck
   }
 
   try {
@@ -105,11 +102,10 @@ export async function POST(request: NextRequest) {
  * Remove um limite de descarga
  */
 export async function DELETE(request: NextRequest) {
-  const session = cookies().get('lotbicho_session')?.value
-  const user = parseSessionToken(session)
-
-  if (!user || !user.isAdmin) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
+  // Verificar se é admin
+  const adminCheck = await requireAdminAPI(request)
+  if (adminCheck instanceof NextResponse) {
+    return adminCheck
   }
 
   try {

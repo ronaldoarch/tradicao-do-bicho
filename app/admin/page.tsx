@@ -238,11 +238,11 @@ export default function AdminDashboard() {
             <span>Nova Promoção</span>
           </Link>
           <Link
-            href="/admin/modalidades/new"
+            href="/admin/modalidades"
             className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-blue transition-colors"
           >
-            <span className="text-2xl">➕</span>
-            <span>Nova Modalidade</span>
+            <span className="text-2xl">⚙️</span>
+            <span>Gerenciar Modalidades</span>
           </Link>
         </div>
       </div>
