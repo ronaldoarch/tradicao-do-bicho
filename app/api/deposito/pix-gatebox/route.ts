@@ -52,15 +52,14 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Credenciais Gatebox são obrigatórias
-    const gateboxUsername = process.env.GATEBOX_USERNAME
-    const gateboxPassword = process.env.GATEBOX_PASSWORD
-    const gateboxBaseUrl = process.env.GATEBOX_BASE_URL || 'https://api.gatebox.com.br'
+    // Buscar configurações do Gatebox (banco de dados ou env vars)
+    const { getGateboxConfig } = await import('@/lib/gatebox-client')
+    const gateboxConfig = await getGateboxConfig()
     
-    if (!gateboxUsername || !gateboxPassword) {
-      console.error('GATEBOX_USERNAME ou GATEBOX_PASSWORD não configurados')
+    if (!gateboxConfig) {
+      console.error('Configuração do Gatebox não encontrada')
       return NextResponse.json(
-        { error: 'Configuração do gateway não encontrada. Entre em contato com o suporte.' },
+        { error: 'Configuração do gateway não encontrada. Configure o Gatebox no painel administrativo.' },
         { status: 500 }
       )
     }
@@ -103,18 +102,14 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('=== DEBUG GATEBOX PIX ===')
-    console.log('Base URL:', gateboxBaseUrl)
-    console.log('Username:', gateboxUsername ? `${gateboxUsername.substring(0, 10)}...` : 'MISSING')
+    console.log('Base URL:', gateboxConfig.baseUrl)
+    console.log('Username:', gateboxConfig.username ? `${gateboxConfig.username.substring(0, 10)}...` : 'MISSING')
     console.log('External ID:', externalId)
     console.log('========================')
 
     // Criar pagamento PIX via Gatebox
     const pixResponse = await gateboxCreatePix(
-      {
-        username: gateboxUsername,
-        password: gateboxPassword,
-        baseUrl: gateboxBaseUrl,
-      },
+      gateboxConfig,
       pixPayload
     )
 

@@ -3,10 +3,85 @@
  * Documentação baseada na coleção Postman fornecida
  */
 
+import { prisma } from './prisma'
+import crypto from 'crypto'
+
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'default-key-change-in-production'
+const ALGORITHM = 'aes-256-cbc'
+
+function decrypt(encryptedText: string): string {
+  try {
+    const parts = encryptedText.split(':')
+    const iv = Buffer.from(parts[0], 'hex')
+    const encrypted = parts[1]
+    const decipher = crypto.createDecipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.padEnd(32).slice(0, 32)), iv)
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8')
+    decrypted += decipher.final('utf8')
+    return decrypted
+  } catch (error) {
+    console.error('Erro ao descriptografar:', error)
+    throw error
+  }
+}
+
 export interface GateboxClientOptions {
   username: string // CNPJ ou username
   password: string
   baseUrl?: string // Padrão: https://api.gatebox.com.br
+}
+
+/**
+ * Busca configurações do Gatebox do banco de dados
+ * Retorna null se não estiver configurado ou não estiver ativo
+ */
+export async function getGateboxConfigFromDB(): Promise<GateboxClientOptions | null> {
+  try {
+    const config = await prisma.configuracaoGatebox.findFirst({
+      where: { ativo: true },
+    })
+
+    if (!config || !config.username || !config.password) {
+      return null
+    }
+
+    // Descriptografar senha
+    const passwordDecrypted = decrypt(config.password)
+
+    return {
+      username: config.username,
+      password: passwordDecrypted,
+      baseUrl: config.baseUrl || 'https://api.gatebox.com.br',
+    }
+  } catch (error) {
+    console.error('Erro ao buscar configuração do Gatebox do banco:', error)
+    return null
+  }
+}
+
+/**
+ * Busca configurações do Gatebox (primeiro do banco, depois de env vars)
+ */
+export async function getGateboxConfig(): Promise<GateboxClientOptions | null> {
+  // Tentar buscar do banco primeiro
+  const dbConfig = await getGateboxConfigFromDB()
+  if (dbConfig) {
+    return dbConfig
+  }
+
+  // Fallback para variáveis de ambiente
+  const username = process.env.GATEBOX_USERNAME
+  const password = process.env.GATEBOX_PASSWORD
+  const baseUrl = process.env.GATEBOX_BASE_URL || 'https://api.gatebox.com.br'
+
+  if (!username || !password) {
+    return null
+  }
+
+  return {
+    username,
+    password,
+    baseUrl,
+  }
 }
 
 export interface GateboxAuthResponse {
