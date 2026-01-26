@@ -136,9 +136,12 @@ model ConfiguracaoGatebox {
 
 model Gateway {
   id        Int      @id @default(autoincrement())
-  name      String
+  name      String   // Nome do gateway (ex: "Gatebox", "SuitPay")
+  type      String   @default("suitpay") // "gatebox" ou "suitpay"
   baseUrl   String
-  apiKey    String
+  apiKey    String?  // Para SuitPay (Client ID + Secret separados por |)
+  username  String?  // Para Gatebox (CNPJ/username)
+  password  String?  // Para Gatebox (senha criptografada)
   sandbox   Boolean  @default(true)
   active    Boolean  @default(true)
   createdAt DateTime @default(now())

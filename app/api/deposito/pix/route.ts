@@ -3,13 +3,13 @@ import { cookies } from 'next/headers'
 import { parseSessionToken } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { suitpayCreatePix, buscarCodigoIBGEPorCEP, type SuitPayCreatePixPayload } from '@/lib/suitpay-client'
-import { getGateboxConfig, gateboxCreatePix, type GateboxCreatePixPayload } from '@/lib/gatebox-client'
+import { gateboxCreatePix, type GateboxCreatePixPayload } from '@/lib/gatebox-client'
+import { getActiveGateway, getGatewayConfig } from '@/lib/gateways-store'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Cria um pagamento PIX usando o gateway configurado (Gatebox ou SuitPay)
- * Prioriza Gatebox se estiver ativo, caso contrário usa SuitPay
+ * Cria um pagamento PIX usando o gateway ativo configurado no banco de dados
  */
 export async function POST(req: NextRequest) {
   try {
@@ -50,30 +50,36 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Verificar qual gateway está configurado (prioridade: Gatebox > SuitPay)
-    const gateboxConfig = await getGateboxConfig()
-    const useGatebox = !!gateboxConfig
-
-    // Se não usar Gatebox, verificar SuitPay
-    if (!useGatebox) {
-      const clientId = process.env.SUITPAY_CLIENT_ID
-      const clientSecret = process.env.SUITPAY_CLIENT_SECRET
-      
-      if (!clientId || !clientSecret) {
-        console.error('Nenhum gateway configurado (Gatebox ou SuitPay)')
-        return NextResponse.json(
-          { error: 'Configuração do gateway não encontrada. Configure o Gatebox no painel administrativo ou as variáveis de ambiente do SuitPay.' },
-          { status: 500 }
-        )
-      }
+    // Buscar gateway ativo do banco de dados
+    const activeGateway = await getActiveGateway()
+    
+    if (!activeGateway) {
+      console.error('Nenhum gateway ativo encontrado')
+      return NextResponse.json(
+        { error: 'Nenhum gateway ativo configurado. Configure um gateway no painel administrativo.' },
+        { status: 500 }
+      )
     }
+
+    // Obter configuração do gateway
+    const gatewayConfig = await getGatewayConfig(activeGateway)
+    
+    if (!gatewayConfig) {
+      console.error('Configuração do gateway inválida:', activeGateway.name)
+      return NextResponse.json(
+        { error: 'Configuração do gateway inválida. Verifique as credenciais no painel administrativo.' },
+        { status: 500 }
+      )
+    }
+
+    const useGatebox = gatewayConfig.type === 'gatebox'
 
     // Construir URL do webhook
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
                    (req.headers.get('host') ? `https://${req.headers.get('host')}` : 'http://localhost:3001')
 
     // Usar Gatebox se configurado
-    if (useGatebox && gateboxConfig) {
+    if (useGatebox) {
       // Validar telefone - deve ter pelo menos 10 dígitos
       const phoneClean = (user.telefone || '').replace(/\D/g, '')
       let phoneFormatted = phoneClean
@@ -105,13 +111,20 @@ export async function POST(req: NextRequest) {
       }
 
       console.log('=== DEBUG GATEBOX PIX ===')
-      console.log('Base URL:', gateboxConfig.baseUrl)
-      console.log('Username:', gateboxConfig.username ? `${gateboxConfig.username.substring(0, 10)}...` : 'MISSING')
+      console.log('Base URL:', gatewayConfig.baseUrl)
+      console.log('Username:', gatewayConfig.username ? `${gatewayConfig.username.substring(0, 10)}...` : 'MISSING')
       console.log('External ID:', externalId)
       console.log('========================')
 
       try {
-        const pixResponse = await gateboxCreatePix(gateboxConfig, pixPayload)
+        const pixResponse = await gateboxCreatePix(
+          {
+            username: gatewayConfig.username,
+            password: gatewayConfig.password,
+            baseUrl: gatewayConfig.baseUrl,
+          },
+          pixPayload
+        )
 
         console.log('Resposta Gatebox:', { 
           transactionId: pixResponse.transactionId, 
@@ -132,8 +145,9 @@ export async function POST(req: NextRequest) {
             tipo: 'deposito',
             status: 'pendente',
             valor,
+            gatewayId: activeGateway.id,
             referenciaExterna: externalId,
-            descricao: `Depósito PIX via Gatebox - Aguardando pagamento`,
+            descricao: `Depósito PIX via ${activeGateway.name} - Aguardando pagamento`,
           },
         })
 
@@ -153,9 +167,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Usar SuitPay como fallback
-    const clientId = process.env.SUITPAY_CLIENT_ID!
-    const clientSecret = process.env.SUITPAY_CLIENT_SECRET!
+    // Usar SuitPay
+    const clientId = gatewayConfig.clientId!
+    const clientSecret = gatewayConfig.clientSecret!
 
     // Validar telefone - deve ter pelo menos 10 dígitos
     const phoneClean = (user.telefone || '').replace(/\D/g, '')
@@ -218,12 +232,12 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('=== DEBUG SUITPAY PIX ===')
-    console.log('Base URL:', process.env.SUITPAY_BASE_URL || 'https://sandbox.ws.suitpay.app')
+    console.log('Base URL:', gatewayConfig.baseUrl)
     console.log('Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'MISSING')
     console.log('Request Number:', requestNumber)
     console.log('========================')
 
-    const baseUrlSuitPay = process.env.SUITPAY_BASE_URL || 'https://sandbox.ws.suitpay.app'
+    const baseUrlSuitPay = gatewayConfig.baseUrl
     const pixResponse = await suitpayCreatePix(
       {
         clientId,
@@ -252,8 +266,9 @@ export async function POST(req: NextRequest) {
         tipo: 'deposito',
         status: 'pendente',
         valor,
+        gatewayId: activeGateway.id,
         referenciaExterna: pixResponse.idTransaction,
-        descricao: `Depósito PIX via SuitPay - Aguardando pagamento`,
+        descricao: `Depósito PIX via ${activeGateway.name} - Aguardando pagamento`,
       },
     })
 
