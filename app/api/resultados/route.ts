@@ -247,6 +247,10 @@ export async function GET(req: NextRequest) {
         extracaoStats[tabela] = { horarios: new Set(), total: 0 }
       }
       
+      // Identificar estado/UF da tabela
+      const estadoTabela = inferUfFromName(tabela)
+      console.log(`📋 Processando tabela "${tabela}" → Estado identificado: ${estadoTabela || 'N/A'}`)
+      
       Object.entries(horarios as Record<string, any[]>).forEach(([horario, lista]) => {
         extracaoStats[tabela].horarios.add(horario)
         totalHorarios++
@@ -255,10 +259,17 @@ export async function GET(req: NextRequest) {
         const horarioNormalizado = normalizarHorarioResultado(tabela, horario)
         
         const arr = (lista || []).map((item: any, idx: number) => {
+          // Priorizar estado do item, depois da tabela, depois do local
           const estado =
-            item.estado || inferUfFromName(item.estado) || inferUfFromName(tabela) || inferUfFromName(item.local)
+            item.estado || inferUfFromName(item.estado) || estadoTabela || inferUfFromName(item.local)
           const locationResolved = UF_NAME_MAP[estado || ''] || tabela || item.local || ''
           const dateValue = item.data_extracao || item.dataExtracao || item.data || item.date || ''
+          
+          // Log para debug quando houver múltiplos horários para mesma tabela
+          if (extracaoStats[tabela].horarios.size > 1 && idx === 0) {
+            console.log(`   ⚠️ Tabela "${tabela}" tem múltiplos horários: ${Array.from(extracaoStats[tabela].horarios).join(', ')}`)
+          }
+          
           return {
             position: item.colocacao || `${item.posicao || idx + 1}°`,
             posicao:
@@ -269,7 +280,7 @@ export async function GET(req: NextRequest) {
             drawTime: horarioNormalizado,
             horario: horarioNormalizado,
             horarioOriginal: horario !== horarioNormalizado ? horario : undefined,
-            loteria: tabela,
+            loteria: tabela, // Manter nome original da tabela
             location: locationResolved,
             date: dateValue,
             dataExtracao: dateValue,
@@ -329,9 +340,12 @@ export async function GET(req: NextRequest) {
     }
     
     // Ordenar e limitar em 7 posições por sorteio
+    // Agrupar por loteria primeiro, depois por horário e data
     const grouped: Record<string, ResultadoItem[]> = {}
     results.forEach((r) => {
-      const key = `${r.loteria || ''}|${r.drawTime || ''}|${r.date || ''}`
+      // Usar loteria como parte principal da chave para garantir agrupamento correto
+      const loteriaNormalizada = (r.loteria || r.location || '').toLowerCase().trim()
+      const key = `${loteriaNormalizada}|${r.drawTime || ''}|${r.date || ''}`
       grouped[key] = grouped[key] || []
       grouped[key].push(r)
     })
@@ -339,14 +353,24 @@ export async function GET(req: NextRequest) {
     const gruposUnicos = Object.keys(grouped)
     console.log(`✅ Resultados finais: ${gruposUnicos.length} grupos únicos (loteria|horário|data), ${results.length} resultados totais`)
     
-    // Log dos grupos para facilitar identificação (limitado a 20 primeiros)
-    if (gruposUnicos.length > 0) {
-      const gruposExemplo = gruposUnicos.slice(0, 20)
-      console.log(`📋 Grupos encontrados (primeiros 20): ${gruposExemplo.join(', ')}`)
-      if (gruposUnicos.length > 20) {
-        console.log(`   ... e mais ${gruposUnicos.length - 20} grupos`)
+    // Log detalhado dos grupos por loteria para debug
+    const gruposPorLoteria: Record<string, string[]> = {}
+    gruposUnicos.forEach(key => {
+      const [loteria] = key.split('|')
+      if (!gruposPorLoteria[loteria]) {
+        gruposPorLoteria[loteria] = []
       }
-    }
+      gruposPorLoteria[loteria].push(key)
+    })
+    
+    console.log(`📋 Grupos por loteria:`)
+    Object.entries(gruposPorLoteria).forEach(([loteria, grupos]) => {
+      const horarios = grupos.map(g => {
+        const [, horario] = g.split('|')
+        return horario
+      }).filter(h => h).sort()
+      console.log(`   "${loteria}": ${grupos.length} grupo(s) - horários: ${horarios.join(', ')}`)
+    })
     
     // Ordenar grupos por data (mais recente primeiro) e depois por horário (mais cedo primeiro)
     const gruposOrdenados = Object.entries(grouped)
