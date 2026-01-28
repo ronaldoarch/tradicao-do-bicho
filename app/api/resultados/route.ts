@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ResultadosResponse, ResultadoItem } from '@/types/resultados'
-import { toIsoDate, normalizarHorarioResultado } from '@/lib/resultados-helpers'
-
-const RAW_SOURCE =
-  process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'
-const SOURCE_ROOT = RAW_SOURCE.replace(/\/api\/resultados$/, '')
+import { toIsoDate } from '@/lib/resultados-helpers'
+import { buscarResultadosBichoCerto } from '@/lib/bichocerto-parser'
 
 const UF_NAME_MAP: Record<string, string> = {
   RJ: 'Rio de Janeiro',
@@ -136,10 +133,7 @@ function resolveUF(location?: string | null) {
   return UF_ALIASES[key] ?? (key.length === 2 ? key.toUpperCase() : undefined)
 }
 
-function buildUrl(uf?: string) {
-  if (uf) return `${SOURCE_ROOT}/api/resultados/estado/${uf}`
-  return `${SOURCE_ROOT}/api/resultados`
-}
+// Função removida - não usa mais API externa
 
 function inferUfFromName(name?: string | null) {
   if (!name) return undefined
@@ -212,91 +206,79 @@ function matchesDateFilter(value: string | undefined, filter: string) {
   )
 }
 
+// Lista de loterias principais para buscar resultados
+const LOTERIAS_PRINCIPAIS = [
+  'PT Rio de Janeiro',
+  'PT-SP/Bandeirantes',
+  'PT Bahia',
+  'PT Paraíba',
+  'Look Goiás',
+  'Lotece',
+  'Loteria Nacional',
+  'Loteria Federal',
+  'Boa Sorte',
+]
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const dateFilter = searchParams.get('date')
   const locationFilter = searchParams.get('location')
   const uf = resolveUF(locationFilter)
 
-  const fetchWithTimeout = async (url: string, timeoutMs = 15000) => {
-    const controller = new AbortController()
-    const id = setTimeout(() => controller.abort(), timeoutMs)
-    try {
-      return await fetch(url, { cache: 'no-store', signal: controller.signal })
-    } finally {
-      clearTimeout(id)
-    }
-  }
-
   try {
-    // Nova fonte principal: resultados organizados
-    const res = await fetchWithTimeout(`${SOURCE_ROOT}/api/resultados/organizados`)
-    if (!res.ok) throw new Error(`Upstream status ${res.status}`)
-
-    const data = await res.json()
-    const organizados = data?.organizados || {}
-
+    // Usar APENAS parser direto do bichocerto.com (sem API externa)
+    const dataHoje = dateFilter || new Date().toISOString().split('T')[0]
+    
     let results: ResultadoItem[] = []
-    
-    // Estatísticas para logs detalhados
     const extracaoStats: Record<string, { horarios: Set<string>, total: number }> = {}
-    let totalHorarios = 0
     
-    Object.entries(organizados).forEach(([tabela, horarios]) => {
-      if (!extracaoStats[tabela]) {
-        extracaoStats[tabela] = { horarios: new Set(), total: 0 }
-      }
-      
-      // Identificar estado/UF da tabela
-      const estadoTabela = inferUfFromName(tabela)
-      console.log(`📋 Processando tabela "${tabela}" → Estado identificado: ${estadoTabela || 'N/A'}`)
-      
-      Object.entries(horarios as Record<string, any[]>).forEach(([horario, lista]) => {
-        extracaoStats[tabela].horarios.add(horario)
-        totalHorarios++
+    // Buscar resultados para cada loteria principal
+    for (const loteriaNome of LOTERIAS_PRINCIPAIS) {
+      try {
+        const resultadosBichoCerto = await buscarResultadosBichoCerto(loteriaNome, dataHoje)
         
-        // Normalizar horário do resultado
-        const horarioNormalizado = normalizarHorarioResultado(tabela, horario)
+        if (resultadosBichoCerto.length === 0) continue
         
-        const arr = (lista || []).map((item: any, idx: number) => {
-          // Priorizar estado do item, depois da tabela, depois do local
-          const estado =
-            item.estado || inferUfFromName(item.estado) || estadoTabela || inferUfFromName(item.local)
-          const locationResolved = UF_NAME_MAP[estado || ''] || tabela || item.local || ''
-          const dateValue = item.data_extracao || item.dataExtracao || item.data || item.date || ''
+        if (!extracaoStats[loteriaNome]) {
+          extracaoStats[loteriaNome] = { horarios: new Set(), total: 0 }
+        }
+        
+        const estadoLoteria = inferUfFromName(loteriaNome)
+        const locationResolved = UF_NAME_MAP[estadoLoteria || ''] || loteriaNome
+        
+        resultadosBichoCerto.forEach(resultado => {
+          extracaoStats[loteriaNome].horarios.add(resultado.horario)
           
-          // Log para debug quando houver múltiplos horários para mesma tabela
-          if (extracaoStats[tabela].horarios.size > 1 && idx === 0) {
-            console.log(`   ⚠️ Tabela "${tabela}" tem múltiplos horários: ${Array.from(extracaoStats[tabela].horarios).join(', ')}`)
-          }
-          
-          return {
-            position: item.colocacao || `${item.posicao || idx + 1}°`,
-            posicao:
-              item.posicao || (item.colocacao && parseInt(String(item.colocacao).replace(/\D/g, ''), 10)) || idx + 1,
-            milhar: item.numero || item.milhar || '',
-            grupo: item.grupo || '',
-            animal: item.animal || '',
-            drawTime: horarioNormalizado,
-            horario: horarioNormalizado,
-            horarioOriginal: horario !== horarioNormalizado ? horario : undefined,
-            loteria: tabela, // Manter nome original da tabela
-            location: locationResolved,
-            date: dateValue,
-            dataExtracao: dateValue,
-            estado,
-            timestamp: item.timestamp || undefined,
-            fonte: item.fonte || item.origem || undefined,
-            urlOrigem: item.url_origem || item.urlOrigem || item.link || undefined,
-          } as ResultadoItem
+          resultado.premios.forEach(premio => {
+            extracaoStats[loteriaNome].total++
+            results.push({
+              position: premio.posicao,
+              posicao: parseInt(premio.posicao.replace(/\D/g, ''), 10) || undefined,
+              milhar: premio.numero,
+              grupo: premio.grupo,
+              animal: premio.animal,
+              drawTime: resultado.horario,
+              horario: resultado.horario,
+              loteria: loteriaNome,
+              location: locationResolved,
+              date: dataHoje,
+              dataExtracao: dataHoje,
+              estado: estadoLoteria,
+              fonte: 'bichocerto.com',
+            } as ResultadoItem)
+          })
         })
-        extracaoStats[tabela].total += arr.length
-        results = results.concat(arr)
-      })
-    })
+        
+        // Pequeno delay para evitar rate limiting
+        await new Promise(resolve => setTimeout(resolve, 300))
+      } catch (error) {
+        console.error(`❌ Erro ao buscar resultados para "${loteriaNome}":`, error)
+        // Continua com outras loterias
+      }
+    }
     
     // Logs detalhados de debug
-    console.log(`📊 Total processado: ${Object.keys(extracaoStats).length} extrações, ${totalHorarios} horários, ${results.length} resultados`)
+    console.log(`📊 Total processado: ${Object.keys(extracaoStats).length} extrações, ${results.length} resultados`)
     Object.entries(extracaoStats).forEach(([nome, stats]) => {
       const horariosList = Array.from(stats.horarios).sort().join(', ')
       console.log(`📊 Extração "${nome}": ${stats.horarios.size} horário(s) - ${horariosList}`)
