@@ -139,9 +139,9 @@ export default function MinhasApostasPage() {
       <BottomNav />
 
       {selecionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-4 overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl my-auto max-h-[90vh] overflow-y-auto">
+            <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sticky top-0 bg-white pb-2 border-b border-gray-200 -mx-6 px-6 pt-0">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Detalhes da aposta</h2>
                 <p className="text-sm text-gray-500">
