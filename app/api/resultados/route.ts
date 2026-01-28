@@ -380,7 +380,7 @@ export async function GET(req: NextRequest) {
 
     const payload: ResultadosResponse = {
       results,
-      updatedAt: data?.ultima_verificacao || data?.updatedAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     }
 
     return NextResponse.json(payload, { status: 200, headers: { 'Cache-Control': 'no-cache' } })
