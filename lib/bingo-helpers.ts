@@ -3,6 +3,7 @@
  */
 
 import { prisma } from './prisma'
+import { Prisma } from '@prisma/client'
 
 export interface CartelaNumeros {
   b: number[]
@@ -154,4 +155,248 @@ export async function verificarCartelasSala(salaId: number): Promise<{
   }
 
   return ganhadores
+}
+
+/**
+ * Finaliza uma sala de bingo automaticamente, processando ganhadores e marcando cartelas perdidas
+ * Esta função pode ser chamada internamente sem autenticação admin
+ */
+export async function finalizarSalaBingo(salaId: number): Promise<{
+  sucesso: boolean
+  resultados: Array<{
+    tipo: string
+    cartelasGanhadoras: number[]
+    premioTotal: number
+  }>
+  ganhadores: {
+    linha: number[]
+    coluna: number[]
+    diagonal: number[]
+    bingo: number[]
+  }
+  erro?: string
+}> {
+  try {
+    const sala = await prisma.salaBingo.findUnique({
+      where: { id: salaId },
+      include: { 
+        cartelas: true,
+      },
+    })
+
+    if (!sala) {
+      return {
+        sucesso: false,
+        resultados: [],
+        ganhadores: { linha: [], coluna: [], diagonal: [], bingo: [] },
+        erro: 'Sala não encontrada',
+      }
+    }
+
+    if (!sala.emAndamento) {
+      return {
+        sucesso: false,
+        resultados: [],
+        ganhadores: { linha: [], coluna: [], diagonal: [], bingo: [] },
+        erro: 'Sala já está finalizada',
+      }
+    }
+
+    // Verificar ganhadores reais
+    const ganhadores = await verificarCartelasSala(sala.id)
+
+    // Processar resultados e prêmios
+    const resultados: Array<{
+      tipo: string
+      cartelasGanhadoras: number[]
+      premioTotal: number
+    }> = []
+
+    // Bingo completo
+    if (ganhadores.bingo.length > 0) {
+      const premioPorCartela = sala.premioBingo / ganhadores.bingo.length
+      for (const cartelaId of ganhadores.bingo) {
+        await prisma.cartelaBingo.update({
+          where: { id: cartelaId },
+          data: {
+            status: 'ganhou',
+            premioRecebido: premioPorCartela,
+          },
+        })
+
+        const cartela = sala.cartelas.find((c) => c.id === cartelaId)
+        if (cartela) {
+          await prisma.usuario.update({
+            where: { id: cartela.usuarioId },
+            data: {
+              saldo: { increment: premioPorCartela },
+              saldoSacavel: { increment: premioPorCartela },
+            },
+          })
+        }
+      }
+
+      resultados.push({
+        tipo: 'bingo',
+        cartelasGanhadoras: ganhadores.bingo,
+        premioTotal: sala.premioBingo,
+      })
+    }
+
+    // Diagonal
+    if (ganhadores.diagonal.length > 0 && ganhadores.bingo.length === 0) {
+      const premioPorCartela = sala.premioDiagonal / ganhadores.diagonal.length
+      for (const cartelaId of ganhadores.diagonal) {
+        await prisma.cartelaBingo.update({
+          where: { id: cartelaId },
+          data: {
+            status: 'ganhou',
+            premioRecebido: premioPorCartela,
+          },
+        })
+
+        const cartela = sala.cartelas.find((c) => c.id === cartelaId)
+        if (cartela) {
+          await prisma.usuario.update({
+            where: { id: cartela.usuarioId },
+            data: {
+              saldo: { increment: premioPorCartela },
+              saldoSacavel: { increment: premioPorCartela },
+            },
+          })
+        }
+      }
+
+      resultados.push({
+        tipo: 'diagonal',
+        cartelasGanhadoras: ganhadores.diagonal,
+        premioTotal: sala.premioDiagonal,
+      })
+    }
+
+    // Coluna
+    if (ganhadores.coluna.length > 0 && ganhadores.bingo.length === 0 && ganhadores.diagonal.length === 0) {
+      const premioPorCartela = sala.premioColuna / ganhadores.coluna.length
+      for (const cartelaId of ganhadores.coluna) {
+        await prisma.cartelaBingo.update({
+          where: { id: cartelaId },
+          data: {
+            status: 'ganhou',
+            premioRecebido: premioPorCartela,
+          },
+        })
+
+        const cartela = sala.cartelas.find((c) => c.id === cartelaId)
+        if (cartela) {
+          await prisma.usuario.update({
+            where: { id: cartela.usuarioId },
+            data: {
+              saldo: { increment: premioPorCartela },
+              saldoSacavel: { increment: premioPorCartela },
+            },
+          })
+        }
+      }
+
+      resultados.push({
+        tipo: 'coluna',
+        cartelasGanhadoras: ganhadores.coluna,
+        premioTotal: sala.premioColuna,
+      })
+    }
+
+    // Linha
+    if (ganhadores.linha.length > 0 && ganhadores.bingo.length === 0 && ganhadores.diagonal.length === 0 && ganhadores.coluna.length === 0) {
+      const premioPorCartela = sala.premioLinha / ganhadores.linha.length
+      for (const cartelaId of ganhadores.linha) {
+        await prisma.cartelaBingo.update({
+          where: { id: cartelaId },
+          data: {
+            status: 'ganhou',
+            premioRecebido: premioPorCartela,
+          },
+        })
+
+        const cartela = sala.cartelas.find((c) => c.id === cartelaId)
+        if (cartela) {
+          await prisma.usuario.update({
+            where: { id: cartela.usuarioId },
+            data: {
+              saldo: { increment: premioPorCartela },
+              saldoSacavel: { increment: premioPorCartela },
+            },
+          })
+        }
+      }
+
+      resultados.push({
+        tipo: 'linha',
+        cartelasGanhadoras: ganhadores.linha,
+        premioTotal: sala.premioLinha,
+      })
+    }
+
+    // Coletar todos os IDs das cartelas ganhadoras
+    const todasCartelasGanhadoras = new Set([
+      ...ganhadores.bingo,
+      ...ganhadores.diagonal,
+      ...ganhadores.coluna,
+      ...ganhadores.linha,
+    ])
+
+    // Marcar todas as cartelas não ganhadoras como "perdida"
+    const cartelasPerdidas = sala.cartelas.filter(
+      (cartela) => !todasCartelasGanhadoras.has(cartela.id)
+    )
+
+    if (cartelasPerdidas.length > 0) {
+      await prisma.cartelaBingo.updateMany({
+        where: {
+          id: { in: cartelasPerdidas.map((c) => c.id) },
+          status: 'ativa',
+        },
+        data: {
+          status: 'perdida',
+        },
+      })
+    }
+
+    // Criar registros de resultados
+    const numerosSorteados = (sala.numerosSorteados as number[] | null) ?? []
+    for (const resultado of resultados) {
+      await prisma.resultadoBingo.create({
+        data: {
+          salaId: sala.id,
+          tipo: resultado.tipo,
+          numerosGanhadores: numerosSorteados as Prisma.InputJsonValue,
+          cartelasGanhadoras: resultado.cartelasGanhadoras as Prisma.InputJsonValue,
+          premioTotal: resultado.premioTotal,
+        },
+      })
+    }
+
+    // Finalizar sala
+    await prisma.salaBingo.update({
+      where: { id: sala.id },
+      data: {
+        emAndamento: false,
+        dataFim: new Date(),
+        resultadoFinal: resultados,
+      },
+    })
+
+    return {
+      sucesso: true,
+      resultados,
+      ganhadores,
+    }
+  } catch (error: any) {
+    console.error(`Erro ao finalizar sala ${salaId}:`, error)
+    return {
+      sucesso: false,
+      resultados: [],
+      ganhadores: { linha: [], coluna: [], diagonal: [], bingo: [] },
+      erro: error.message || 'Erro ao finalizar sala',
+    }
+  }
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { prisma } from '@/lib/prisma'
-import { sortearNumero, verificarCartelasSala } from '@/lib/bingo-helpers'
+import { sortearNumero, verificarCartelasSala, finalizarSalaBingo } from '@/lib/bingo-helpers'
 import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
@@ -56,19 +56,36 @@ export async function POST(request: NextRequest) {
         // Verificar se já tem todos os números sorteados (bingo completo)
         const numerosSorteados = (sala.numerosSorteados as number[]) || []
         if (numerosSorteados.length >= 75) {
-          // Todos os números foram sorteados, não precisa mais sortear
+          // Todos os números foram sorteados - finalizar sala automaticamente
           await prisma.salaBingo.update({
             where: { id: sala.id },
             data: {
               sorteioAutomatico: false, // Desativa sorteio automático
             },
           })
-          resultados.push({
-            salaId: sala.id,
-            salaNome: sala.nome,
-            status: 'completo',
-            message: 'Todos os números já foram sorteados',
-          })
+
+          // Finalizar sala automaticamente
+          const resultadoFinalizacao = await finalizarSalaBingo(sala.id)
+          
+          if (resultadoFinalizacao.sucesso) {
+            console.log(`[BINGO AUTO] Sala ${sala.nome}: Finalizada automaticamente após todos os números serem sorteados`)
+            resultados.push({
+              salaId: sala.id,
+              salaNome: sala.nome,
+              status: 'finalizada',
+              message: 'Sala finalizada automaticamente - todos os números foram sorteados',
+              ganhadores: resultadoFinalizacao.ganhadores,
+              resultados: resultadoFinalizacao.resultados,
+            })
+          } else {
+            console.error(`[BINGO AUTO] Erro ao finalizar sala ${sala.nome}:`, resultadoFinalizacao.erro)
+            resultados.push({
+              salaId: sala.id,
+              salaNome: sala.nome,
+              status: 'erro_finalizacao',
+              message: `Erro ao finalizar sala: ${resultadoFinalizacao.erro}`,
+            })
+          }
           continue
         }
 
@@ -91,16 +108,54 @@ export async function POST(request: NextRequest) {
         // Verificar ganhadores
         const ganhadores = await verificarCartelasSala(sala.id)
 
-        resultados.push({
-          salaId: sala.id,
-          salaNome: sala.nome,
-          numeroSorteado: novoNumero,
-          totalSorteados: todosNumeros.length,
-          ganhadores,
-          proximoSorteio,
-        })
+        // Se acabamos de sortear o 75º número, finalizar sala automaticamente
+        if (todosNumeros.length >= 75) {
+          await prisma.salaBingo.update({
+            where: { id: sala.id },
+            data: {
+              sorteioAutomatico: false, // Desativa sorteio automático
+            },
+          })
 
-        console.log(`[BINGO AUTO] Sala ${sala.nome}: Sorteado número ${novoNumero} (${todosNumeros.length}/75)`)
+          // Finalizar sala automaticamente
+          const resultadoFinalizacao = await finalizarSalaBingo(sala.id)
+          
+          if (resultadoFinalizacao.sucesso) {
+            console.log(`[BINGO AUTO] Sala ${sala.nome}: Finalizada automaticamente após sortear o 75º número`)
+            resultados.push({
+              salaId: sala.id,
+              salaNome: sala.nome,
+              numeroSorteado: novoNumero,
+              totalSorteados: todosNumeros.length,
+              status: 'finalizada',
+              message: 'Sala finalizada automaticamente - 75º número sorteado',
+              ganhadores: resultadoFinalizacao.ganhadores,
+              resultados: resultadoFinalizacao.resultados,
+            })
+          } else {
+            console.error(`[BINGO AUTO] Erro ao finalizar sala ${sala.nome}:`, resultadoFinalizacao.erro)
+            resultados.push({
+              salaId: sala.id,
+              salaNome: sala.nome,
+              numeroSorteado: novoNumero,
+              totalSorteados: todosNumeros.length,
+              status: 'erro_finalizacao',
+              message: `Erro ao finalizar sala: ${resultadoFinalizacao.erro}`,
+              ganhadores,
+            })
+          }
+        } else {
+          resultados.push({
+            salaId: sala.id,
+            salaNome: sala.nome,
+            numeroSorteado: novoNumero,
+            totalSorteados: todosNumeros.length,
+            ganhadores,
+            proximoSorteio,
+          })
+
+          console.log(`[BINGO AUTO] Sala ${sala.nome}: Sorteado número ${novoNumero} (${todosNumeros.length}/75)`)
+        }
       } catch (error: any) {
         console.error(`Erro ao processar sala ${sala.id}:`, error)
         resultados.push({
