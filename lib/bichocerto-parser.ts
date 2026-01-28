@@ -303,6 +303,29 @@ function parsearHTML(html: string): BichoCertoResultado[] {
   
   console.log(`✅ Total de ${resultados.length} resultado(s) extraído(s)`)
   
+  // Ordenar resultados por horário (cronologicamente)
+  resultados.sort((a, b) => {
+    // Converter horário para minutos para comparação
+    const timeToMinutes = (timeStr: string): number => {
+      const match = timeStr.match(/(\d{1,2}):(\d{2})/)
+      if (match) {
+        return parseInt(match[1], 10) * 60 + parseInt(match[2], 10)
+      }
+      // Se não conseguir parsear, tentar usar o ID numérico
+      const idMatch = timeStr.match(/(\d+)/)
+      if (idMatch) {
+        return parseInt(idMatch[1], 10)
+      }
+      return Number.MAX_SAFE_INTEGER
+    }
+    
+    return timeToMinutes(a.horario) - timeToMinutes(b.horario)
+  })
+  
+  // Log da ordem final
+  const horariosOrdenados = resultados.map(r => r.horario).join(', ')
+  console.log(`📋 Horários ordenados: ${horariosOrdenados}`)
+  
   return resultados
 }
 

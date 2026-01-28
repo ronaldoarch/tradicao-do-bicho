@@ -303,6 +303,31 @@ export async function GET(req: NextRequest) {
       results = results.filter((r) => normalizeText(r.location || '').includes(lf))
     }
 
+    // Função auxiliar para converter horário em minutos para ordenação
+    const timeToMinutes = (timeStr: string | undefined): number => {
+      if (!timeStr) return Number.MAX_SAFE_INTEGER
+      
+      // Tentar formato HH:MM
+      const match1 = timeStr.match(/(\d{1,2}):(\d{2})/)
+      if (match1) {
+        return parseInt(match1[1], 10) * 60 + parseInt(match1[2], 10)
+      }
+      
+      // Tentar formato HHhMM
+      const match2 = timeStr.match(/(\d{1,2})h(\d{2})/)
+      if (match2) {
+        return parseInt(match2[1], 10) * 60 + parseInt(match2[2], 10)
+      }
+      
+      // Tentar formato HHh
+      const match3 = timeStr.match(/(\d{1,2})h/)
+      if (match3) {
+        return parseInt(match3[1], 10) * 60
+      }
+      
+      return Number.MAX_SAFE_INTEGER
+    }
+    
     // Ordenar e limitar em 7 posições por sorteio
     const grouped: Record<string, ResultadoItem[]> = {}
     results.forEach((r) => {
@@ -323,8 +348,28 @@ export async function GET(req: NextRequest) {
       }
     }
     
-    results = Object.values(grouped)
-      .map((arr) => orderByPosition(arr).slice(0, 7))
+    // Ordenar grupos por data (mais recente primeiro) e depois por horário (mais cedo primeiro)
+    const gruposOrdenados = Object.entries(grouped)
+      .sort(([keyA], [keyB]) => {
+        const [, , dateA] = keyA.split('|')
+        const [, , dateB] = keyB.split('|')
+        
+        // Ordenar por data (mais recente primeiro)
+        if (dateA !== dateB) {
+          return dateB.localeCompare(dateA)
+        }
+        
+        // Se mesma data, ordenar por horário (mais cedo primeiro)
+        const [, timeA] = keyA.split('|')
+        const [, timeB] = keyB.split('|')
+        const minutosA = timeToMinutes(timeA)
+        const minutosB = timeToMinutes(timeB)
+        
+        return minutosA - minutosB
+      })
+    
+    results = gruposOrdenados
+      .map(([, arr]) => orderByPosition(arr).slice(0, 7))
       .flat()
 
     const payload: ResultadosResponse = {
