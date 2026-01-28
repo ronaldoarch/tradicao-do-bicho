@@ -287,46 +287,20 @@ export async function GET() {
  * - loteria: filtrar por loteria específica
  * - dataConcurso: filtrar por data específica
  * - horario: filtrar por horário específico
- * - usarMonitor: se true, tenta usar sistema do monitor primeiro
  * 
  * Se não enviar parâmetros, processa todas as apostas pendentes
  * 
  * Estratégia:
- * 1. Se usarMonitor=true, tenta usar endpoint do monitor
- * 2. Se monitor não disponível ou falhar, usa implementação própria
+ * - Busca resultados APENAS do bichocerto.com usando parser direto
+ * - Não usa fallbacks (API interna ou externa)
+ * - Se não encontrar resultados, retorna erro claro
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}))
-    const { loteria, dataConcurso, horario, usarMonitor = false } = body
+    const { loteria, dataConcurso, horario } = body
 
-    // Tentar usar sistema do monitor se solicitado
-    if (usarMonitor) {
-      try {
-        const SOURCE_ROOT = (
-          process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'
-        ).replace(/\/api\/resultados$/, '')
-
-        const monitorResponse = await fetch(`${SOURCE_ROOT}/api/resultados/liquidar`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ loteria, dataConcurso, horario }),
-          cache: 'no-store',
-        })
-
-        if (monitorResponse.ok) {
-          const monitorData = await monitorResponse.json()
-          console.log('✅ Liquidação processada pelo monitor:', monitorData)
-          return NextResponse.json({
-            ...monitorData,
-            fonte: 'monitor',
-          })
-        }
-      } catch (monitorError) {
-        console.log('⚠️ Monitor não disponível, usando implementação própria:', monitorError)
-        // Continua com implementação própria
-      }
-    }
+    // Sistema usa APENAS parser direto do bichocerto.com (sem fallbacks)
 
     // Buscar apostas pendentes
     const whereClause: any = {
@@ -359,124 +333,92 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Buscar resultados oficiais
-    // Estratégia: usar parser direto do bichocerto.com se USAR_BICHOCERTO_DIRETO=true
-    // Caso contrário, usar API interna/externa como fallback
-    const usarBichoCertoDireto = process.env.USAR_BICHOCERTO_DIRETO !== 'false'
-    
+    // Buscar resultados oficiais APENAS do bichocerto.com (parser direto)
     let resultados: ResultadoItem[] = []
     
-    if (usarBichoCertoDireto) {
-      // Usar parser direto do bichocerto.com
-      try {
-        const { buscarResultadosBichoCerto } = await import('@/lib/bichocerto-parser')
-        
-        // Coletar loterias únicas das apostas pendentes (normalizadas)
-        const loteriasUnicas = new Set<string>()
-        apostasPendentes.forEach(aposta => {
-          if (aposta.loteria) {
-            const loteriaNormalizada = normalizarLoteria(aposta.loteria)
-            if (loteriaNormalizada) {
-              loteriasUnicas.add(loteriaNormalizada)
-            }
+    try {
+      const { buscarResultadosBichoCerto } = await import('@/lib/bichocerto-parser')
+      
+      // Coletar loterias únicas das apostas pendentes (normalizadas)
+      const loteriasUnicas = new Set<string>()
+      apostasPendentes.forEach(aposta => {
+        if (aposta.loteria) {
+          const loteriaNormalizada = normalizarLoteria(aposta.loteria)
+          if (loteriaNormalizada) {
+            loteriasUnicas.add(loteriaNormalizada)
           }
+        }
+      })
+      
+      // Coletar datas únicas
+      const datasUnicas = new Set<string>()
+      apostasPendentes.forEach(aposta => {
+        if (aposta.dataConcurso) {
+          const dataISO = aposta.dataConcurso.toISOString().split('T')[0]
+          datasUnicas.add(dataISO)
+        }
+      })
+      
+      // Buscar resultados para cada combinação loteria/data
+      const loteriasArray = Array.from(loteriasUnicas)
+      const datasArray = Array.from(datasUnicas)
+      
+      if (loteriasArray.length === 0 || datasArray.length === 0) {
+        console.log('⚠️ Nenhuma loteria ou data encontrada nas apostas pendentes')
+        return NextResponse.json({
+          message: 'Nenhuma loteria ou data encontrada nas apostas pendentes',
+          processadas: 0,
+          liquidadas: 0,
+          premioTotal: 0,
         })
-        
-        // Coletar datas únicas
-        const datasUnicas = new Set<string>()
-        apostasPendentes.forEach(aposta => {
-          if (aposta.dataConcurso) {
-            const dataISO = aposta.dataConcurso.toISOString().split('T')[0]
-            datasUnicas.add(dataISO)
-          }
-        })
-        
-        // Buscar resultados para cada combinação loteria/data
-        const loteriasArray = Array.from(loteriasUnicas)
-        const datasArray = Array.from(datasUnicas)
-        
-        for (const loteria of loteriasArray) {
-          for (const dataISO of datasArray) {
-            const resultadosBichoCerto = await buscarResultadosBichoCerto(loteria, dataISO)
-            
-            // Converter formato do parser para formato ResultadoItem
-            resultadosBichoCerto.forEach(resultadoBingo => {
-              resultadoBingo.premios.forEach(premio => {
-                resultados.push({
-                  position: premio.posicao,
-                  milhar: premio.numero,
-                  grupo: premio.grupo,
-                  animal: premio.animal,
-                  drawTime: resultadoBingo.horario,
-                  horario: resultadoBingo.horario,
-                  loteria: loteria,
-                  location: inferUfFromName(loteria) || '',
-                  date: dataISO,
-                  dataExtracao: dataISO,
-                  estado: inferUfFromName(loteria) || undefined,
-                })
+      }
+      
+      for (const loteria of loteriasArray) {
+        for (const dataISO of datasArray) {
+          console.log(`🔍 Buscando resultados: loteria="${loteria}", data="${dataISO}"`)
+          const resultadosBichoCerto = await buscarResultadosBichoCerto(loteria, dataISO)
+          
+          // Converter formato do parser para formato ResultadoItem
+          resultadosBichoCerto.forEach(resultadoBingo => {
+            resultadoBingo.premios.forEach(premio => {
+              resultados.push({
+                position: premio.posicao,
+                milhar: premio.numero,
+                grupo: premio.grupo,
+                animal: premio.animal,
+                drawTime: resultadoBingo.horario,
+                horario: resultadoBingo.horario,
+                loteria: loteria,
+                location: inferUfFromName(loteria) || '',
+                date: dataISO,
+                dataExtracao: dataISO,
+                estado: inferUfFromName(loteria) || undefined,
               })
             })
-          }
+          })
         }
-        
-        console.log(`✅ Resultados obtidos do bichocerto.com: ${resultados.length} resultados`)
-      } catch (error) {
-        console.error('❌ Erro ao buscar resultados do bichocerto.com:', error)
-        // Continuar com fallback
       }
-    }
-    
-    // Fallback: usar API interna/externa se não usou parser direto ou se não retornou resultados
-    if (resultados.length === 0) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
-                     (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'http://localhost:3001')
       
-      // Tentar API interna primeiro
-      try {
-        const resultadosResponse = await fetch(`${baseUrl}/api/resultados`, {
-          cache: 'no-store',
-          signal: AbortSignal.timeout(30000) // 30 segundos timeout
-        })
-
-        if (resultadosResponse.ok) {
-          const resultadosData = await resultadosResponse.json()
-          resultados = resultadosData.results || resultadosData.resultados || []
-          console.log(`✅ Resultados obtidos da API interna: ${resultados.length} resultados`)
-        }
-      } catch (error) {
-        console.log('⚠️ API interna não disponível, tentando API externa:', error)
-      }
-
-      // Se API interna não retornou resultados, tentar API externa como fallback
-      if (resultados.length === 0) {
-        try {
-          const resultadosResponse = await fetch(
-            `${process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'}`,
-            { 
-              cache: 'no-store',
-              signal: AbortSignal.timeout(30000) // 30 segundos timeout
-            }
-          )
-
-          if (resultadosResponse.ok) {
-            const resultadosData = await resultadosResponse.json()
-            resultados = resultadosData.results || resultadosData.resultados || []
-            console.log(`✅ Resultados obtidos da API externa: ${resultados.length} resultados`)
-          }
-        } catch (error) {
-          console.error('❌ Erro ao buscar resultados oficiais:', error)
-          throw new Error('Erro ao buscar resultados oficiais')
-        }
-      }
+      console.log(`✅ Resultados obtidos do bichocerto.com: ${resultados.length} resultados`)
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar resultados do bichocerto.com:', error)
+      return NextResponse.json(
+        {
+          error: 'Erro ao buscar resultados do bichocerto.com',
+          detalhes: error.message || String(error),
+          message: 'Não foi possível buscar resultados oficiais. Tente novamente mais tarde.',
+        },
+        { status: 500 }
+      )
     }
 
     if (resultados.length === 0) {
       return NextResponse.json({
-        message: 'Nenhum resultado oficial encontrado',
+        message: 'Nenhum resultado oficial encontrado no bichocerto.com para as apostas pendentes',
         processadas: 0,
         liquidadas: 0,
         premioTotal: 0,
+        detalhes: 'Verifique se as loterias e datas das apostas estão corretas',
       })
     }
 
@@ -814,7 +756,7 @@ export async function POST(request: NextRequest) {
       processadas,
       liquidadas,
       premioTotal: premioTotalGeral,
-      fonte: 'proprio',
+      fonte: 'bichocerto.com',
     })
   } catch (error) {
     console.error('Erro ao liquidar apostas:', error)
