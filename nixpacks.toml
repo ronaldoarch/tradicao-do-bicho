@@ -11,6 +11,7 @@ cmds = [
 cmds = [
   "chmod +x scripts/cron/liquidar.sh || true",
   "chmod +x scripts/cron/descarga-relatorio.sh || true",
+  "chmod +x scripts/cron/bingo-auto-sortear.sh || true",
   "chmod +x scripts/start-with-cron.sh || true",
   "mkdir -p /var/log && touch /var/log/liquidar.log && touch /var/log/descarga-relatorio.log || true",
   "echo '*/5 * * * * /app/scripts/cron/liquidar.sh >> /var/log/liquidar.log 2>&1' | crontab - || true",

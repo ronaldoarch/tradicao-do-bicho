@@ -22,8 +22,10 @@ COPY . .
 # Copiar scripts de cron
 COPY scripts/cron/liquidar.sh /app/scripts/cron/liquidar.sh
 COPY scripts/cron/descarga-relatorio.sh /app/scripts/cron/descarga-relatorio.sh
+COPY scripts/cron/bingo-auto-sortear.sh /app/scripts/cron/bingo-auto-sortear.sh
 RUN chmod +x /app/scripts/cron/liquidar.sh
 RUN chmod +x /app/scripts/cron/descarga-relatorio.sh
+RUN chmod +x /app/scripts/cron/bingo-auto-sortear.sh
 
 # Configurar crontab
 RUN echo "*/5 * * * * /app/scripts/cron/liquidar.sh >> /var/log/liquidar.log 2>&1" | crontab - && \
