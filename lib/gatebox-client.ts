@@ -171,26 +171,48 @@ export async function gateboxAuthenticate(
   const baseUrl = options.baseUrl || 'https://api.gatebox.com.br'
   const url = `${baseUrl}/v1/customers/auth/sign-in`
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      username: options.username,
-      password: options.password,
-    }),
-  })
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: options.username,
+        password: options.password,
+      }),
+      // Adicionar timeout
+      signal: AbortSignal.timeout(30000), // 30 segundos
+    })
+  } catch (fetchError: any) {
+    // Erro de rede ou timeout
+    if (fetchError.name === 'AbortError' || fetchError.name === 'TimeoutError') {
+      throw new Error('Timeout ao conectar com a API do Gatebox. Verifique sua conexão ou tente novamente.')
+    }
+    if (fetchError.code === 'ENOTFOUND' || fetchError.code === 'ECONNREFUSED') {
+      throw new Error(`Não foi possível conectar com a API do Gatebox (${baseUrl}). Verifique se a URL está correta e se o serviço está disponível.`)
+    }
+    throw new Error(`Erro de conexão com Gatebox: ${fetchError.message}`)
+  }
 
   if (!response.ok) {
     const errorText = await response.text()
     let errorMessage = `Gatebox API authentication error (${response.status}): ${errorText}`
     
+    // Tratar erro 502 especificamente
+    if (response.status === 502) {
+      errorMessage = `Serviço Gatebox não está acessível (502). Verifique se a URL está correta (${baseUrl}) e se o serviço está disponível.`
+    }
+    
     try {
       const errorJson = JSON.parse(errorText)
       errorMessage = errorJson.message || errorJson.error || errorMessage
     } catch {
-      // Se não conseguir parsear, usa o texto original
+      // Se não conseguir parsear, verifica se é HTML (erro de proxy/gateway)
+      if (errorText.includes('<!DOCTYPE html>') || errorText.includes('<html')) {
+        errorMessage = `Serviço Gatebox não está acessível. A URL ${baseUrl} pode estar incorreta ou o serviço está temporariamente indisponível.`
+      }
     }
     
     throw new Error(errorMessage)
@@ -225,34 +247,56 @@ export async function gateboxCreatePix(
   // Autenticar primeiro
   const token = await gateboxAuthenticate(options)
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      externalId: payload.externalId,
-      amount: payload.amount,
-      document: payload.document,
-      name: payload.name,
-      email: payload.email,
-      phone: payload.phone,
-      identification: payload.identification,
-      expire: payload.expire || 3600, // Padrão: 1 hora
-      description: payload.description,
-    }),
-  })
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        externalId: payload.externalId,
+        amount: payload.amount,
+        document: payload.document,
+        name: payload.name,
+        email: payload.email,
+        phone: payload.phone,
+        identification: payload.identification,
+        expire: payload.expire || 3600, // Padrão: 1 hora
+        description: payload.description,
+      }),
+      // Adicionar timeout
+      signal: AbortSignal.timeout(30000), // 30 segundos
+    })
+  } catch (fetchError: any) {
+    // Erro de rede ou timeout
+    if (fetchError.name === 'AbortError' || fetchError.name === 'TimeoutError') {
+      throw new Error('Timeout ao criar PIX no Gatebox. Tente novamente.')
+    }
+    if (fetchError.code === 'ENOTFOUND' || fetchError.code === 'ECONNREFUSED') {
+      throw new Error(`Não foi possível conectar com a API do Gatebox (${baseUrl}). Verifique se a URL está correta.`)
+    }
+    throw new Error(`Erro de conexão com Gatebox: ${fetchError.message}`)
+  }
 
   if (!response.ok) {
     const errorText = await response.text()
     let errorMessage = `Gatebox API error (${response.status}): ${errorText}`
     
+    // Tratar erro 502 especificamente
+    if (response.status === 502) {
+      errorMessage = `Serviço Gatebox não está acessível (502). Verifique se a URL está correta (${baseUrl}) e se o serviço está disponível.`
+    }
+    
     try {
       const errorJson = JSON.parse(errorText)
       errorMessage = errorJson.message || errorJson.error || errorMessage
     } catch {
-      // Se não conseguir parsear, usa o texto original
+      // Se não conseguir parsear, verifica se é HTML (erro de proxy/gateway)
+      if (errorText.includes('<!DOCTYPE html>') || errorText.includes('<html')) {
+        errorMessage = `Serviço Gatebox não está acessível. A URL ${baseUrl} pode estar incorreta ou o serviço está temporariamente indisponível. Verifique a configuração do gateway no painel administrativo.`
+      }
     }
     
     throw new Error(errorMessage)
