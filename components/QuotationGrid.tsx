@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import SpecialQuotationsModal from './SpecialQuotationsModal'
 
 interface Modality {
@@ -16,11 +16,7 @@ export default function QuotationGrid() {
   const [modalidades, setModalidades] = useState<Modality[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadModalidades()
-  }, [])
-
-  const loadModalidades = async () => {
+  const loadModalidades = useCallback(async () => {
     try {
       const res = await fetch('/api/modalidades', { cache: 'no-store' })
       const data = await res.json()
@@ -30,7 +26,11 @@ export default function QuotationGrid() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    loadModalidades()
+  }, [loadModalidades])
 
   if (loading) {
     return (

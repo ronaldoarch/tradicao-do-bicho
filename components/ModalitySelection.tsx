@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { MODALITIES as DEFAULT_MODALITIES } from '@/data/modalities'
 import { Modality } from '@/types/bet'
 
@@ -18,21 +18,7 @@ export default function ModalitySelection({
   const [modalidades, setModalidades] = useState<Modality[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadModalidades()
-    
-    // Recarrega quando a janela ganha foco (útil após editar no admin)
-    const handleFocus = () => {
-      loadModalidades()
-    }
-    window.addEventListener('focus', handleFocus)
-    
-    return () => {
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [])
-
-  const loadModalidades = async () => {
+  const loadModalidades = useCallback(async () => {
     try {
       // Adiciona timestamp para evitar cache
       const response = await fetch(`/api/modalidades?t=${Date.now()}`, { 
@@ -64,7 +50,22 @@ export default function ModalitySelection({
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedModality, onModalitySelect])
+
+  useEffect(() => {
+    loadModalidades()
+    
+    // Recarrega quando a janela ganha foco (útil após editar no admin)
+    const handleFocus = () => {
+      loadModalidades()
+    }
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [loadModalidades])
+
   return (
     <div>
       {/* Header with title and special quotations button */}
