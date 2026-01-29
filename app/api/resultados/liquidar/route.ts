@@ -668,7 +668,9 @@ export async function POST(request: NextRequest) {
         // Calcular valor por palpite
         const isNumberModality = modalityType.includes('DEZENA') || 
                                  modalityType.includes('CENTENA') || 
-                                 modalityType.includes('MILHAR')
+                                 modalityType.includes('MILHAR') ||
+                                 modalityType === 'DUQUE_DEZENA' ||
+                                 modalityType === 'TERNO_DEZENA'
         
         const qtdPalpites = isNumberModality 
           ? (betData.numberBets?.length || 0)
@@ -703,9 +705,21 @@ export async function POST(request: NextRequest) {
               continue
             }
 
-            const palpiteData: { grupos?: number[]; numero?: string } = { numero: numeroLimpo }
+            let palpiteData: { grupos?: number[]; numero?: string } = {}
+            
+            // Para Duque e Terno de Dezena, precisa passar múltiplos números
+            if (modalityType === 'DUQUE_DEZENA' || modalityType === 'TERNO_DEZENA') {
+              // Assumimos que o número vem como string separada por vírgula ou espaço
+              // Ex: "34,56" ou "34 56" para Duque, "34,56,78" para Terno
+              const numeros = numeroLimpo.includes(',') 
+                ? numeroLimpo.split(',').map(n => n.trim())
+                : numeroLimpo.match(/.{1,2}/g) || [numeroLimpo]
+              palpiteData = { numero: numeros.join(',') }
+            } else {
+              palpiteData = { numero: numeroLimpo }
+            }
 
-            // Verificar se o número é cotado e buscar cotação personalizada
+            // Verificar se o número é cotado e buscar cotação personalizada (apenas Milhar e Centena)
             let cotacaoPersonalizada: number | undefined = undefined
             if (modalityType === 'MILHAR' || modalityType === 'CENTENA') {
               try {
