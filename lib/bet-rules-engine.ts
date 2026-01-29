@@ -43,6 +43,7 @@ export interface PrizeCalculation {
   hits: number
   prizePerUnit: number
   totalPrize: number
+  posicoesAcertadas?: number[] // Posições que acertaram (1-indexed) - usado para cálculo por posição
 }
 
 export interface InstantResult {
@@ -317,9 +318,43 @@ function getExpectedGroups(modalidade: ModalityType): number {
 // ============================================================================
 
 /**
+ * Busca a odd (multiplicador) de uma modalidade para uma posição específica.
+ * 
+ * Para modalidades numéricas (Dezena, Centena, Milhar), cada posição tem um multiplicador diferente.
+ * Para outras modalidades, retorna o multiplicador do intervalo.
+ */
+export function buscarOddPorPosicao(
+  modalidade: ModalityType,
+  posicao: number // 1-indexed (1 = 1º prêmio)
+): number {
+  // Multiplicadores por posição para modalidades numéricas
+  const multiplicadoresPorPosicao: Record<string, number[]> = {
+    DEZENA: [60, 30, 15, 7.5, 3.75, 1.875, 0.9375], // 1º, 2º, 3º, 4º, 5º, 6º, 7º
+    CENTENA: [600, 300, 150, 75, 37.5, 18.75, 9.375], // 1º, 2º, 3º, 4º, 5º, 6º, 7º
+    MILHAR: [5000, 2000, 1000, 500, 250], // 1º, 2º, 3º, 4º, 5º
+  }
+  
+  // Se for modalidade numérica com multiplicadores por posição
+  if (multiplicadoresPorPosicao[modalidade]) {
+    const multiplicadores = multiplicadoresPorPosicao[modalidade]
+    // posicao é 1-indexed, então subtrai 1 para indexar o array
+    const index = posicao - 1
+    if (index >= 0 && index < multiplicadores.length) {
+      return multiplicadores[index]
+    }
+    // Se posição fora do range, retorna o último multiplicador (reduzido)
+    return multiplicadores[multiplicadores.length - 1] / Math.pow(2, index - multiplicadores.length + 1)
+  }
+  
+  // Para outras modalidades, usar a função antiga
+  return buscarOdd(modalidade, posicao, posicao)
+}
+
+/**
  * Busca a odd (multiplicador) de uma modalidade para um intervalo de posições.
  * 
- * NOTA: Estes valores são exemplos. Devem ser configurados conforme regras da banca.
+ * NOTA: Para modalidades numéricas (Dezena, Centena, Milhar), use buscarOddPorPosicao para cada posição.
+ * Esta função mantém compatibilidade com código existente.
  */
 export function buscarOdd(
   modalidade: ModalityType,
@@ -332,20 +367,20 @@ export function buscarOdd(
   const oddsTable: Record<string, Record<string, number>> = {
     DEZENA: {
       '1-1': 60,
-      '1-3': 60,
-      '1-5': 60,
-      '1-7': 60,
+      '1-3': 60, // Valor médio aproximado
+      '1-5': 60, // Valor médio aproximado
+      '1-7': 60, // Valor médio aproximado
     },
     CENTENA: {
       '1-1': 600,
-      '1-3': 600,
-      '1-5': 600,
-      '1-7': 600,
+      '1-3': 600, // Valor médio aproximado
+      '1-5': 600, // Valor médio aproximado
+      '1-7': 600, // Valor médio aproximado
     },
     MILHAR: {
       '1-1': 5000,
-      '1-3': 5000,
-      '1-5': 5000,
+      '1-3': 5000, // Valor médio aproximado
+      '1-5': 5000, // Valor médio aproximado
     },
     MILHAR_INVERTIDA: {
       '1-1': 200,
@@ -440,7 +475,14 @@ export function calcularPremioPalpite(
 
 /**
  * Confere um palpite de número (dezena, centena, milhar) contra resultado.
+ * 
+ * Retorna informações sobre quais posições acertaram para cálculo correto de prêmios.
  */
+export interface ConferenciaNumeroDetalhada {
+  hits: number
+  posicoesAcertadas: number[] // Lista de posições que acertaram (1-indexed)
+}
+
 export function conferirNumero(
   resultado: number[],
   numeroApostado: string,
@@ -456,6 +498,7 @@ export function conferirNumero(
   }
   
   let hits = 0
+  const posicoesAcertadas: number[] = []
   const numeroDigits = numeroApostado.length
   
   // MILHAR_CENTENA: verifica tanto milhar quanto centena
@@ -470,6 +513,7 @@ export function conferirNumero(
       // Verificar se bate pela milhar OU pela centena
       if (combinations.includes(milhar) || combinations.includes(centena)) {
         hits++
+        posicoesAcertadas.push(pos + 1) // Converter para 1-indexed
       }
     }
   } else {
@@ -491,6 +535,7 @@ export function conferirNumero(
       // Verificar se alguma combinação bate
       if (combinations.includes(premioRelevante)) {
         hits++
+        posicoesAcertadas.push(pos + 1) // Converter para 1-indexed
       }
     }
   }
@@ -499,6 +544,7 @@ export function conferirNumero(
     hits,
     prizePerUnit: 0, // Será calculado depois
     totalPrize: 0, // Será calculado depois
+    posicoesAcertadas, // Armazenar posições acertadas para cálculo correto de prêmios
   }
 }
 
@@ -607,6 +653,12 @@ export function conferirQuadraGrupo(
 
 /**
  * Confere um palpite de passe (1º → 2º).
+ * 
+ * PASSE VAI: O grupo do 1º prêmio deve ser igual ao grupo do 2º prêmio.
+ * PASSE VAI E VEM: Os grupos do 1º e 2º prêmio devem ser iguais (ordem não importa).
+ * 
+ * NOTA: Os parâmetros grupo1 e grupo2 são ignorados para PASSE VAI (verifica automaticamente).
+ * Para PASSE VAI E VEM, ainda usa os grupos do palpite para compatibilidade.
  */
 export function conferirPasse(
   resultado: number[],
@@ -624,7 +676,7 @@ export function conferirPasse(
   let hits = 0
   
   if (vaiEVem) {
-    // Aceita ambas as ordens
+    // PASSE VAI E VEM: Os grupos do 1º e 2º devem ser iguais aos apostados (ordem não importa)
     if (
       (grupo1Resultado === grupo1 && grupo2Resultado === grupo2) ||
       (grupo1Resultado === grupo2 && grupo2Resultado === grupo1)
@@ -632,8 +684,9 @@ export function conferirPasse(
       hits = 1
     }
   } else {
-    // Ordem exata
-    if (grupo1Resultado === grupo1 && grupo2Resultado === grupo2) {
+    // PASSE VAI: O grupo do 1º prêmio deve ser igual ao grupo do 2º prêmio (automático)
+    // Não importa qual grupo, apenas que sejam iguais
+    if (grupo1Resultado === grupo2Resultado) {
       hits = 1
     }
   }
@@ -738,11 +791,44 @@ export function conferirPalpite(
   }
   
   // Buscar odd e calcular prêmio
-  // Para MILHAR_CENTENA, a odd já está configurada como valor combinado (3300x)
-  // que representa tanto acerto por milhar quanto por centena
-  const odd = buscarOdd(modalidade, pos_from, pos_to)
-  const premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
-  const totalPrize = calcularPremioPalpite(prize.hits, premioUnidade)
+  // Para modalidades numéricas (DEZENA, CENTENA, MILHAR), calcular prêmio por posição
+  const isModalidadeNumerica = modalidade === 'DEZENA' || modalidade === 'CENTENA' || modalidade === 'MILHAR'
+  
+  let totalPrize = 0
+  let premioUnidade = 0
+  
+  // Verificar se há flag de redução cotada (será passada via detalhes da aposta)
+  // Por enquanto, assumimos false se não fornecida
+  const isCotada = false // TODO: Receber do palpite/detalhes da aposta
+  
+  if (isModalidadeNumerica && prize.posicoesAcertadas && prize.posicoesAcertadas.length > 0) {
+    // Calcular prêmio por posição usando multiplicadores específicos
+    for (const posicao of prize.posicoesAcertadas) {
+      let oddPosicao = buscarOddPorPosicao(modalidade, posicao)
+      
+      // Aplicar redução cotada se aplicável (Centena e Milhar)
+      if (isCotada && (modalidade === 'CENTENA' || modalidade === 'MILHAR')) {
+        oddPosicao = oddPosicao / 6
+      }
+      
+      const premioPosicao = calcularPremioUnidade(oddPosicao, calculation.unitValue)
+      totalPrize += premioPosicao
+    }
+    // Prêmio por unidade é a média (para compatibilidade)
+    premioUnidade = prize.hits > 0 ? totalPrize / prize.hits : 0
+  } else {
+    // Para outras modalidades ou quando não há posições específicas, usar método antigo
+    // Para MILHAR_CENTENA, a odd já está configurada como valor combinado (3300x)
+    let odd = buscarOdd(modalidade, pos_from, pos_to)
+    
+    // Aplicar redução cotada se aplicável
+    if (isCotada && (modalidade === 'CENTENA' || modalidade === 'MILHAR')) {
+      odd = odd / 6
+    }
+    
+    premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
+    totalPrize = calcularPremioPalpite(prize.hits, premioUnidade)
+  }
   
   return {
     calculation,
