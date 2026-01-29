@@ -115,12 +115,25 @@ export default function LocationSelection({
   const locationInitializedRef = useRef(false)
   const lastProcessedLocationRef = useRef<string | null>(null)
   const lastAvailableIdsRef = useRef<string>('')
+  const pendingLocationUpdateRef = useRef<string | null>(null)
   
   useEffect(() => {
     if (available.length === 0 && normalized.length === 0) return
     
     // Criar uma string com IDs das extrações disponíveis para detectar mudanças
     const currentAvailableIds = [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
+    
+    // Se há uma atualização pendente e a location ainda não refletiu essa mudança, aguardar
+    if (pendingLocationUpdateRef.current !== null) {
+      if (location === pendingLocationUpdateRef.current) {
+        // A atualização foi aplicada, limpar o flag
+        pendingLocationUpdateRef.current = null
+        lastProcessedLocationRef.current = location
+        lastAvailableIdsRef.current = currentAvailableIds
+      }
+      // Se ainda não foi aplicada, não fazer nada
+      return
+    }
     
     // Se location não mudou E as extrações disponíveis não mudaram, não fazer nada
     if (lastProcessedLocationRef.current === location && 
@@ -135,6 +148,9 @@ export default function LocationSelection({
     if (!current) {
       // Atualizar refs mesmo se não houver current para evitar reprocessamento
       lastAvailableIdsRef.current = currentAvailableIds
+      if (location !== lastProcessedLocationRef.current) {
+        lastProcessedLocationRef.current = location
+      }
       return
     }
     
@@ -145,6 +161,7 @@ export default function LocationSelection({
     if (!location && !locationInitializedRef.current) {
       locationInitializedRef.current = true
       const newLocation = current.id.toString()
+      pendingLocationUpdateRef.current = newLocation
       lastProcessedLocationRef.current = newLocation
       onLocationChangeRef.current(newLocation)
       return
@@ -159,6 +176,7 @@ export default function LocationSelection({
       // Se não está disponível, mudar para o current
       if (!isLocationStillAvailable) {
         const newLocation = current.id.toString()
+        pendingLocationUpdateRef.current = newLocation
         lastProcessedLocationRef.current = newLocation
         onLocationChangeRef.current(newLocation)
         return
@@ -173,6 +191,7 @@ export default function LocationSelection({
     // Reset flag se location foi limpa
     if (!location) {
       locationInitializedRef.current = false
+      pendingLocationUpdateRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [available, normalized, location])
