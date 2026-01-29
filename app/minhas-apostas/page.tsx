@@ -26,25 +26,43 @@ export default function MinhasApostasPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selecionada, setSelecionada] = useState<Aposta | null>(null)
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date>(new Date())
+
+  const load = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/apostas', { 
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao carregar apostas')
+      }
+      setApostas(data.apostas || [])
+      setUltimaAtualizacao(new Date())
+    } catch (err: any) {
+      setError(err.message || 'Erro ao carregar apostas')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const res = await fetch('/api/apostas', { credentials: 'include' })
-        const data = await res.json()
-        if (!res.ok) {
-          throw new Error(data.error || 'Erro ao carregar apostas')
-        }
-        setApostas(data.apostas || [])
-      } catch (err: any) {
-        setError(err.message || 'Erro ao carregar apostas')
-      } finally {
-        setLoading(false)
-      }
-    }
+    // Carregar imediatamente
     load()
+    
+    // Auto-refresh a cada 30 segundos para atualizar resultados
+    const interval = setInterval(() => {
+      console.log('🔄 Atualizando apostas automaticamente...')
+      load()
+    }, 30000) // 30 segundos
+    
+    return () => clearInterval(interval)
   }, [])
 
   return (
@@ -52,7 +70,23 @@ export default function MinhasApostasPage() {
       <Header />
       <main className="relative flex flex-1 flex-col overflow-auto bg-gray-scale-100 text-[#1C1C1C]">
         <div className="mx-auto flex w-full max-w-[1286px] flex-col gap-4 px-4 py-6 md:px-6 md:py-8 lg:px-8">
-          <h1 className="text-2xl font-bold text-gray-900">Minhas apostas</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">Minhas apostas</h1>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={load}
+                disabled={loading}
+                className="rounded-lg bg-blue px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? 'Atualizando...' : '🔄 Atualizar'}
+              </button>
+              {ultimaAtualizacao && (
+                <span className="text-xs text-gray-500">
+                  Atualizado: {ultimaAtualizacao.toLocaleTimeString('pt-BR')}
+                </span>
+              )}
+            </div>
+          </div>
           {loading && <div className="text-gray-600">Carregando...</div>}
           {error && <div className="text-red-600">{error}</div>}
 
