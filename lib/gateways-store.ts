@@ -72,30 +72,43 @@ export async function updateGateway(id: number, input: Partial<GatewayInput>) {
   // Buscar gateway atual para manter senha se não foi alterada
   const current = await prisma.gateway.findUnique({ where: { id } })
   
-  const type = input.type || current?.type || 'suitpay'
+  if (!current) {
+    throw new Error('Gateway não encontrado')
+  }
+  
+  const type = input.type || current.type || 'suitpay'
   
   // Criptografar senha se for Gatebox e foi fornecida nova senha
-  let passwordEncrypted = current?.password || null
-  if (type === 'gatebox' && input.password) {
-    if (input.password !== '***') {
-      // Nova senha fornecida
+  let passwordEncrypted: string | null = current.password || null
+  
+  if (type === 'gatebox' && input.password !== undefined) {
+    // Se senha foi fornecida e não é '***' nem vazia, é nova senha
+    if (input.password && input.password !== '***' && input.password.trim() !== '') {
+      console.log('🔐 Atualizando senha do gateway Gatebox')
       passwordEncrypted = encrypt(input.password)
+    } else {
+      // Se for '***' ou vazio, mantém a senha atual
+      console.log('🔐 Mantendo senha atual do gateway')
+      passwordEncrypted = current.password || null
     }
-    // Se for '***', mantém a senha atual (não altera)
   }
+
+  const updateData: any = {
+    name: input.name !== undefined ? input.name : current.name,
+    type: input.type !== undefined ? input.type : current.type,
+    baseUrl: input.baseUrl !== undefined ? input.baseUrl : current.baseUrl,
+    apiKey: input.apiKey !== undefined ? input.apiKey : current.apiKey,
+    username: input.username !== undefined ? input.username : current.username,
+    password: passwordEncrypted,
+    sandbox: input.sandbox !== undefined ? input.sandbox : current.sandbox,
+    active: input.active !== undefined ? input.active : current.active,
+  }
+
+  console.log('💾 Atualizando gateway:', { id, type, temSenha: !!updateData.password })
 
   return prisma.gateway.update({
     where: { id },
-    data: {
-      name: input.name,
-      type: input.type,
-      baseUrl: input.baseUrl,
-      apiKey: input.apiKey,
-      username: input.username,
-      password: passwordEncrypted !== null ? passwordEncrypted : current?.password,
-      sandbox: input.sandbox,
-      active: input.active,
-    },
+    data: updateData,
   })
 }
 

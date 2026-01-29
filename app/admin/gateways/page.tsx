@@ -68,13 +68,31 @@ export default function GatewaysPage() {
     setSaving(true)
     try {
       const method = editingId ? 'PUT' : 'POST'
-      const body = editingId ? { id: editingId, ...form } : form
+      
+      // Preparar body - se estiver editando e senha está vazia ou é '***', não enviar
+      let body: any
+      if (editingId) {
+        body = { id: editingId, ...form }
+        // Se senha está vazia ou é '***', remover do body para manter a atual
+        if (!body.password || body.password === '***' || body.password.trim() === '') {
+          console.log('🔐 Senha não alterada, mantendo senha atual')
+          delete body.password
+        } else {
+          console.log('🔐 Nova senha fornecida, será atualizada')
+        }
+      } else {
+        body = form
+      }
+      
+      console.log('📤 Enviando dados do gateway:', { ...body, password: body.password ? '***' : undefined })
+      
       const res = await fetch('/api/admin/gateways', {
         method,
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(body),
       })
+      
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
           console.error('❌ Gateways: Não autenticado no submit, redirecionando...')
@@ -84,6 +102,11 @@ export default function GatewaysPage() {
         const errorData = await res.json().catch(() => ({}))
         throw new Error(errorData.error || `Erro ${res.status}`)
       }
+      
+      const result = await res.json()
+      console.log('✅ Gateway salvo com sucesso:', result)
+      alert(result.message || 'Gateway salvo com sucesso!')
+      
       setForm(emptyForm)
       setEditingId(null)
       load()
