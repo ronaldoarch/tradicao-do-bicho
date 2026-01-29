@@ -10,7 +10,12 @@ No Coolify, configure o Scheduled Task da seguinte forma:
 
 2. **Command**: 
    ```bash
-   /app/scripts/cron/bingo-auto-sortear.sh
+   curl -X POST http://localhost:3001/api/admin/bingo/sorteios-automaticos -H "Content-Type: application/json" --max-time 60
+   ```
+   
+   **OU** (se preferir usar o script, mas pode ter problemas de permissão):
+   ```bash
+   bash /app/scripts/cron/bingo-auto-sortear.sh
    ```
 
 3. **Frequency**: 
@@ -64,8 +69,11 @@ Após salvar, verifique:
 
 2. **Teste Manual**:
    ```bash
-   # No terminal do container
-   /app/scripts/cron/bingo-auto-sortear.sh
+   # No terminal do container (usando curl - recomendado)
+   curl -X POST http://localhost:3001/api/admin/bingo/sorteios-automaticos -H "Content-Type: application/json"
+   
+   # OU usando o script (pode ter problemas de permissão)
+   bash /app/scripts/cron/bingo-auto-sortear.sh
    ```
 
 3. **Verificar Sorteios**:
@@ -87,10 +95,26 @@ Após salvar, verifique:
    - No Coolify: "Logs" do Scheduled Task
    - No container: `tail -f /tmp/bingo-auto-sortear.log`
 
-3. Teste o script manualmente:
+3. Teste o comando manualmente:
    ```bash
-   docker exec -it NOME_DO_CONTAINER /app/scripts/cron/bingo-auto-sortear.sh
+   # Usando curl (recomendado)
+   docker exec -it NOME_DO_CONTAINER curl -X POST http://localhost:3001/api/admin/bingo/sorteios-automaticos -H "Content-Type: application/json"
+   
+   # OU usando bash com o script
+   docker exec -it NOME_DO_CONTAINER bash /app/scripts/cron/bingo-auto-sortear.sh
    ```
+
+### Erro "Permission denied"
+
+- O script não tem permissão de execução
+- **Solução**: Use `curl` diretamente ao invés do script:
+  ```bash
+  curl -X POST http://localhost:3001/api/admin/bingo/sorteios-automaticos -H "Content-Type: application/json" --max-time 60
+  ```
+- Ou use `bash` antes do script:
+  ```bash
+  bash /app/scripts/cron/bingo-auto-sortear.sh
+  ```
 
 ### Erro "Container not found"
 

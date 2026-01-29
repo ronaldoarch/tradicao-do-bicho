@@ -202,18 +202,53 @@ export default function MinhasApostasPage() {
             <div className="grid grid-cols-2 gap-4 text-sm text-gray-800">
               <Detail label="Modalidade" value={selecionada.modalidade || '—'} />
               <Detail label="Status" value={selecionada.status} />
-              <Detail label="Aposta" value={selecionada.aposta || '—'} />
               <Detail
                 label="Valor apostado"
                 value={`R$ ${Number(selecionada.valor || 0).toFixed(2)}`}
               />
               <Detail
                 label="Retorno previsto"
-                value={`R$ ${Number(selecionada.retornoPrevisto || 0).toFixed(2)}`}
+                value={
+                  selecionada.retornoPrevisto && selecionada.retornoPrevisto > 0
+                    ? `R$ ${Number(selecionada.retornoPrevisto).toFixed(2)}`
+                    : selecionada.status === 'pendente'
+                    ? 'Aguardando resultado'
+                    : '—'
+                }
               />
-              <Detail label="Horário" value={selecionada.horario || '—'} />
+              <Detail 
+                label="Horário" 
+                value={
+                  selecionada.horario 
+                    ? selecionada.horario 
+                    : selecionada.detalhes?.betData?.specialTime 
+                    ? selecionada.detalhes.betData.specialTime
+                    : '—'
+                } 
+              />
+              <Detail 
+                label="Estado" 
+                value={
+                  selecionada.estado 
+                    ? selecionada.estado 
+                    : selecionada.detalhes?.betData?.location 
+                    ? selecionada.detalhes.betData.location
+                    : '—'
+                } 
+              />
               <Detail label="Loteria" value={selecionada.loteria || '—'} />
-              <Detail label="Estado" value={selecionada.estado || '—'} />
+              <Detail
+                label="Resultado"
+                value={
+                  selecionada.detalhes?.resultadoOficial?.prizes
+                    ? selecionada.detalhes.resultadoOficial.prizes
+                        .map((p: number) => String(p).padStart(4, '0'))
+                        .join(' • ')
+                    : selecionada.status === 'pendente'
+                    ? 'Aguardando resultado'
+                    : '—'
+                }
+              />
             </div>
 
             {selecionada.detalhes && (
@@ -260,17 +295,24 @@ export default function MinhasApostasPage() {
                         </div>
                       )}
 
-                    {/* Números ou outros detalhes se existirem */}
-                    {selecionada.detalhes?.betData?.numbers && (
-                      <div className="mb-2 text-xs text-gray-800">
-                        <span className="font-semibold text-gray-900">Números:</span>{' '}
-                        {selecionada.detalhes.betData.numbers.join(', ')}
-                      </div>
-                    )}
+                    {/* Palpites numéricos (numberBets) */}
+                    {Array.isArray(selecionada.detalhes?.betData?.numberBets) &&
+                      selecionada.detalhes.betData.numberBets.length > 0 && (
+                        <div className="mb-3 flex flex-wrap gap-2">
+                          {selecionada.detalhes.betData.numberBets.map((num: string, idx: number) => (
+                            <span
+                              key={idx}
+                              className="flex items-center gap-2 rounded-lg bg-amber-200 px-3 py-1 text-xs font-semibold text-gray-900"
+                            >
+                              {num}
+                            </span>
+                          ))}
+                        </div>
+                      )}
 
                     {/* Fallback: JSON bruto se não houver campos conhecidos */}
                     {!selecionada.detalhes?.betData?.animalBets &&
-                      !selecionada.detalhes?.betData?.numbers && (
+                      !selecionada.detalhes?.betData?.numberBets && (
                         <pre className="whitespace-pre-wrap text-xs text-gray-700">
                           {JSON.stringify(selecionada.detalhes, null, 2)}
                         </pre>

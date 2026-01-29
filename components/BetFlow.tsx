@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { BetData } from '@/types/bet'
 import { ANIMALS } from '@/data/animals'
 import { MODALITIES } from '@/data/modalities'
+import { extracoes } from '@/data/extracoes'
 import ProgressIndicator from './ProgressIndicator'
 import SpecialQuotationsModal from './SpecialQuotationsModal'
 import ModalitySelection from './ModalitySelection'
@@ -305,11 +306,21 @@ export default function BetFlow() {
       apostaText = `${modalityName}: ${animalNames}`
     }
 
+    // Buscar estado e horário da extração selecionada
+    const extracaoSelecionada = betData.location 
+      ? extracoes.find(e => e.id.toString() === betData.location)
+      : null
+    
+    const estadoExtracao = extracaoSelecionada?.estado || null
+    const horarioExtracao = betData.specialTime 
+      ? betData.specialTime 
+      : (extracaoSelecionada?.time || extracaoSelecionada?.closeTime || null)
+
     const payload = {
       concurso: betData.location ? `Extração ${betData.location}` : null,
       loteria: betData.location,
-      estado: undefined,
-      horario: betData.specialTime || null,
+      estado: estadoExtracao,
+      horario: horarioExtracao,
       dataConcurso: new Date().toISOString(),
       modalidade: modalityName,
       aposta: apostaText,
