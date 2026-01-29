@@ -213,7 +213,7 @@ export default function MinhasApostasPage() {
                   selecionada.retornoPrevisto !== null && selecionada.retornoPrevisto !== undefined
                     ? selecionada.retornoPrevisto > 0
                       ? `R$ ${Number(selecionada.retornoPrevisto).toFixed(2)}`
-                      : selecionada.status === 'perdida' || selecionada.status === 'perdeu'
+                      : selecionada.status === 'perdeu'
                       ? 'R$ 0,00'
                       : 'Aguardando resultado'
                     : selecionada.status === 'pendente'
