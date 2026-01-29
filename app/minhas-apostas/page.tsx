@@ -22,6 +22,67 @@ interface Aposta {
   detalhes?: any
 }
 
+// Funções auxiliares para buscar dados da extração
+function buscarEstadoExtracao(loteria: string | null, estado: string | null, detalhes: any): string {
+  // Se estado já é uma sigla (CE, PB, etc), usar diretamente
+  if (estado && estado.length <= 3 && /^[A-Z]{2}$/.test(estado)) {
+    return estado
+  }
+  // Se estado é um número (ID da extração), buscar o estado real
+  if (estado && /^\d+$/.test(estado)) {
+    const extracaoId = parseInt(estado, 10)
+    const extracao = extracoes.find(e => e.id === extracaoId)
+    if (extracao?.estado) {
+      return extracao.estado
+    }
+  }
+  // Se loteria é um ID de extração, buscar estado dela
+  if (loteria && /^\d+$/.test(loteria)) {
+    const extracaoId = parseInt(loteria, 10)
+    const extracao = extracoes.find(e => e.id === extracaoId)
+    if (extracao?.estado) {
+      return extracao.estado
+    }
+  }
+  // Fallback para detalhes
+  if (detalhes?.betData?.location && /^\d+$/.test(detalhes.betData.location)) {
+    const extracaoId = parseInt(detalhes.betData.location, 10)
+    const extracao = extracoes.find(e => e.id === extracaoId)
+    if (extracao?.estado) {
+      return extracao.estado
+    }
+  }
+  return '—'
+}
+
+function buscarHorarioExtracao(horario: string | null, loteria: string | null, estado: string | null, detalhes: any): string {
+  // Se horário já está preenchido, usar diretamente
+  if (horario) {
+    return horario
+  }
+  // Se loteria é um ID de extração, buscar horário dela
+  if (loteria && /^\d+$/.test(loteria)) {
+    const extracaoId = parseInt(loteria, 10)
+    const extracao = extracoes.find(e => e.id === extracaoId)
+    if (extracao?.time || extracao?.closeTime) {
+      return extracao.time || extracao.closeTime || '—'
+    }
+  }
+  // Fallback para specialTime nos detalhes
+  if (detalhes?.betData?.specialTime) {
+    return detalhes.betData.specialTime
+  }
+  // Se estado é um ID de extração, buscar horário dela
+  if (estado && /^\d+$/.test(estado)) {
+    const extracaoId = parseInt(estado, 10)
+    const extracao = extracoes.find(e => e.id === extracaoId)
+    if (extracao?.time || extracao?.closeTime) {
+      return extracao.time || extracao.closeTime || '—'
+    }
+  }
+  return '—'
+}
+
 export default function MinhasApostasPage() {
   const [apostas, setApostas] = useState<Aposta[]>([])
   const [loading, setLoading] = useState(true)
@@ -81,11 +142,13 @@ export default function MinhasApostasPage() {
               >
                 {loading ? 'Atualizando...' : '🔄 Atualizar'}
               </button>
-              {ultimaAtualizacao && typeof window !== 'undefined' && (
-                <span className="text-xs text-gray-500">
-                  Atualizado: {ultimaAtualizacao.toLocaleTimeString('pt-BR')}
-                </span>
-              )}
+              <span className="text-xs text-gray-500" suppressHydrationWarning>
+                Atualizado: {ultimaAtualizacao.toLocaleTimeString('pt-BR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                })}
+              </span>
             </div>
           </div>
           {loading && <div className="text-gray-600">Carregando...</div>}
@@ -130,12 +193,16 @@ export default function MinhasApostasPage() {
                           a.aposta || a.modalidade || '—'
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        {a.dataConcurso && typeof window !== 'undefined' 
-                          ? new Date(a.dataConcurso).toLocaleString('pt-BR') 
-                          : a.dataConcurso 
-                            ? new Date(a.dataConcurso).toISOString().split('T')[0]
-                            : '—'}
+                      <td className="px-4 py-3" suppressHydrationWarning>
+                        {a.dataConcurso
+                          ? new Date(a.dataConcurso).toLocaleString('pt-BR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '—'}
                       </td>
                       <td className="px-4 py-3">R$ {Number(a.valor || 0).toFixed(2)}</td>
                       <td className="px-4 py-3">
@@ -183,13 +250,17 @@ export default function MinhasApostasPage() {
             <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sticky top-0 bg-white pb-2 border-b border-gray-200 -mx-6 px-6 pt-0">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Detalhes da aposta</h2>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500" suppressHydrationWarning>
                   {selecionada.concurso || '—'} •{' '}
-                  {selecionada.dataConcurso && typeof window !== 'undefined'
-                    ? new Date(selecionada.dataConcurso).toLocaleString('pt-BR')
-                    : selecionada.dataConcurso
-                      ? new Date(selecionada.dataConcurso).toISOString().split('T')[0]
-                      : '—'}
+                  {selecionada.dataConcurso
+                    ? new Date(selecionada.dataConcurso).toLocaleString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : '—'}
                 </p>
               </div>
               <button
@@ -223,71 +294,11 @@ export default function MinhasApostasPage() {
               />
               <Detail 
                 label="Horário" 
-                value={
-                  (() => {
-                    // Se horário já está preenchido, usar diretamente
-                    if (selecionada.horario) {
-                      return selecionada.horario
-                    }
-                    // Se loteria é um ID de extração, buscar horário dela
-                    if (selecionada.loteria && /^\d+$/.test(selecionada.loteria)) {
-                      const extracaoId = parseInt(selecionada.loteria, 10)
-                      const extracao = extracoes.find(e => e.id === extracaoId)
-                      if (extracao?.time || extracao?.closeTime) {
-                        return extracao.time || extracao.closeTime || '—'
-                      }
-                    }
-                    // Fallback para specialTime nos detalhes
-                    if (selecionada.detalhes?.betData?.specialTime) {
-                      return selecionada.detalhes.betData.specialTime
-                    }
-                    // Se estado é um ID de extração, buscar horário dela
-                    if (selecionada.estado && /^\d+$/.test(selecionada.estado)) {
-                      const extracaoId = parseInt(selecionada.estado, 10)
-                      const extracao = extracoes.find(e => e.id === extracaoId)
-                      if (extracao?.time || extracao?.closeTime) {
-                        return extracao.time || extracao.closeTime || '—'
-                      }
-                    }
-                    return '—'
-                  })()
-                } 
+                value={buscarHorarioExtracao(selecionada.horario, selecionada.loteria, selecionada.estado, selecionada.detalhes)}
               />
               <Detail 
                 label="Estado" 
-                value={
-                  (() => {
-                    // Se estado já é uma sigla (CE, PB, etc), usar diretamente
-                    if (selecionada.estado && selecionada.estado.length <= 3 && /^[A-Z]{2}$/.test(selecionada.estado)) {
-                      return selecionada.estado
-                    }
-                    // Se estado é um número (ID da extração), buscar o estado real
-                    if (selecionada.estado && /^\d+$/.test(selecionada.estado)) {
-                      const extracaoId = parseInt(selecionada.estado, 10)
-                      const extracao = extracoes.find(e => e.id === extracaoId)
-                      if (extracao?.estado) {
-                        return extracao.estado
-                      }
-                    }
-                    // Se loteria é um ID de extração, buscar estado dela
-                    if (selecionada.loteria && /^\d+$/.test(selecionada.loteria)) {
-                      const extracaoId = parseInt(selecionada.loteria, 10)
-                      const extracao = extracoes.find(e => e.id === extracaoId)
-                      if (extracao?.estado) {
-                        return extracao.estado
-                      }
-                    }
-                    // Fallback para detalhes
-                    if (selecionada.detalhes?.betData?.location && /^\d+$/.test(selecionada.detalhes.betData.location)) {
-                      const extracaoId = parseInt(selecionada.detalhes.betData.location, 10)
-                      const extracao = extracoes.find(e => e.id === extracaoId)
-                      if (extracao?.estado) {
-                        return extracao.estado
-                      }
-                    }
-                    return '—'
-                  })()
-                } 
+                value={buscarEstadoExtracao(selecionada.loteria, selecionada.estado, selecionada.detalhes)}
               />
               <Detail label="Loteria" value={selecionada.loteria || '—'} />
               <Detail
