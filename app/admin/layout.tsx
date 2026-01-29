@@ -96,6 +96,7 @@ export default function AdminLayout({
     { href: '/admin/gateways', label: 'Gateways', icon: '🔌' },
     { href: '/admin/temas', label: 'Temas', icon: '🎨' },
     { href: '/admin/descarga', label: 'Descarga / Banca', icon: '⚠️' },
+    { href: '/admin/frk', label: 'API FRK', icon: '🔗' },
     { href: '/admin/tracking', label: 'Tracking', icon: '📡' },
     { href: '/admin/configuracoes', label: 'Configurações', icon: '⚙️' },
   ]

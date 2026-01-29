@@ -134,6 +134,23 @@ model ConfiguracaoGatebox {
   updatedAt DateTime @updatedAt
 }
 
+model ConfiguracaoFrk {
+  id                  Int      @id @default(autoincrement())
+  baseUrl             String   @default("https://frkentrypoint.com/ws.svc")
+  grant               String?  // Grant fornecido pelo sistema de integração
+  codigoIntegrador    String?  // Código do integrador
+  sistemaId           Int      @default(9) // Sempre 9
+  clienteId           Int?     // Cliente_ID (2853 conforme imagem)
+  bancaId             Int?     // Banca_ID (igual ao Cliente_ID)
+  chrSerial           String?  // Serial do terminal
+  chrCodigoPonto      String?  // Código do ponto
+  chrCodigoOperador   String?  // Código do operador
+  vchVersaoTerminal   String   @default("1.0.0")
+  ativo               Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
 model Gateway {
   id        Int      @id @default(autoincrement())
   name      String   // Nome do gateway (ex: "Gatebox", "SuitPay")

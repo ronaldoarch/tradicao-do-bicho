@@ -143,9 +143,18 @@ export async function verificarLimiteDescarga(
       ultrapassou,
     })
 
-    // Se ultrapassou, criar alerta
+    // Se ultrapassou, criar alerta e tentar descarga automática
     if (ultrapassou) {
       await criarAlertaDescarga(modalidade, premio, limiteConfig.limite, totalAposAposta, excedente, dataConcurso)
+      
+      // Tentar descarga automática via API FRK (não bloqueia se falhar)
+      try {
+        const { efetuarDescargaAutomatica } = await import('./frk-descarga-automatica')
+        await efetuarDescargaAutomatica(modalidade, premio, dataConcurso)
+      } catch (error) {
+        // Não bloquear se descarga automática falhar
+        console.error('Erro ao tentar descarga automática:', error)
+      }
     }
   }
 
