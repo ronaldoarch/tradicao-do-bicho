@@ -60,7 +60,9 @@ export async function POST(request: NextRequest) {
       path: '/',
     })
 
-    return NextResponse.json({
+    console.log('✅ Cookie admin_session definido para:', usuario.email)
+
+    const response = NextResponse.json({
       success: true,
       user: {
         id: usuario.id,
@@ -69,6 +71,17 @@ export async function POST(request: NextRequest) {
         isAdmin: true,
       },
     })
+
+    // Garantir que o cookie seja definido também na resposta
+    response.cookies.set('admin_session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    })
+
+    return response
   } catch (error) {
     console.error('Erro no login admin:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
