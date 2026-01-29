@@ -399,7 +399,7 @@ export async function POST(request: NextRequest) {
       for (const { loteria, dataISO, resultados: resultadosAPI } of resultadosBuscados) {
         // Converter formato da API para formato ResultadoItem
         resultadosAPI.forEach(resultadoAPI => {
-          resultadoAPI.premios.forEach(premio => {
+          resultadoAPI.premios.forEach((premio: { posicao: string; numero: string; grupo: string; animal: string }) => {
             resultados.push({
               position: premio.posicao,
               milhar: premio.numero,
