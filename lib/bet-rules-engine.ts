@@ -654,11 +654,10 @@ export function conferirQuadraGrupo(
 /**
  * Confere um palpite de passe (1º → 2º).
  * 
- * PASSE VAI: O grupo do 1º prêmio deve ser igual ao grupo do 2º prêmio.
- * PASSE VAI E VEM: Os grupos do 1º e 2º prêmio devem ser iguais (ordem não importa).
+ * PASSE VAI: O grupo1 deve aparecer no 1º prêmio E o grupo2 deve aparecer no 2º prêmio (ordem específica).
+ * PASSE VAI E VEM: Os grupos do 1º e 2º prêmio devem ser iguais aos grupos apostados (ordem não importa).
  * 
- * NOTA: Os parâmetros grupo1 e grupo2 são ignorados para PASSE VAI (verifica automaticamente).
- * Para PASSE VAI E VEM, ainda usa os grupos do palpite para compatibilidade.
+ * Ambos requerem seleção de 2 grupos pelo usuário.
  */
 export function conferirPasse(
   resultado: number[],
@@ -677,6 +676,7 @@ export function conferirPasse(
   
   if (vaiEVem) {
     // PASSE VAI E VEM: Os grupos do 1º e 2º devem ser iguais aos apostados (ordem não importa)
+    // Aceita grupo1-grupo2 ou grupo2-grupo1
     if (
       (grupo1Resultado === grupo1 && grupo2Resultado === grupo2) ||
       (grupo1Resultado === grupo2 && grupo2Resultado === grupo1)
@@ -684,9 +684,8 @@ export function conferirPasse(
       hits = 1
     }
   } else {
-    // PASSE VAI: O grupo do 1º prêmio deve ser igual ao grupo do 2º prêmio (automático)
-    // Não importa qual grupo, apenas que sejam iguais
-    if (grupo1Resultado === grupo2Resultado) {
+    // PASSE VAI: O grupo1 deve aparecer no 1º prêmio E o grupo2 deve aparecer no 2º prêmio (ordem específica)
+    if (grupo1Resultado === grupo1 && grupo2Resultado === grupo2) {
       hits = 1
     }
   }
