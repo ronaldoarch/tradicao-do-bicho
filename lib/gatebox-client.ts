@@ -310,24 +310,31 @@ export async function gateboxCreatePix(
     throw new Error(errorMessage)
   }
 
-  const data = await response.json()
+  const responseData = await response.json()
   
   // Log detalhado da resposta para debug
-  console.log('📦 Resposta completa da Gatebox API:', JSON.stringify(data, null, 2))
+  console.log('📦 Resposta completa da Gatebox API:', JSON.stringify(responseData, null, 2))
   
   // Verificar se a resposta tem estrutura válida
-  if (!data || typeof data !== 'object') {
-    console.error('❌ Resposta da Gatebox não é um objeto válido:', data)
+  if (!responseData || typeof responseData !== 'object') {
+    console.error('❌ Resposta da Gatebox não é um objeto válido:', responseData)
     throw new Error('Resposta inválida da API Gatebox')
   }
   
+  // A resposta da Gatebox vem com estrutura { statusCode: 200, data: {...} }
+  // ou diretamente como objeto com os campos
+  const data = responseData.data || responseData
+  
+  // Mapear campos conforme estrutura real da resposta Gatebox
+  // A resposta mostra: data.key contém o QR Code PIX (texto)
+  // data.identifier ou data.uuid pode ser usado como transactionId
   const result = {
     qrCode: data.qrCode || data.qrCodeImage || data.qrcode || data.qrcodeImage,
-    qrCodeText: data.qrCodeText || data.qrCode || data.qrcodeText || data.qrcode,
-    transactionId: data.transactionId || data.id || data.transaction_id,
+    qrCodeText: data.key || data.qrCodeText || data.qrCode || data.qrcodeText || data.qrcode, // 'key' contém o QR Code PIX
+    transactionId: data.identifier || data.uuid || data.transactionId || data.id || data.transaction_id,
     endToEnd: data.endToEnd || data.end_to_end || data.endToEndId,
     pixKey: data.pixKey || data.pix_key || data.chavePix,
-    expiresAt: data.expiresAt || data.expireAt || data.expires_at,
+    expiresAt: data.expiresAt || data.expireAt || data.expires_at || (data.expire ? new Date(Date.now() + data.expire * 1000).toISOString() : undefined),
   }
   
   // Log do resultado processado
@@ -336,6 +343,7 @@ export async function gateboxCreatePix(
     temQrCodeText: !!result.qrCodeText,
     temTransactionId: !!result.transactionId,
     temEndToEnd: !!result.endToEnd,
+    qrCodeTextPreview: result.qrCodeText ? result.qrCodeText.substring(0, 50) + '...' : 'não encontrado',
   })
   
   return result

@@ -145,9 +145,15 @@ export async function POST(req: NextRequest) {
           qrCodeText: pixResponse.qrCodeText ? 'Presente' : 'Ausente',
         })
 
-        if (!pixResponse.transactionId && !pixResponse.endToEnd) {
-          console.error('Resposta inválida da Gatebox:', pixResponse)
-          return NextResponse.json({ error: 'Resposta inválida da API' }, { status: 500 })
+        // Validar se temos pelo menos o QR Code Text (obrigatório) e transactionId
+        if (!pixResponse.qrCodeText) {
+          console.error('Resposta inválida da Gatebox: QR Code Text não encontrado', pixResponse)
+          return NextResponse.json({ error: 'Resposta inválida da API: QR Code não gerado' }, { status: 500 })
+        }
+        
+        if (!pixResponse.transactionId) {
+          console.error('Resposta inválida da Gatebox: Transaction ID não encontrado', pixResponse)
+          return NextResponse.json({ error: 'Resposta inválida da API: ID da transação não encontrado' }, { status: 500 })
         }
 
         // Criar registro da transação pendente
