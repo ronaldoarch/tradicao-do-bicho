@@ -21,6 +21,8 @@ export function useConfiguracoes() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    
     loadConfiguracoes()
     
     const handleFocus = () => {

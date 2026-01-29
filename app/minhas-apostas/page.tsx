@@ -80,7 +80,7 @@ export default function MinhasApostasPage() {
               >
                 {loading ? 'Atualizando...' : '🔄 Atualizar'}
               </button>
-              {ultimaAtualizacao && (
+              {ultimaAtualizacao && typeof window !== 'undefined' && (
                 <span className="text-xs text-gray-500">
                   Atualizado: {ultimaAtualizacao.toLocaleTimeString('pt-BR')}
                 </span>
@@ -130,7 +130,11 @@ export default function MinhasApostasPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {a.dataConcurso ? new Date(a.dataConcurso).toLocaleString('pt-BR') : '—'}
+                        {a.dataConcurso && typeof window !== 'undefined' 
+                          ? new Date(a.dataConcurso).toLocaleString('pt-BR') 
+                          : a.dataConcurso 
+                            ? new Date(a.dataConcurso).toISOString().split('T')[0]
+                            : '—'}
                       </td>
                       <td className="px-4 py-3">R$ {Number(a.valor || 0).toFixed(2)}</td>
                       <td className="px-4 py-3">
@@ -180,9 +184,11 @@ export default function MinhasApostasPage() {
                 <h2 className="text-xl font-bold text-gray-900">Detalhes da aposta</h2>
                 <p className="text-sm text-gray-500">
                   {selecionada.concurso || '—'} •{' '}
-                  {selecionada.dataConcurso
+                  {selecionada.dataConcurso && typeof window !== 'undefined'
                     ? new Date(selecionada.dataConcurso).toLocaleString('pt-BR')
-                    : '—'}
+                    : selecionada.dataConcurso
+                      ? new Date(selecionada.dataConcurso).toISOString().split('T')[0]
+                      : '—'}
                 </p>
               </div>
               <button

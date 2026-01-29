@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useConfiguracoes } from '@/hooks/useConfiguracoes'
 import ProfileModal from './ProfileModal'
 
@@ -19,7 +19,9 @@ export default function Header() {
   } | null>(null)
   const [loadingUser, setLoadingUser] = useState(true)
 
-  const loadUser = async () => {
+  const loadUser = useCallback(async () => {
+    if (typeof window === 'undefined') return
+    
     try {
       setLoadingUser(true)
       const res = await fetch('/api/auth/me', { cache: 'no-store' })
@@ -34,11 +36,12 @@ export default function Header() {
     } finally {
       setLoadingUser(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
     loadUser()
-  }, [])
+  }, [loadUser])
 
   return (
     <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-blue px-4 py-3 text-white lg:px-8">
