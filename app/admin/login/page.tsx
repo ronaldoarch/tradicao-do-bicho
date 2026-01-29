@@ -14,7 +14,7 @@ export default function AdminLoginPage() {
     // Verificar se já está logado
     const checkSession = async () => {
       try {
-        const res = await fetch('/api/admin/auth/me')
+        const res = await fetch('/api/admin/auth/me', { credentials: 'include' })
         if (res.ok) {
           router.push('/admin')
         }

@@ -17,24 +17,33 @@ export default function AdminLayout({
   useEffect(() => {
     // Verificar autenticação admin
     const checkAuth = async () => {
+      // Não verificar se já estiver na página de login
+      if (pathname === '/admin/login') {
+        setIsAuthenticated(null)
+        return
+      }
+
       try {
-        const res = await fetch('/api/admin/auth/me', { credentials: 'include' })
+        const res = await fetch('/api/admin/auth/me', { 
+          credentials: 'include',
+          cache: 'no-store'
+        })
+        
         if (res.ok) {
           const data = await res.json()
           setIsAuthenticated(true)
           setAdminUser(data.user)
         } else {
+          // Se retornar 401 ou 403, não está autenticado
+          console.warn('Falha na autenticação:', res.status, res.statusText)
           setIsAuthenticated(false)
-          // Redirecionar para login se não estiver autenticado (exceto se já estiver na página de login)
-          if (pathname !== '/admin/login') {
-            router.push('/admin/login')
-          }
+          // Usar window.location para garantir que o cookie seja limpo
+          window.location.href = '/admin/login'
         }
       } catch (error) {
+        console.error('Erro ao verificar autenticação:', error)
         setIsAuthenticated(false)
-        if (pathname !== '/admin/login') {
-          router.push('/admin/login')
-        }
+        window.location.href = '/admin/login'
       }
     }
 
