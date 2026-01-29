@@ -135,6 +135,10 @@ export default function LocationSelection({
     return [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
   }, [available, normalized])
   
+  // Ref para rastrear location atual sem causar re-renders
+  const locationRef = useRef<string | null>(location)
+  locationRef.current = location
+  
   // Atualizar refs quando os IDs realmente mudarem
   useEffect(() => {
     const idsChanged = lastAvailableIdsRef.current !== availableIdsString
@@ -147,13 +151,15 @@ export default function LocationSelection({
       lastAvailableIdsRef.current = availableIdsString
       
       // Se os IDs mudaram e não estamos atualizando, verificar se precisa atualizar location
-      if (!isUpdatingRef.current && location) {
-        const isLocationStillAvailable = available.some(e => e.id.toString() === location) || 
-                                         normalized.some(e => e.id.toString() === location)
+      // Usar locationRef em vez de location para evitar dependência
+      const currentLocation = locationRef.current
+      if (!isUpdatingRef.current && currentLocation) {
+        const isLocationStillAvailable = available.some(e => e.id.toString() === currentLocation) || 
+                                         normalized.some(e => e.id.toString() === currentLocation)
         
         if (!isLocationStillAvailable) {
           const current = available.length > 0 ? available[0] : normalized[0]
-          if (current && current.id.toString() !== location && current.id.toString() !== lastProcessedLocationRef.current) {
+          if (current && current.id.toString() !== currentLocation && current.id.toString() !== lastProcessedLocationRef.current) {
             const newLocation = current.id.toString()
             lastProcessedLocationRef.current = newLocation
             isUpdatingRef.current = true
@@ -165,7 +171,7 @@ export default function LocationSelection({
         }
       }
     }
-  }, [availableIdsString, location]) // Usar string estável em vez dos arrays
+  }, [availableIdsString]) // REMOVIDO location - usar locationRef em vez disso
   
   useEffect(() => {
     // Usar refs para acessar valores atuais sem causar re-renders
