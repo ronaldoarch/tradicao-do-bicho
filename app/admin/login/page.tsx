@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function AdminLoginPage() {
@@ -10,16 +10,15 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const hasCheckedRef = useRef(false)
+
   useEffect(() => {
     // Verificar se já está logado apenas uma vez
-    let hasChecked = false
+    if (hasCheckedRef.current) return
+    hasCheckedRef.current = true
     
     const checkSession = async () => {
-      if (hasChecked) return
-      hasChecked = true
-
       try {
-        console.log('🔍 Login page: Verificando se já está autenticado...')
         const res = await fetch('/api/admin/auth/me', { 
           credentials: 'include',
           cache: 'no-store',
@@ -28,31 +27,27 @@ export default function AdminLoginPage() {
           }
         })
         
-        console.log('📡 Login page: Resposta auth/me:', res.status)
-        
         if (res.ok) {
           const data = await res.json()
           // Verificar se realmente tem dados de usuário e é admin
           if (data.user && data.user.isAdmin && data.user.email) {
-            console.log('✅ Login page: Já autenticado, redirecionando para /admin')
             // Usar replace para evitar histórico de navegação
             router.replace('/admin')
-          } else {
-            console.log('⚠️ Login page: Resposta OK mas dados inválidos:', data)
           }
-        } else {
-          console.log('ℹ️ Login page: Não autenticado, permanecendo na página de login')
         }
       } catch (error) {
-        // Não autenticado, continuar na página de login
-        console.log('ℹ️ Login page: Erro ao verificar, permanecendo na página de login:', error)
+        // Não autenticado, continuar na página de login (silencioso)
       }
     }
     
     // Delay para evitar race condition com layout
     const timeoutId = setTimeout(checkSession, 300)
-    return () => clearTimeout(timeoutId)
-  }, [router])
+    return () => {
+      clearTimeout(timeoutId)
+      hasCheckedRef.current = false // Reset quando componente desmontar
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Executar apenas uma vez na montagem
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

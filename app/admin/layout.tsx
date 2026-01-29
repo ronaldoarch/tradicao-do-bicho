@@ -73,7 +73,8 @@ export default function AdminLayout({
     }
 
     checkAuth()
-  }, [pathname, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]) // Remover router das dependências - só precisa verificar quando pathname muda
 
   const handleLogout = async () => {
     try {
