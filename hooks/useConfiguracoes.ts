@@ -96,18 +96,6 @@ export function useConfiguracoes() {
       listeners.delete(listener)
     }
   }, []) // Array vazio - só roda uma vez no mount
-  
-  // Atualizar estado inicial em um useEffect separado para evitar problemas
-  useEffect(() => {
-    const configStr = JSON.stringify(globalConfiguracoes)
-    const currentStr = JSON.stringify(configuracoes)
-    if (configStr !== currentStr) {
-      setConfiguracoes({ ...globalConfiguracoes })
-    }
-    if (loading !== globalLoading) {
-      setLoading(globalLoading)
-    }
-  }, []) // Só roda uma vez no mount
 
   // Retornar diretamente sem useMemo para evitar problemas com dependências
   return { configuracoes, loading }
