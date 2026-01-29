@@ -73,20 +73,39 @@ export function useConfiguracoes() {
   const [loading, setLoading] = useState(globalLoading)
 
   useEffect(() => {
-    // Atualizar estado inicial
-    setConfiguracoes(globalConfiguracoes)
-    setLoading(globalLoading)
-    
     const listener = () => {
-      setConfiguracoes({ ...globalConfiguracoes })
-      setLoading(globalLoading)
+      setConfiguracoes(prev => {
+        // Só atualizar se realmente mudou
+        const configStr = JSON.stringify(globalConfiguracoes)
+        const prevStr = JSON.stringify(prev)
+        if (configStr !== prevStr) {
+          return { ...globalConfiguracoes }
+        }
+        return prev
+      })
+      setLoading(prev => {
+        if (prev !== globalLoading) {
+          return globalLoading
+        }
+        return prev
+      })
     }
     listeners.add(listener)
+    
+    // Atualizar estado inicial apenas se necessário
+    const configStr = JSON.stringify(globalConfiguracoes)
+    const currentStr = JSON.stringify(configuracoes)
+    if (configStr !== currentStr) {
+      setConfiguracoes({ ...globalConfiguracoes })
+    }
+    if (loading !== globalLoading) {
+      setLoading(globalLoading)
+    }
     
     return () => {
       listeners.delete(listener)
     }
-  }, [])
+  }, []) // Array vazio - só roda uma vez no mount
 
   // Retornar diretamente sem useMemo para evitar problemas com dependências
   return { configuracoes, loading }
