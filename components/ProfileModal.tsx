@@ -44,7 +44,8 @@ export default function ProfileModal({ isOpen, onClose, user, onLogout }: Profil
   }, [isOpen, onClose])
 
   const handleLogout = async () => {
-    if (confirm('Tem certeza que deseja sair?')) {
+    // Usar window.confirm temporariamente - pode ser melhorado depois
+    if (window.confirm('Tem certeza que deseja sair?')) {
       await onLogout()
       onClose()
       window.location.href = '/'

@@ -14,6 +14,8 @@ import LocationSelection from './LocationSelection'
 import BetConfirmation from './BetConfirmation'
 import InstantResultModal from './InstantResultModal'
 import AlertModal from './AlertModal'
+import ConfirmModal from './ConfirmModal'
+import CotadasWarningModal from './CotadasWarningModal'
 
 const INITIAL_BET_DATA: BetData = {
   modality: null,
@@ -42,6 +44,16 @@ export default function BetFlow() {
   const [userSaldo, setUserSaldo] = useState<number>(0)
   const [showAlert, setShowAlert] = useState(false)
   const [alertMessage, setAlertMessage] = useState({ title: '', message: '' })
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [confirmData, setConfirmData] = useState<{
+    title: string
+    message: string | React.ReactNode
+    type?: 'warning' | 'info' | 'danger' | 'success'
+    onConfirm: () => void
+  } | null>(null)
+  const [showCotadasWarning, setShowCotadasWarning] = useState(false)
+  const [cotadasData, setCotadasData] = useState<Array<{ numero: string; cotacao: number }>>([])
+  const [cotadasModalidade, setCotadasModalidade] = useState('')
 
   const MAX_PALPITES = 10
 
@@ -146,8 +158,14 @@ export default function BetFlow() {
     
     const nextStep = currentStep + 1
     if (nextStep >= 3 && !isAuthenticated) {
-      alert('Você precisa estar logado para continuar. Faça login para usar seu saldo.')
-      window.location.href = '/login'
+      setAlertMessage({
+        title: 'Login Necessário',
+        message: 'Você precisa estar logado para continuar. Faça login para usar seu saldo.',
+      })
+      setShowAlert(true)
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 2000)
       return
     }
     if (currentStep < 5) {
@@ -258,15 +276,20 @@ export default function BetFlow() {
       }
     }
     
-    // Se encontrou cotadas, mostrar alerta
+    // Se encontrou cotadas, mostrar modal bonito
     if (cotadasEncontradas.length > 0) {
-      const cotacoes = cotadasEncontradas.map(c => `${c.numero} (${c.cotacao}x)`).join('\n')
-      const mensagem = `⚠️ ATENÇÃO: Os seguintes números são COTADOS:\n\n${cotacoes}\n\nA cotação será ${cotadasEncontradas[0].cotacao}x ao invés do multiplicador padrão.\n\nDeseja continuar com a aposta mesmo assim?`
-      
-      if (!confirm(mensagem)) {
-        return // Usuário cancelou
-      }
+      setCotadasData(cotadasEncontradas)
+      setCotadasModalidade(modalityName)
+      setShowCotadasWarning(true)
+      return // Aguardar resposta do usuário
     }
+    
+    // Continuar com a aposta se não houver cotadas
+    processarAposta()
+  }
+
+  const processarAposta = () => {
+    const modalityName = betData.modalityName || MODALITIES.find((m) => String(m.id) === betData.modality)?.name || 'Modalidade'
     
     let apostaText = ''
     if (isNumberModality) {
@@ -297,7 +320,7 @@ export default function BetFlow() {
       detalhes: {
         betData,
         modalityName,
-        cotadas: cotadasEncontradas.length > 0 ? cotadasEncontradas : undefined,
+        cotadas: cotadasData.length > 0 ? cotadasData : undefined,
         ...(isNumberModality ? { numberBets: betData.numberBets } : { animalNames: betData.animalBets }),
       },
     }
@@ -322,16 +345,27 @@ export default function BetFlow() {
           })
           setShowInstantResult(true)
         } else {
-          alert('Aposta registrada com sucesso!')
+          setAlertMessage({
+            title: 'Sucesso!',
+            message: 'Aposta registrada com sucesso!',
+          })
+          setShowAlert(true)
         }
       })
       .catch((err) => {
         const msg = err.message || 'Erro ao registrar aposta'
         if (msg.toLowerCase().includes('saldo insuficiente')) {
-          alert('Saldo insuficiente. Verifique seu saldo e bônus disponíveis.')
+          setAlertMessage({
+            title: 'Saldo Insuficiente',
+            message: 'Saldo insuficiente. Verifique seu saldo e bônus disponíveis.',
+          })
         } else {
-          alert(msg)
+          setAlertMessage({
+            title: 'Erro',
+            message: msg,
+          })
         }
+        setShowAlert(true)
       })
   }
 
@@ -522,10 +556,25 @@ export default function BetFlow() {
         isOpen={showAlert}
         title={alertMessage.title}
         message={alertMessage.message}
-        type="error"
+        type={alertMessage.title.includes('Sucesso') ? 'success' : alertMessage.title.includes('Erro') ? 'error' : 'warning'}
         onClose={() => setShowAlert(false)}
-        autoClose={5000}
+        autoClose={alertMessage.title.includes('Sucesso') ? 3000 : undefined}
       />
+      
+      {showCotadasWarning && (
+        <CotadasWarningModal
+          isOpen={showCotadasWarning}
+          cotadas={cotadasData}
+          modalidade={cotadasModalidade}
+          onConfirm={() => {
+            setShowCotadasWarning(false)
+            processarAposta()
+          }}
+          onCancel={() => {
+            setShowCotadasWarning(false)
+          }}
+        />
+      )}
     </div>
   )
 }

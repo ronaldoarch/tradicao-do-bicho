@@ -67,33 +67,57 @@ export default function AlertModal({
 
   const styles = typeStyles[type]
 
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose()
+      }
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [isOpen, onClose])
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div
-        className={`relative w-full max-w-md rounded-xl border-2 ${styles.border} ${styles.bg} p-6 shadow-2xl animate-in fade-in zoom-in duration-200`}
+        className={`relative w-full max-w-md rounded-2xl border-2 ${styles.border} ${styles.bg} p-8 shadow-2xl animate-in zoom-in-95 duration-300`}
+        onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute right-3 top-3 rounded-full p-1 text-gray-400 hover:bg-white/50 transition-colors"
+          className="absolute right-4 top-4 rounded-full p-2 text-gray-400 hover:bg-white/70 hover:text-gray-600 transition-all duration-200"
           aria-label="Fechar"
         >
-          <span className="iconify text-xl" data-icon="material-symbols:close"></span>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
 
-        <div className="flex items-start gap-4">
-          <div className={`flex h-12 w-12 items-center justify-center rounded-full ${styles.iconBg} text-2xl`}>
+        <div className="flex items-start gap-5">
+          <div className={`flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full ${styles.iconBg} text-3xl shadow-lg`}>
             {styles.icon}
           </div>
-          <div className="flex-1">
-            <h3 className={`mb-2 text-xl font-bold ${styles.titleColor}`}>{title}</h3>
-            <p className={`text-base ${styles.messageColor}`}>{message}</p>
+          <div className="flex-1 pt-1">
+            <h3 className={`mb-3 text-2xl font-bold ${styles.titleColor}`}>{title}</h3>
+            <p className={`text-base leading-relaxed whitespace-pre-line ${styles.messageColor}`}>{message}</p>
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-8 flex justify-end">
           <button
             onClick={onClose}
-            className={`rounded-lg px-6 py-2 font-semibold text-white transition-colors ${
+            className={`rounded-xl px-6 py-3 font-semibold text-white transition-all duration-200 shadow-md hover:shadow-lg ${
               type === 'error'
                 ? 'bg-red-600 hover:bg-red-700'
                 : type === 'warning'
