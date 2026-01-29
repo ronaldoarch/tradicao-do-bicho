@@ -92,6 +92,11 @@ export async function efetuarDescargaAutomatica(
             
             // Verificar se o prêmio está no intervalo
             if (premio >= posFrom && premio <= posTo) {
+              // Verificar se modalidade existe
+              if (!aposta.modalidade) {
+                continue
+              }
+
               // Extrair número apostado
               const numero = detalhes.betData.numbers?.[0] || detalhes.betData.number || ''
               
