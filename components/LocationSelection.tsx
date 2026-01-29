@@ -130,45 +130,42 @@ export default function LocationSelection({
   const availableRef = useRef<ExtracaoWithMeta[]>([])
   const normalizedRef = useRef<ExtracaoWithMeta[]>([])
   
-  // Atualizar refs sempre que os arrays mudarem (usando useLayoutEffect para sincronização)
+  // Criar uma string estável dos IDs para usar como dependência
+  const availableIdsString = useMemo(() => {
+    return [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
+  }, [available, normalized])
+  
+  // Atualizar refs quando os IDs realmente mudarem
   useEffect(() => {
-    const currentAvailableIds = [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
-    const idsChanged = lastAvailableIdsRef.current !== currentAvailableIds
+    const idsChanged = lastAvailableIdsRef.current !== availableIdsString
     
     // Sempre atualizar refs para manter sincronizado
     availableRef.current = available
     normalizedRef.current = normalized
     
     if (idsChanged) {
-      lastAvailableIdsRef.current = currentAvailableIds
+      lastAvailableIdsRef.current = availableIdsString
       
       // Se os IDs mudaram e não estamos atualizando, verificar se precisa atualizar location
-      // Usar setTimeout para garantir que isso aconteça após o render atual
       if (!isUpdatingRef.current && location) {
-        setTimeout(() => {
-          if (isUpdatingRef.current) return // Verificar novamente após delay
-          
-          const currentAvailable = availableRef.current
-          const currentNormalized = normalizedRef.current
-          const isLocationStillAvailable = currentAvailable.some(e => e.id.toString() === location) || 
-                                           currentNormalized.some(e => e.id.toString() === location)
-          
-          if (!isLocationStillAvailable) {
-            const current = currentAvailable.length > 0 ? currentAvailable[0] : currentNormalized[0]
-            if (current && current.id.toString() !== location && current.id.toString() !== lastProcessedLocationRef.current) {
-              const newLocation = current.id.toString()
-              lastProcessedLocationRef.current = newLocation
-              isUpdatingRef.current = true
-              onLocationChangeRef.current(newLocation)
-              setTimeout(() => {
-                isUpdatingRef.current = false
-              }, 100)
-            }
+        const isLocationStillAvailable = available.some(e => e.id.toString() === location) || 
+                                         normalized.some(e => e.id.toString() === location)
+        
+        if (!isLocationStillAvailable) {
+          const current = available.length > 0 ? available[0] : normalized[0]
+          if (current && current.id.toString() !== location && current.id.toString() !== lastProcessedLocationRef.current) {
+            const newLocation = current.id.toString()
+            lastProcessedLocationRef.current = newLocation
+            isUpdatingRef.current = true
+            onLocationChangeRef.current(newLocation)
+            setTimeout(() => {
+              isUpdatingRef.current = false
+            }, 100)
           }
-        }, 0)
+        }
       }
     }
-  }, [available, normalized]) // Manter apenas available e normalized, sem location
+  }, [availableIdsString, location]) // Usar string estável em vez dos arrays
   
   useEffect(() => {
     // Usar refs para acessar valores atuais sem causar re-renders
