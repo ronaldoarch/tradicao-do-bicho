@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 
 interface Configuracoes {
   nomePlataforma: string
@@ -10,17 +10,26 @@ interface Configuracoes {
   logoSite: string
 }
 
-export function useConfiguracoes() {
-  const [configuracoes, setConfiguracoes] = useState<Configuracoes>({
-    nomePlataforma: 'Tradição do Bicho',
-    numeroSuporte: '(00) 00000-0000',
-    emailSuporte: 'suporte@tradicaodobicho.com',
-    whatsappSuporte: '5500000000000',
-    logoSite: '',
-  })
-  const [loading, setLoading] = useState(true)
+// Cache global para compartilhar configurações entre instâncias do hook
+let globalConfiguracoes: Configuracoes = {
+  nomePlataforma: 'Tradição do Bicho',
+  numeroSuporte: '(00) 00000-0000',
+  emailSuporte: 'suporte@tradicaodobicho.com',
+  whatsappSuporte: '5500000000000',
+  logoSite: '',
+}
+let globalLoading = true
+let loadPromise: Promise<void> | null = null
+let listeners: Set<() => void> = new Set()
 
-  const loadConfiguracoes = useCallback(async () => {
+const notifyListeners = () => {
+  listeners.forEach(listener => listener())
+}
+
+const loadConfiguracoesGlobal = async () => {
+  if (loadPromise) return loadPromise
+  
+  loadPromise = (async () => {
     if (typeof window === 'undefined') return
     
     try {
@@ -33,29 +42,46 @@ export function useConfiguracoes() {
       })
       const data = await response.json()
       if (data.configuracoes) {
-        setConfiguracoes(data.configuracoes)
+        globalConfiguracoes = data.configuracoes
       }
     } catch (error) {
       console.error('Erro ao carregar configurações:', error)
     } finally {
-      setLoading(false)
+      globalLoading = false
+      notifyListeners()
+      loadPromise = null
     }
-  }, [])
+  })()
+  
+  return loadPromise
+}
+
+// Inicializar carregamento uma vez
+if (typeof window !== 'undefined') {
+  loadConfiguracoesGlobal()
+  
+  const handleFocus = () => {
+    loadConfiguracoesGlobal()
+  }
+  window.addEventListener('focus', handleFocus)
+}
+
+export function useConfiguracoes() {
+  const [, forceUpdate] = useState({})
+  
+  const configuracoes = useMemo(() => globalConfiguracoes, [])
+  const loading = globalLoading
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    
-    loadConfiguracoes()
-    
-    const handleFocus = () => {
-      loadConfiguracoes()
+    const listener = () => {
+      forceUpdate({})
     }
-    window.addEventListener('focus', handleFocus)
+    listeners.add(listener)
     
     return () => {
-      window.removeEventListener('focus', handleFocus)
+      listeners.delete(listener)
     }
-  }, [loadConfiguracoes])
+  }, [])
 
   return { configuracoes, loading }
 }
