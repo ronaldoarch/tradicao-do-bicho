@@ -281,14 +281,14 @@ export default function MinhasApostasPage() {
               <Detail 
                 label="Retorno previsto"
                 value={
-                  selecionada.retornoPrevisto !== null && selecionada.retornoPrevisto !== undefined
-                    ? selecionada.retornoPrevisto > 0
-                      ? `R$ ${Number(selecionada.retornoPrevisto).toFixed(2)}`
-                      : selecionada.status === 'perdeu'
-                      ? 'R$ 0,00'
-                      : 'Aguardando resultado'
+                  selecionada.status === 'perdeu'
+                    ? 'R$ 0,00'
                     : selecionada.status === 'pendente'
                     ? 'Aguardando resultado'
+                    : selecionada.retornoPrevisto !== null && selecionada.retornoPrevisto !== undefined && selecionada.retornoPrevisto > 0
+                    ? `R$ ${Number(selecionada.retornoPrevisto).toFixed(2)}`
+                    : selecionada.status === 'ganhou'
+                    ? 'R$ 0,00'
                     : '—'
                 }
               />
