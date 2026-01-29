@@ -195,7 +195,7 @@ export class FrkApiClient {
   /**
    * Efetua descarga (envia apostas)
    */
-  async efetuarDescarga(request: Omit<FrkDescargaRequest, 'accessToken' | 'grant' | 'CodigoIntegrador' | 'Sistema_ID'>): Promise<FrkDescargaResponse> {
+  async efetuarDescarga(request: Omit<FrkDescargaRequest, 'accessToken' | 'grant' | 'CodigoIntegrador' | 'Sistema_ID' | 'Cliente_ID' | 'Banca_ID' | 'chrSerial' | 'chrCodigoPonto' | 'chrCodigoOperador' | 'vchVersaoTerminal'>): Promise<FrkDescargaResponse> {
     // Garantir que está autenticado
     const accessToken = await this.authenticate()
 
