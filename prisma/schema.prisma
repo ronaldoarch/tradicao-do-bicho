@@ -74,6 +74,20 @@ model Cotacao {
   updatedAt DateTime @updatedAt
 }
 
+model Cotada {
+  id          Int      @id @default(autoincrement())
+  numero      String   // Número cotado (milhar ou centena)
+  modalidade  String   // 'MILHAR' ou 'CENTENA'
+  cotacao     Float    // Cotação personalizada (multiplicador)
+  ativo       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([numero, modalidade])
+  @@index([modalidade])
+  @@index([ativo])
+}
+
 model Tema {
   id              String   @id @default(uuid())
   nome            String

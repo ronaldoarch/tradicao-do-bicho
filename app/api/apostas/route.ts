@@ -260,6 +260,9 @@ export async function POST(request: Request) {
           'Centena Invertida': 'CENTENA_INVERTIDA',
           'Milhar Invertida': 'MILHAR_INVERTIDA',
           'Milhar/Centena': 'MILHAR_CENTENA',
+          'Quina de Grupo': 'QUINA_GRUPO',
+          'Duque de Dezena': 'DUQUE_DEZENA',
+          'Terno de Dezena': 'TERNO_DEZENA',
           'Passe vai': 'PASSE',
           'Passe vai e vem': 'PASSE_VAI_E_VEM',
         }
@@ -277,47 +280,103 @@ export async function POST(request: Request) {
         resultadoInstantaneo = gerarResultadoInstantaneo(Math.max(pos_to, 7))
 
         // Calcular valor por palpite
-        const qtdPalpites = betData.animalBets.length
+        const isNumberModality = modalityType.includes('DEZENA') || 
+                                 modalityType.includes('CENTENA') || 
+                                 modalityType.includes('MILHAR') ||
+                                 modalityType === 'DUQUE_DEZENA' ||
+                                 modalityType === 'TERNO_DEZENA'
+        
+        const qtdPalpites = isNumberModality 
+          ? (betData.numberBets?.length || 0)
+          : (betData.animalBets?.length || 0)
+        
+        if (qtdPalpites === 0) {
+          throw new Error('Nenhum palpite encontrado')
+        }
+        
         const valorPorPalpite = calcularValorPorPalpite(
           betData.amount,
           qtdPalpites,
           betData.divisionType
         )
 
-        // Conferir cada palpite
-        for (const animalBet of betData.animalBets) {
-          const grupos = animalBet.map((animalId) => {
-            // Encontrar o grupo do animal
-            const animal = ANIMALS.find((a) => a.id === animalId)
-            if (!animal) {
-              throw new Error(`Animal não encontrado: ${animalId}`)
-            }
-            return animal.group
+        // Verificar cotadas se for Milhar ou Centena
+        const cotadas = (detalhes as any)?.cotadas as Array<{ numero: string; cotacao: number }> | undefined
+        const cotadasMap = new Map<string, number>()
+        if (cotadas) {
+          cotadas.forEach(c => {
+            const numeroLimpo = c.numero.replace(/\D/g, '')
+            cotadasMap.set(numeroLimpo, c.cotacao)
           })
+        }
 
-          // Para modalidades de número, precisamos do número, não dos grupos
-          let palpiteData: { grupos?: number[]; numero?: string } = {}
-          
-          if (modalityType.includes('GRUPO') || modalityType === 'PASSE' || modalityType === 'PASSE_VAI_E_VEM') {
-            palpiteData = { grupos }
-          } else {
-            // Para modalidades de número, precisamos converter grupos em números
-            // Por enquanto, vamos usar o primeiro grupo como exemplo
-            // TODO: Implementar entrada de números para modalidades numéricas
-            throw new Error('Modalidades numéricas ainda não suportadas para instantânea')
+        // Conferir cada palpite
+        if (isNumberModality && betData.numberBets) {
+          // Modalidades numéricas
+          for (const numeroApostado of betData.numberBets) {
+            const numeroLimpo = numeroApostado.replace(/\D/g, '') // Remove formatação
+            
+            if (!numeroLimpo) {
+              console.log(`Número apostado inválido: ${numeroApostado}`)
+              continue
+            }
+
+            let palpiteData: { grupos?: number[]; numero?: string } = {}
+            
+            // Para Duque e Terno de Dezena, precisa passar múltiplos números
+            if (modalityType === 'DUQUE_DEZENA' || modalityType === 'TERNO_DEZENA') {
+              // Assumimos que o número vem como string separada por vírgula ou espaço
+              // Ex: "34,56" ou "34 56" para Duque, "34,56,78" para Terno
+              const numeros = numeroLimpo.includes(',') 
+                ? numeroLimpo.split(',').map(n => n.trim())
+                : numeroLimpo.match(/.{1,2}/g) || [numeroLimpo]
+              palpiteData = { numero: numeros.join(',') }
+            } else {
+              palpiteData = { numero: numeroLimpo }
+            }
+
+            // Buscar cotação personalizada se o número for cotado
+            const cotacaoPersonalizada = cotadasMap.get(numeroLimpo)
+
+            const conferencia = conferirPalpite(
+              resultadoInstantaneo,
+              modalityType,
+              palpiteData,
+              pos_from,
+              pos_to,
+              valorPorPalpite,
+              betData.divisionType,
+              cotacaoPersonalizada
+            )
+
+            premioTotal += conferencia.totalPrize
           }
+        } else if (betData.animalBets) {
+          // Modalidades de grupo
+          for (const animalBet of betData.animalBets) {
+            const grupos = animalBet.map((animalId) => {
+              // Encontrar o grupo do animal
+              const animal = ANIMALS.find((a) => a.id === animalId)
+              if (!animal) {
+                throw new Error(`Animal não encontrado: ${animalId}`)
+              }
+              return animal.group
+            })
 
-          const conferencia = conferirPalpite(
-            resultadoInstantaneo,
-            modalityType,
-            palpiteData,
-            pos_from,
-            pos_to,
-            valorPorPalpite,
-            betData.divisionType
-          )
+            const palpiteData: { grupos?: number[]; numero?: string } = { grupos }
 
-          premioTotal += conferencia.totalPrize
+            const conferencia = conferirPalpite(
+              resultadoInstantaneo,
+              modalityType,
+              palpiteData,
+              pos_from,
+              pos_to,
+              valorPorPalpite,
+              betData.divisionType
+            )
+
+            premioTotal += conferencia.totalPrize
+          }
         }
 
         // Atualizar saldo: debita aposta e credita prêmio

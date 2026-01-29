@@ -227,6 +227,47 @@ export default function BetFlow() {
 
     const modalityName = betData.modalityName || MODALITIES.find((m) => String(m.id) === betData.modality)?.name || 'Modalidade'
     
+    // Verificar se algum número é cotado (apenas para Milhar e Centena)
+    const isMilharOrCentena = modalityName === 'Milhar' || modalityName === 'Centena'
+    const cotadasEncontradas: Array<{ numero: string; cotacao: number }> = []
+    
+    if (isMilharOrCentena && betData.numberBets && betData.numberBets.length > 0) {
+      for (const numero of betData.numberBets) {
+        try {
+          const res = await fetch('/api/cotadas/verificar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              numero,
+              modalidade: modalityName === 'Milhar' ? 'MILHAR' : 'CENTENA',
+            }),
+          })
+          
+          if (res.ok) {
+            const data = await res.json()
+            if (data.isCotada) {
+              cotadasEncontradas.push({
+                numero,
+                cotacao: data.cotacao,
+              })
+            }
+          }
+        } catch (error) {
+          console.error('Erro ao verificar cotada:', error)
+        }
+      }
+    }
+    
+    // Se encontrou cotadas, mostrar alerta
+    if (cotadasEncontradas.length > 0) {
+      const cotacoes = cotadasEncontradas.map(c => `${c.numero} (${c.cotacao}x)`).join('\n')
+      const mensagem = `⚠️ ATENÇÃO: Os seguintes números são COTADOS:\n\n${cotacoes}\n\nA cotação será ${cotadasEncontradas[0].cotacao}x ao invés do multiplicador padrão.\n\nDeseja continuar com a aposta mesmo assim?`
+      
+      if (!confirm(mensagem)) {
+        return // Usuário cancelou
+      }
+    }
+    
     let apostaText = ''
     if (isNumberModality) {
       apostaText = `${modalityName}: ${betData.numberBets.join(' | ')}`
@@ -256,6 +297,7 @@ export default function BetFlow() {
       detalhes: {
         betData,
         modalityName,
+        cotadas: cotadasEncontradas.length > 0 ? cotadasEncontradas : undefined,
         ...(isNumberModality ? { numberBets: betData.numberBets } : { animalNames: betData.animalBets }),
       },
     }

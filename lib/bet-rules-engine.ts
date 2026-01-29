@@ -15,6 +15,7 @@ export type ModalityType =
   | 'DUPLA_GRUPO'
   | 'TERNO_GRUPO'
   | 'QUADRA_GRUPO'
+  | 'QUINA_GRUPO'
   | 'DEZENA'
   | 'CENTENA'
   | 'MILHAR'
@@ -22,6 +23,8 @@ export type ModalityType =
   | 'CENTENA_INVERTIDA'
   | 'MILHAR_INVERTIDA'
   | 'MILHAR_CENTENA'
+  | 'DUQUE_DEZENA'
+  | 'TERNO_DEZENA'
   | 'PASSE'
   | 'PASSE_VAI_E_VEM'
 
@@ -308,6 +311,8 @@ function getExpectedGroups(modalidade: ModalityType): number {
       return 3
     case 'QUADRA_GRUPO':
       return 4
+    case 'QUINA_GRUPO':
+      return 5
     default:
       return 0 // Não é modalidade de grupo ou não tem validação
   }
@@ -423,6 +428,24 @@ export function buscarOdd(
       '1-5': 5000,
       '1-7': 5000,
     },
+    QUINA_GRUPO: {
+      '1-1': 5000,
+      '1-3': 5000,
+      '1-5': 5000,
+      '1-7': 5000,
+    },
+    DUQUE_DEZENA: {
+      '1-1': 300,
+      '1-3': 300,
+      '1-5': 300,
+      '1-7': 300,
+    },
+    TERNO_DEZENA: {
+      '1-1': 5000,
+      '1-3': 5000,
+      '1-5': 5000,
+      '1-7': 5000,
+    },
     PASSE: {
       '1-2': 300, // Fixo 1º-2º
     },
@@ -472,6 +495,78 @@ export function calcularPremioPalpite(
 // ============================================================================
 // CONFERÊNCIA DE RESULTADOS
 // ============================================================================
+
+/**
+ * Confere um palpite de duque de dezena (2 dezenas diferentes).
+ */
+export function conferirDuqueDezena(
+  resultado: number[],
+  dezenasApostadas: string[],
+  pos_from: number,
+  pos_to: number
+): PrizeCalculation {
+  if (dezenasApostadas.length !== 2) {
+    throw new Error('Duque de dezena deve ter exatamente 2 dezenas')
+  }
+  
+  const dezenasSet = new Set(dezenasApostadas.map(d => d.padStart(2, '0')))
+  const dezenasEncontradas = new Set<string>()
+  
+  for (let pos = pos_from - 1; pos < pos_to && pos < resultado.length; pos++) {
+    const premio = resultado[pos]
+    const premioStr = premio.toString().padStart(4, '0')
+    const dezena = premioStr.slice(-2) // Últimos 2 dígitos
+    
+    if (dezenasSet.has(dezena)) {
+      dezenasEncontradas.add(dezena)
+    }
+  }
+  
+  // Ambas as dezenas devem aparecer (ordem não importa)
+  const hits = dezenasEncontradas.size === 2 ? 1 : 0
+  
+  return {
+    hits,
+    prizePerUnit: 0,
+    totalPrize: 0,
+  }
+}
+
+/**
+ * Confere um palpite de terno de dezena (3 dezenas diferentes).
+ */
+export function conferirTernoDezena(
+  resultado: number[],
+  dezenasApostadas: string[],
+  pos_from: number,
+  pos_to: number
+): PrizeCalculation {
+  if (dezenasApostadas.length !== 3) {
+    throw new Error('Terno de dezena deve ter exatamente 3 dezenas')
+  }
+  
+  const dezenasSet = new Set(dezenasApostadas.map(d => d.padStart(2, '0')))
+  const dezenasEncontradas = new Set<string>()
+  
+  for (let pos = pos_from - 1; pos < pos_to && pos < resultado.length; pos++) {
+    const premio = resultado[pos]
+    const premioStr = premio.toString().padStart(4, '0')
+    const dezena = premioStr.slice(-2) // Últimos 2 dígitos
+    
+    if (dezenasSet.has(dezena)) {
+      dezenasEncontradas.add(dezena)
+    }
+  }
+  
+  // As 3 dezenas devem aparecer (ordem não importa)
+  const hits = dezenasEncontradas.size === 3 ? 1 : 0
+  
+  return {
+    hits,
+    prizePerUnit: 0,
+    totalPrize: 0,
+  }
+}
 
 /**
  * Confere um palpite de número (dezena, centena, milhar) contra resultado.
@@ -652,6 +747,32 @@ export function conferirQuadraGrupo(
 }
 
 /**
+ * Confere um palpite de quina de grupo.
+ */
+export function conferirQuinaGrupo(
+  resultado: number[],
+  gruposApostados: number[],
+  pos_from: number,
+  pos_to: number
+): PrizeCalculation {
+  if (gruposApostados.length !== 5) {
+    throw new Error('Quina de grupo deve ter exatamente 5 grupos')
+  }
+  
+  const grupos = gruposNoResultado(resultado, pos_from, pos_to)
+  const gruposSet = new Set(grupos)
+  
+  const todosPresentes = gruposApostados.every((g) => gruposSet.has(g))
+  const hits = todosPresentes ? 1 : 0
+  
+  return {
+    hits,
+    prizePerUnit: 0,
+    totalPrize: 0,
+  }
+}
+
+/**
  * Confere um palpite de passe (1º → 2º).
  * 
  * PASSE VAI: O grupo1 deve aparecer no 1º prêmio E o grupo2 deve aparecer no 2º prêmio (ordem específica).
@@ -738,7 +859,8 @@ export function conferirPalpite(
   pos_from: number,
   pos_to: number,
   valorPorPalpite: number,
-  divisaoTipo: DivisionType
+  divisaoTipo: DivisionType,
+  cotacaoPersonalizada?: number // Cotação personalizada para números cotados
 ): {
   calculation: BetCalculation
   prize: PrizeCalculation
@@ -761,6 +883,8 @@ export function conferirPalpite(
       prize = conferirTernoGrupo(resultado.prizes, palpite.grupos!, pos_from, pos_to)
     } else if (modalidade === 'QUADRA_GRUPO') {
       prize = conferirQuadraGrupo(resultado.prizes, palpite.grupos!, pos_from, pos_to)
+    } else if (modalidade === 'QUINA_GRUPO') {
+      prize = conferirQuinaGrupo(resultado.prizes, palpite.grupos!, pos_from, pos_to)
     } else {
       throw new Error(`Modalidade de grupo não suportada: ${modalidade}`)
     }
@@ -780,8 +904,37 @@ export function conferirPalpite(
       palpite.grupos[1],
       modalidade === 'PASSE_VAI_E_VEM'
     )
+  } else if (modalidade === 'DUQUE_DEZENA' || modalidade === 'TERNO_DEZENA') {
+    // Modalidades de múltiplas dezenas
+    if (!palpite.numero) {
+      throw new Error(`${modalidade} requer números`)
+    }
+    // Para duque/terno de dezena, palpite.numero deve ser uma string com números separados
+    // ou um array de números. Por enquanto, assumimos que vem como string separada por vírgula
+    const numeros = typeof palpite.numero === 'string' 
+      ? palpite.numero.split(',').map(n => n.trim())
+      : [palpite.numero]
+    
+    // Calcular unidades: cada combinação × posições
+    const qtdPosicoes = pos_to - pos_from + 1
+    const combinations = 1 // Combinação fixa (não combinada)
+    const units = combinations * qtdPosicoes
+    const unitValue = calcularValorUnitario(valorPorPalpite, units)
+    
+    calculation = {
+      combinations,
+      positions: qtdPosicoes,
+      units,
+      unitValue,
+    }
+    
+    if (modalidade === 'DUQUE_DEZENA') {
+      prize = conferirDuqueDezena(resultado.prizes, numeros, pos_from, pos_to)
+    } else {
+      prize = conferirTernoDezena(resultado.prizes, numeros, pos_from, pos_to)
+    }
   } else {
-    // Modalidade de número
+    // Modalidade de número (dezena, centena, milhar simples)
     if (!palpite.numero) {
       throw new Error('Modalidade de número requer um número')
     }
@@ -796,20 +949,15 @@ export function conferirPalpite(
   let totalPrize = 0
   let premioUnidade = 0
   
-  // Verificar se há flag de redução cotada (será passada via detalhes da aposta)
-  // Por enquanto, assumimos false se não fornecida
-  const isCotada = false // TODO: Receber do palpite/detalhes da aposta
-  
-  if (isModalidadeNumerica && prize.posicoesAcertadas && prize.posicoesAcertadas.length > 0) {
+  // Se houver cotação personalizada (número cotado), usar ela ao invés do multiplicador padrão
+  if (cotacaoPersonalizada && (modalidade === 'CENTENA' || modalidade === 'MILHAR')) {
+    // Usar cotação personalizada cadastrada no admin
+    premioUnidade = calcularPremioUnidade(cotacaoPersonalizada, calculation.unitValue)
+    totalPrize = calcularPremioPalpite(prize.hits, premioUnidade)
+  } else if (isModalidadeNumerica && prize.posicoesAcertadas && prize.posicoesAcertadas.length > 0) {
     // Calcular prêmio por posição usando multiplicadores específicos
     for (const posicao of prize.posicoesAcertadas) {
-      let oddPosicao = buscarOddPorPosicao(modalidade, posicao)
-      
-      // Aplicar redução cotada se aplicável (Centena e Milhar)
-      if (isCotada && (modalidade === 'CENTENA' || modalidade === 'MILHAR')) {
-        oddPosicao = oddPosicao / 6
-      }
-      
+      const oddPosicao = buscarOddPorPosicao(modalidade, posicao)
       const premioPosicao = calcularPremioUnidade(oddPosicao, calculation.unitValue)
       totalPrize += premioPosicao
     }
@@ -818,13 +966,7 @@ export function conferirPalpite(
   } else {
     // Para outras modalidades ou quando não há posições específicas, usar método antigo
     // Para MILHAR_CENTENA, a odd já está configurada como valor combinado (3300x)
-    let odd = buscarOdd(modalidade, pos_from, pos_to)
-    
-    // Aplicar redução cotada se aplicável
-    if (isCotada && (modalidade === 'CENTENA' || modalidade === 'MILHAR')) {
-      odd = odd / 6
-    }
-    
+    const odd = buscarOdd(modalidade, pos_from, pos_to)
     premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
     totalPrize = calcularPremioPalpite(prize.hits, premioUnidade)
   }

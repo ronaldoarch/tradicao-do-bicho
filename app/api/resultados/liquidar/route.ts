@@ -12,6 +12,7 @@ import { extracoes } from '@/data/extracoes'
 import { buscarExtracaoPorNomeEHorario } from '@/lib/extracao-helpers'
 import { getHorarioRealApuracao, temSorteioNoDia } from '@/data/horarios-reais-apuracao'
 import { buscarResultadosAgenciaMidas } from '@/lib/agenciamidas-api'
+import { getCotada } from '@/lib/cotadas-store'
 import { normalizarLoteria } from '@/lib/descarga-helpers'
 
 // Configurar timeout maior para operações longas
@@ -453,6 +454,9 @@ export async function POST(request: NextRequest) {
       'Centena Invertida': 'CENTENA_INVERTIDA',
       'Milhar Invertida': 'MILHAR_INVERTIDA',
       'Milhar/Centena': 'MILHAR_CENTENA',
+      'Quina de Grupo': 'QUINA_GRUPO',
+      'Duque de Dezena': 'DUQUE_DEZENA',
+      'Terno de Dezena': 'TERNO_DEZENA',
       'Passe vai': 'PASSE',
       'Passe vai e vem': 'PASSE_VAI_E_VEM',
     }
@@ -701,6 +705,20 @@ export async function POST(request: NextRequest) {
 
             const palpiteData: { grupos?: number[]; numero?: string } = { numero: numeroLimpo }
 
+            // Verificar se o número é cotado e buscar cotação personalizada
+            let cotacaoPersonalizada: number | undefined = undefined
+            if (modalityType === 'MILHAR' || modalityType === 'CENTENA') {
+              try {
+                const cotada = await getCotada(numeroLimpo, modalityType)
+                if (cotada) {
+                  cotacaoPersonalizada = cotada.cotacao
+                  console.log(`📋 Número ${numeroLimpo} é cotado com cotação ${cotacaoPersonalizada}x`)
+                }
+              } catch (error) {
+                console.error(`Erro ao verificar cotada para ${numeroLimpo}:`, error)
+              }
+            }
+
             const conferencia = conferirPalpite(
               resultadoOficial,
               modalityType,
@@ -708,7 +726,8 @@ export async function POST(request: NextRequest) {
               pos_from,
               pos_to,
               valorPorPalpite,
-              betData.divisionType
+              betData.divisionType,
+              cotacaoPersonalizada
             )
 
             premioTotalAposta += conferencia.totalPrize

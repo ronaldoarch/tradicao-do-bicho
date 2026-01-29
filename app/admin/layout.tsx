@@ -113,6 +113,7 @@ export default function AdminLayout({
     { href: '/admin/banners', label: 'Banners', icon: '🖼️' },
     { href: '/admin/stories', label: 'Stories', icon: '📱' },
     { href: '/admin/cotacoes', label: 'Cotações', icon: '💰' },
+    { href: '/admin/cotadas', label: 'Cotadas', icon: '📋' },
     { href: '/admin/extracoes', label: 'Extrações', icon: '🎲' },
     { href: '/admin/modalidades', label: 'Modalidades', icon: '🎯' },
     { href: '/admin/bingo', label: 'Bingo', icon: '🎰' },
