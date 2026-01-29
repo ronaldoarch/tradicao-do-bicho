@@ -23,32 +23,56 @@ export default function AdminLayout({
         return
       }
 
+      // Evitar múltiplas verificações simultâneas
+      if (isAuthenticated === false) {
+        return
+      }
+
       try {
+        console.log('🔍 Verificando autenticação admin para:', pathname)
         const res = await fetch('/api/admin/auth/me', { 
           credentials: 'include',
-          cache: 'no-store'
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+          }
         })
+        
+        console.log('📡 Resposta auth/me:', res.status, res.statusText)
         
         if (res.ok) {
           const data = await res.json()
+          console.log('✅ Autenticado:', data.user?.email)
           setIsAuthenticated(true)
           setAdminUser(data.user)
         } else {
           // Se retornar 401 ou 403, não está autenticado
-          console.warn('Falha na autenticação:', res.status, res.statusText)
+          const errorData = await res.json().catch(() => ({}))
+          console.warn('⚠️ Falha na autenticação:', res.status, res.statusText, errorData)
           setIsAuthenticated(false)
-          // Usar window.location para garantir que o cookie seja limpo
-          window.location.href = '/admin/login'
+          
+          // Evitar redirecionamento múltiplo - só redirecionar se não estiver já indo para login
+          const currentPath = window.location.pathname
+          if (currentPath !== '/admin/login' && !currentPath.includes('/admin/login')) {
+            console.log('🔄 Redirecionando para login...')
+            window.location.href = '/admin/login'
+          }
         }
       } catch (error) {
-        console.error('Erro ao verificar autenticação:', error)
+        console.error('❌ Erro ao verificar autenticação:', error)
         setIsAuthenticated(false)
-        window.location.href = '/admin/login'
+        
+        // Evitar redirecionamento múltiplo
+        const currentPath = window.location.pathname
+        if (currentPath !== '/admin/login' && !currentPath.includes('/admin/login')) {
+          console.log('🔄 Redirecionando para login (erro)...')
+          window.location.href = '/admin/login'
+        }
       }
     }
 
     checkAuth()
-  }, [pathname, router])
+  }, [pathname])
 
   const handleLogout = async () => {
     try {

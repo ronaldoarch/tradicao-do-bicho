@@ -8,7 +8,8 @@ export function middleware(request: NextRequest) {
   if (
     pathname.startsWith('/admin') &&
     pathname !== '/admin/login' &&
-    !pathname.startsWith('/api/admin/auth/login')
+    !pathname.startsWith('/api/admin/auth/login') &&
+    !pathname.startsWith('/api/admin/auth/me')
   ) {
     const adminSession = request.cookies.get('admin_session')
     
@@ -20,7 +21,10 @@ export function middleware(request: NextRequest) {
           { status: 401 }
         )
       }
-      return NextResponse.redirect(new URL('/admin/login', request.url))
+      // Evitar redirecionamento infinito verificando se já está indo para login
+      if (pathname !== '/admin/login') {
+        return NextResponse.redirect(new URL('/admin/login', request.url))
+      }
     }
   }
 

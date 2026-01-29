@@ -14,15 +14,41 @@ export default function AdminLoginPage() {
     // Verificar se já está logado
     const checkSession = async () => {
       try {
-        const res = await fetch('/api/admin/auth/me', { credentials: 'include' })
+        console.log('🔍 Login page: Verificando se já está autenticado...')
+        const res = await fetch('/api/admin/auth/me', { 
+          credentials: 'include',
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+          }
+        })
+        
+        console.log('📡 Login page: Resposta auth/me:', res.status)
+        
         if (res.ok) {
-          router.push('/admin')
+          const data = await res.json()
+          // Verificar se realmente tem dados de usuário e é admin
+          if (data.user && data.user.isAdmin && data.user.email) {
+            console.log('✅ Login page: Já autenticado, redirecionando para /admin')
+            // Usar replace para evitar histórico de navegação e delay para evitar race condition
+            setTimeout(() => {
+              router.replace('/admin')
+            }, 100)
+          } else {
+            console.log('⚠️ Login page: Resposta OK mas dados inválidos:', data)
+          }
+        } else {
+          console.log('ℹ️ Login page: Não autenticado, permanecendo na página de login')
         }
       } catch (error) {
         // Não autenticado, continuar na página de login
+        console.log('ℹ️ Login page: Erro ao verificar, permanecendo na página de login:', error)
       }
     }
-    checkSession()
+    
+    // Delay pequeno para evitar race condition com layout
+    const timeoutId = setTimeout(checkSession, 200)
+    return () => clearTimeout(timeoutId)
   }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
