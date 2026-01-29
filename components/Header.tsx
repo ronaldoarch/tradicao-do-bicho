@@ -38,6 +38,16 @@ export default function Header() {
     }
   }, [])
 
+  const handleCloseProfileModal = useCallback(() => {
+    setProfileModalOpen(false)
+  }, [])
+
+  const handleLogout = useCallback(async () => {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    setUser(null)
+    setProfileModalOpen(false)
+  }, [])
+
   useEffect(() => {
     if (typeof window === 'undefined') return
     loadUser()
@@ -137,13 +147,9 @@ export default function Header() {
       {/* Profile Modal */}
       <ProfileModal
         isOpen={profileModalOpen}
-        onClose={() => setProfileModalOpen(false)}
+        onClose={handleCloseProfileModal}
         user={user}
-        onLogout={async () => {
-          await fetch('/api/auth/logout', { method: 'POST' })
-          setUser(null)
-          setProfileModalOpen(false)
-        }}
+        onLogout={handleLogout}
       />
     </header>
   )

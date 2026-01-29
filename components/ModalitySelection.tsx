@@ -20,11 +20,9 @@ export default function ModalitySelection({
   const onModalitySelectRef = useRef(onModalitySelect)
   const selectedModalityRef = useRef(selectedModality)
 
-  // Atualizar refs quando props mudarem
-  useEffect(() => {
-    onModalitySelectRef.current = onModalitySelect
-    selectedModalityRef.current = selectedModality
-  }, [onModalitySelect, selectedModality])
+  // Atualizar refs quando props mudarem (sem causar re-renders)
+  onModalitySelectRef.current = onModalitySelect
+  selectedModalityRef.current = selectedModality
 
   const loadModalidades = useCallback(async () => {
     try {

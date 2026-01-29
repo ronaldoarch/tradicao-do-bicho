@@ -33,8 +33,10 @@ export default function ProfileModal({ isOpen, onClose, user, onLogout }: Profil
   }, [isOpen])
 
   useEffect(() => {
+    if (!isOpen) return
+    
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === 'Escape') {
         onClose()
       }
     }
