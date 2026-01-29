@@ -251,23 +251,27 @@ export async function GET(req: NextRequest) {
     const inicioBusca = Date.now()
     
     // Executar todas as buscas em paralelo com timeout de 30 segundos
-    // Usar Promise.race para garantir que retornamos após 30s mesmo que algumas ainda estejam pendentes
+    // Usar uma abordagem que coleta resultados conforme vão completando
+    const resultadosBuscados: Array<{ loteria: string; resultados: any[] }> = []
+    let timeoutReached = false
+    
+    // Criar um timeout que marca quando 30s passou
+    const timeoutPromise = new Promise<void>((resolve) => {
+      setTimeout(() => {
+        timeoutReached = true
+        console.log(`⏱️ Timeout de 30s atingido. Coletando resultados parciais...`)
+        resolve()
+      }, 30000) // 30 segundos
+    })
+    
+    // Executar todas as promessas e o timeout em paralelo
     const resultadosSettled = await Promise.race([
       Promise.allSettled(promessasBusca),
-      new Promise<PromiseSettledResult<{ loteria: string; resultados: any[] }>[]>((resolve) => {
-        setTimeout(() => {
-          console.log(`⏱️ Timeout de 30s atingido. Retornando resultados parciais...`)
-          // Retornar array vazio para indicar timeout
-          resolve([])
-        }, 30000) // 30 segundos
-      })
+      timeoutPromise.then(() => Promise.allSettled(promessasBusca))
     ])
     
-    // Processar resultados obtidos
-    const resultadosBuscados: Array<{ loteria: string; resultados: any[] }> = []
-    
-    if (Array.isArray(resultadosSettled) && resultadosSettled.length > 0) {
-      // Todas as promessas completaram antes do timeout
+    // Processar resultados obtidos (mesmo que parciais)
+    if (Array.isArray(resultadosSettled)) {
       resultadosSettled.forEach((settled, index) => {
         if (settled.status === 'fulfilled') {
           resultadosBuscados.push(settled.value)
@@ -275,28 +279,6 @@ export async function GET(req: NextRequest) {
           console.error(`❌ Falha ao buscar ${LOTERIAS_PRINCIPAIS[index]}:`, settled.reason)
         }
       })
-    } else {
-      // Timeout atingido - aguardar um pouco mais para coletar resultados parciais
-      console.log(`⏱️ Coletando resultados parciais disponíveis...`)
-      try {
-        // Aguardar mais 2 segundos para coletar resultados que já estão quase prontos
-        const resultadosParciais = await Promise.race([
-          Promise.allSettled(promessasBusca),
-          new Promise<PromiseSettledResult<{ loteria: string; resultados: any[] }>[]>((resolve) => {
-            setTimeout(() => resolve([]), 2000)
-          })
-        ])
-        
-        if (Array.isArray(resultadosParciais) && resultadosParciais.length > 0) {
-          resultadosParciais.forEach((settled) => {
-            if (settled.status === 'fulfilled' && settled.value.resultados.length > 0) {
-              resultadosBuscados.push(settled.value)
-            }
-          })
-        }
-      } catch (error) {
-        console.error('Erro ao coletar resultados parciais:', error)
-      }
     }
     
     const tempoBusca = Date.now() - inicioBusca
