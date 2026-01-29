@@ -23,7 +23,7 @@ interface Aposta {
 }
 
 // Funções auxiliares para buscar dados da extração
-function buscarEstadoExtracao(loteria: string | null, estado: string | null, detalhes: any): string {
+function buscarEstadoExtracao(loteria: string | null | undefined, estado: string | null | undefined, detalhes: any): string {
   // Se estado já é uma sigla (CE, PB, etc), usar diretamente
   if (estado && estado.length <= 3 && /^[A-Z]{2}$/.test(estado)) {
     return estado
@@ -55,7 +55,7 @@ function buscarEstadoExtracao(loteria: string | null, estado: string | null, det
   return '—'
 }
 
-function buscarHorarioExtracao(horario: string | null, loteria: string | null, estado: string | null, detalhes: any): string {
+function buscarHorarioExtracao(horario: string | null | undefined, loteria: string | null | undefined, estado: string | null | undefined, detalhes: any): string {
   // Se horário já está preenchido, usar diretamente
   if (horario) {
     return horario
