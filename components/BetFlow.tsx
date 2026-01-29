@@ -190,6 +190,19 @@ export default function BetFlow() {
     setBetData((prev) => ({ ...prev, specialTime: time }))
   }, [])
 
+  const handleModalitySelect = useCallback((modalityId: string, modalityName: string) => {
+    setBetData((prev) => ({
+      ...prev,
+      modality: modalityId,
+      modalityName,
+      animalBets: [], // limpa palpites ao trocar modalidade
+    }))
+  }, [])
+
+  const handleSpecialQuotationsClick = useCallback(() => {
+    setShowSpecialModal(true)
+  }, [])
+
   const handleAddAnimalBet = (ids: number[]) => {
     setBetData((prev) => {
       if (prev.animalBets.length >= MAX_PALPITES) return prev
@@ -424,15 +437,8 @@ export default function BetFlow() {
             {activeTab === 'bicho' ? (
               <ModalitySelection
                 selectedModality={betData.modality}
-                onModalitySelect={(modalityId, modalityName) =>
-                  setBetData((prev) => ({
-                    ...prev,
-                    modality: modalityId,
-                    modalityName,
-                    animalBets: [], // limpa palpites ao trocar modalidade
-                  }))
-                }
-                onSpecialQuotationsClick={() => setShowSpecialModal(true)}
+                onModalitySelect={handleModalitySelect}
+                onSpecialQuotationsClick={handleSpecialQuotationsClick}
               />
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center">
