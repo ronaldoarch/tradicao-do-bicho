@@ -211,33 +211,37 @@ export async function buscarResultadosAgenciaMidas(
       return []
     }
     
-    // Verificar o Content-Type antes de fazer parse
-    const contentType = response.headers.get('content-type') || ''
+    // Ler resposta como texto primeiro
     const responseText = await response.text()
+    const contentType = response.headers.get('content-type') || ''
     
     // Log da resposta para debug
     console.log(`📥 Resposta da API (primeiros 200 chars): ${responseText.substring(0, 200)}`)
+    console.log(`📥 Content-Type: ${contentType}`)
     
-    // Se não for JSON, pode ser HTML ou texto de erro
-    if (!contentType.includes('application/json') && !responseText.trim().startsWith('{') && !responseText.trim().startsWith('[')) {
-      console.log(`⚠️ Resposta não é JSON. Content-Type: ${contentType}, Início: ${responseText.substring(0, 50)}`)
-      
-      // Tentar detectar mensagens de erro comuns
-      if (responseText.includes('Resultados') || responseText.includes('Nenhum resultado') || responseText.includes('erro')) {
-        console.log(`ℹ️ API retornou mensagem de texto (sem resultados ou erro): ${responseText.substring(0, 100)}`)
+    // Verificar se a resposta é texto simples (não JSON)
+    const trimmedText = responseText.trim()
+    
+    // Se não começa com { ou [, não é JSON válido
+    if (!trimmedText.startsWith('{') && !trimmedText.startsWith('[')) {
+      // Verificar se é uma mensagem de texto conhecida
+      if (trimmedText.includes('Resultados encontrados') || 
+          trimmedText.includes('Nenhum resultado') || 
+          trimmedText.includes('erro') ||
+          trimmedText.includes('Resultado Nacional')) {
+        console.log(`ℹ️ API retornou mensagem de texto (sem resultados JSON): ${trimmedText.substring(0, 150)}`)
         return []
       }
       
       // Se parece HTML, também retornar vazio
-      if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
+      if (trimmedText.includes('<!DOCTYPE') || trimmedText.includes('<html')) {
         console.log(`⚠️ API retornou HTML ao invés de JSON`)
         return []
       }
       
-      // Tentar parse mesmo assim se começar com { ou [
-      if (!responseText.trim().startsWith('{') && !responseText.trim().startsWith('[')) {
-        return []
-      }
+      // Qualquer outro texto não-JSON retorna vazio
+      console.log(`⚠️ Resposta não é JSON válido. Retornando array vazio.`)
+      return []
     }
     
     // Tentar fazer parse do JSON
@@ -245,7 +249,7 @@ export async function buscarResultadosAgenciaMidas(
     try {
       resultado = JSON.parse(responseText)
     } catch (parseError) {
-      console.error(`❌ Erro ao fazer parse do JSON. Resposta: ${responseText.substring(0, 200)}`)
+      console.error(`❌ Erro ao fazer parse do JSON. Resposta (primeiros 200 chars): ${responseText.substring(0, 200)}`)
       return []
     }
     
