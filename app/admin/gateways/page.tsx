@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface Gateway {
   id: number
@@ -27,6 +28,7 @@ const emptyForm: Omit<Gateway, 'id' | 'passwordSet'> = {
 }
 
 export default function GatewaysPage() {
+  const router = useRouter()
   const [gateways, setGateways] = useState<Gateway[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -42,7 +44,8 @@ export default function GatewaysPage() {
       })
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
-          window.location.href = '/admin/login'
+          console.error('❌ Gateways: Não autenticado (', res.status, '), redirecionando...')
+          router.push('/admin/login')
           return
         }
         throw new Error(`Erro ${res.status}: ${res.statusText}`)
@@ -74,7 +77,8 @@ export default function GatewaysPage() {
       })
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
-          window.location.href = '/admin/login'
+          console.error('❌ Gateways: Não autenticado no submit, redirecionando...')
+          router.push('/admin/login')
           return
         }
         const errorData = await res.json().catch(() => ({}))
@@ -114,7 +118,8 @@ export default function GatewaysPage() {
       })
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
-          window.location.href = '/admin/login'
+          console.error('❌ Gateways: Não autenticado no delete, redirecionando...')
+          router.push('/admin/login')
           return
         }
         throw new Error(`Erro ${res.status}`)
@@ -136,7 +141,8 @@ export default function GatewaysPage() {
       })
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
-          window.location.href = '/admin/login'
+          console.error('❌ Gateways: Não autenticado no toggle, redirecionando...')
+          router.push('/admin/login')
           return
         }
         throw new Error(`Erro ${res.status}`)

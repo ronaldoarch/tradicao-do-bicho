@@ -56,10 +56,9 @@ export default function AdminLayout({
           setIsAuthenticated(false)
           
           // Evitar redirecionamento múltiplo - só redirecionar se não estiver já indo para login
-          const currentPath = window.location.pathname
-          if (currentPath !== '/admin/login' && !currentPath.includes('/admin/login')) {
+          if (pathname !== '/admin/login') {
             console.log('🔄 Layout: Redirecionando para login...')
-            window.location.href = '/admin/login'
+            router.push('/admin/login')
           }
         }
       } catch (error) {
@@ -67,10 +66,9 @@ export default function AdminLayout({
         setIsAuthenticated(false)
         
         // Evitar redirecionamento múltiplo
-        const currentPath = window.location.pathname
-        if (currentPath !== '/admin/login' && !currentPath.includes('/admin/login')) {
+        if (pathname !== '/admin/login') {
           console.log('🔄 Layout: Redirecionando para login (erro)...')
-          window.location.href = '/admin/login'
+          router.push('/admin/login')
         }
       } finally {
         setIsChecking(false)
