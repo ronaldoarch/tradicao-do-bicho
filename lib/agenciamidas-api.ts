@@ -217,39 +217,42 @@ export async function buscarResultadosAgenciaMidas(
     
     // Log da resposta para debug
     console.log(`📥 Resposta da API (primeiros 200 chars): ${responseText.substring(0, 200)}`)
-    console.log(`📥 Content-Type: ${contentType}`)
     
-    // Verificar se a resposta é texto simples (não JSON)
-    const trimmedText = responseText.trim()
+    // A API retorna texto antes do JSON (ex: "Resultados encontrados:...")
+    // Precisamos extrair apenas a parte JSON
+    let jsonText = responseText.trim()
     
-    // Se não começa com { ou [, não é JSON válido
-    if (!trimmedText.startsWith('{') && !trimmedText.startsWith('[')) {
-      // Verificar se é uma mensagem de texto conhecida
-      if (trimmedText.includes('Resultados encontrados') || 
-          trimmedText.includes('Nenhum resultado') || 
-          trimmedText.includes('erro') ||
-          trimmedText.includes('Resultado Nacional')) {
-        console.log(`ℹ️ API retornou mensagem de texto (sem resultados JSON): ${trimmedText.substring(0, 150)}`)
-        return []
-      }
-      
-      // Se parece HTML, também retornar vazio
-      if (trimmedText.includes('<!DOCTYPE') || trimmedText.includes('<html')) {
-        console.log(`⚠️ API retornou HTML ao invés de JSON`)
-        return []
-      }
-      
-      // Qualquer outro texto não-JSON retorna vazio
-      console.log(`⚠️ Resposta não é JSON válido. Retornando array vazio.`)
+    // Encontrar o início do JSON (primeiro { ou [)
+    const jsonStart = jsonText.indexOf('{')
+    const jsonStartArray = jsonText.indexOf('[')
+    
+    let jsonStartIndex = -1
+    if (jsonStart !== -1 && jsonStartArray !== -1) {
+      jsonStartIndex = Math.min(jsonStart, jsonStartArray)
+    } else if (jsonStart !== -1) {
+      jsonStartIndex = jsonStart
+    } else if (jsonStartArray !== -1) {
+      jsonStartIndex = jsonStartArray
+    }
+    
+    // Se encontrou início do JSON, extrair apenas essa parte
+    if (jsonStartIndex !== -1 && jsonStartIndex > 0) {
+      console.log(`📝 Extraindo JSON da posição ${jsonStartIndex} (removendo ${jsonStartIndex} caracteres de texto inicial)`)
+      jsonText = jsonText.substring(jsonStartIndex)
+    }
+    
+    // Se ainda não começa com { ou [, não há JSON válido
+    if (!jsonText.trim().startsWith('{') && !jsonText.trim().startsWith('[')) {
+      console.log(`⚠️ Nenhum JSON encontrado na resposta. Retornando array vazio.`)
       return []
     }
     
     // Tentar fazer parse do JSON
     let resultado: AgenciaMidasResponse
     try {
-      resultado = JSON.parse(responseText)
+      resultado = JSON.parse(jsonText)
     } catch (parseError) {
-      console.error(`❌ Erro ao fazer parse do JSON. Resposta (primeiros 200 chars): ${responseText.substring(0, 200)}`)
+      console.error(`❌ Erro ao fazer parse do JSON. JSON extraído (primeiros 200 chars): ${jsonText.substring(0, 200)}`)
       return []
     }
     
