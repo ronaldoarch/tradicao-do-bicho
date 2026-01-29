@@ -304,14 +304,33 @@ export async function gateboxCreatePix(
 
   const data = await response.json()
   
-  return {
-    qrCode: data.qrCode || data.qrCodeImage,
-    qrCodeText: data.qrCodeText || data.qrCode,
-    transactionId: data.transactionId || data.id,
-    endToEnd: data.endToEnd,
-    pixKey: data.pixKey,
-    expiresAt: data.expiresAt || data.expireAt,
+  // Log detalhado da resposta para debug
+  console.log('📦 Resposta completa da Gatebox API:', JSON.stringify(data, null, 2))
+  
+  // Verificar se a resposta tem estrutura válida
+  if (!data || typeof data !== 'object') {
+    console.error('❌ Resposta da Gatebox não é um objeto válido:', data)
+    throw new Error('Resposta inválida da API Gatebox')
   }
+  
+  const result = {
+    qrCode: data.qrCode || data.qrCodeImage || data.qrcode || data.qrcodeImage,
+    qrCodeText: data.qrCodeText || data.qrCode || data.qrcodeText || data.qrcode,
+    transactionId: data.transactionId || data.id || data.transaction_id,
+    endToEnd: data.endToEnd || data.end_to_end || data.endToEndId,
+    pixKey: data.pixKey || data.pix_key || data.chavePix,
+    expiresAt: data.expiresAt || data.expireAt || data.expires_at,
+  }
+  
+  // Log do resultado processado
+  console.log('✅ Dados processados da Gatebox:', {
+    temQrCode: !!result.qrCode,
+    temQrCodeText: !!result.qrCodeText,
+    temTransactionId: !!result.transactionId,
+    temEndToEnd: !!result.endToEnd,
+  })
+  
+  return result
 }
 
 /**
