@@ -97,6 +97,6 @@ export function useConfiguracoes() {
     }
   }, []) // Array vazio - só roda uma vez no mount
 
-  // Retornar diretamente sem useMemo para evitar problemas com dependências
-  return { configuracoes, loading }
+  // Memoizar o objeto retornado para evitar re-renders desnecessários
+  return useMemo(() => ({ configuracoes, loading }), [configuracoes, loading])
 }
