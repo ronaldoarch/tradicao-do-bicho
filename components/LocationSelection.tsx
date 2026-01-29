@@ -61,6 +61,17 @@ export default function LocationSelection({
     return () => clearInterval(timer)
   }, [])
 
+  // Estado para forçar atualização periódica do tempo
+  const [timeKey, setTimeKey] = useState(0)
+  
+  useEffect(() => {
+    // Atualizar a cada minuto para recalcular minutos até fechamento
+    const interval = setInterval(() => {
+      setTimeKey(prev => prev + 1)
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [])
+
   const normalized = useMemo(() => {
     const now = Date.now()
     return extracoes
@@ -71,7 +82,7 @@ export default function LocationSelection({
         return { ...e, closeStr, closeDate, minutesToClose }
       })
       .sort((a, b) => (a.closeDate?.getTime() || 0) - (b.closeDate?.getTime() || 0))
-  }, [extracoes])
+  }, [extracoes, timeKey])
 
   const available = useMemo(() => {
     return normalized.filter((e) => e.minutesToClose > CLOSE_THRESHOLD_MINUTES)
@@ -116,35 +127,53 @@ export default function LocationSelection({
   const lastProcessedLocationRef = useRef<string | null>(null)
   const lastAvailableIdsRef = useRef<string>('')
   const isUpdatingRef = useRef(false)
+  const availableRef = useRef<ExtracaoWithMeta[]>([])
+  const normalizedRef = useRef<ExtracaoWithMeta[]>([])
+  
+  // Atualizar refs quando os arrays mudarem e verificar se precisa atualizar location
+  useEffect(() => {
+    const currentAvailableIds = [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
+    const idsChanged = lastAvailableIdsRef.current !== currentAvailableIds
+    lastAvailableIdsRef.current = currentAvailableIds
+    availableRef.current = available
+    normalizedRef.current = normalized
+    
+    // Se os IDs mudaram e não estamos atualizando, verificar se precisa atualizar location
+    if (idsChanged && !isUpdatingRef.current && location) {
+      const isLocationStillAvailable = available.some(e => e.id.toString() === location) || 
+                                       normalized.some(e => e.id.toString() === location)
+      
+      if (!isLocationStillAvailable) {
+        const current = available.length > 0 ? available[0] : normalized[0]
+        if (current && current.id.toString() !== location) {
+          const newLocation = current.id.toString()
+          if (newLocation !== lastProcessedLocationRef.current) {
+            lastProcessedLocationRef.current = newLocation
+            isUpdatingRef.current = true
+            onLocationChangeRef.current(newLocation)
+            setTimeout(() => {
+              isUpdatingRef.current = false
+            }, 100)
+          }
+        }
+      }
+    }
+  }, [available, normalized, location])
   
   useEffect(() => {
     if (available.length === 0 && normalized.length === 0) return
     if (isUpdatingRef.current) return // Prevenir processamento durante atualização
-    
-    // Criar uma string com IDs das extrações disponíveis para detectar mudanças
-    const currentAvailableIds = [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
-    
-    // Se location não mudou E as extrações disponíveis não mudaram, não fazer nada
-    if (lastProcessedLocationRef.current === location && 
-        lastAvailableIdsRef.current === currentAvailableIds) {
-      return
-    }
     
     const current =
       available.find((e) => e.id.toString() === location) ||
       (available.length > 0 ? available[0] : normalized[0])
     
     if (!current) {
-      // Atualizar refs mesmo se não houver current para evitar reprocessamento
-      lastAvailableIdsRef.current = currentAvailableIds
       if (location !== lastProcessedLocationRef.current) {
         lastProcessedLocationRef.current = location
       }
       return
     }
-    
-    // Atualizar ref das extrações disponíveis ANTES de qualquer processamento
-    lastAvailableIdsRef.current = currentAvailableIds
     
     // Só inicializar location uma vez quando não há location selecionada
     if (!location && !locationInitializedRef.current) {
@@ -155,39 +184,12 @@ export default function LocationSelection({
         lastProcessedLocationRef.current = newLocation
         isUpdatingRef.current = true
         onLocationChangeRef.current(newLocation)
-        // Usar requestAnimationFrame para garantir que o reset aconteça após o próximo render
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            isUpdatingRef.current = false
-          })
-        })
+        // Reset flag após um pequeno delay
+        setTimeout(() => {
+          isUpdatingRef.current = false
+        }, 100)
       }
       return
-    }
-    
-    // Se location mudou externamente e não corresponde ao current, atualizar
-    if (location && current.id.toString() !== location) {
-      // Verificar se a location atual ainda está disponível
-      const isLocationStillAvailable = available.some(e => e.id.toString() === location) || 
-                                       normalized.some(e => e.id.toString() === location)
-      
-      // Se não está disponível, mudar para o current
-      if (!isLocationStillAvailable) {
-        const newLocation = current.id.toString()
-        // Só atualizar se realmente for diferente do que já processamos
-        if (newLocation !== lastProcessedLocationRef.current) {
-          lastProcessedLocationRef.current = newLocation
-          isUpdatingRef.current = true
-          onLocationChangeRef.current(newLocation)
-          // Usar requestAnimationFrame para garantir que o reset aconteça após o próximo render
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              isUpdatingRef.current = false
-            })
-          })
-        }
-        return
-      }
     }
     
     // Atualizar ref com a location atual processada
@@ -206,8 +208,7 @@ export default function LocationSelection({
       locationInitializedRef.current = false
       isUpdatingRef.current = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [available, normalized, location])
+  }, [location]) // Apenas location como dependência
 
   return (
     <div>
