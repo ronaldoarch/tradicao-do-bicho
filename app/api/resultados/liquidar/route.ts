@@ -461,6 +461,25 @@ export async function POST(request: NextRequest) {
     let liquidadas = 0
     let premioTotalGeral = 0
 
+    // Criar índice de resultados para acesso rápido (evitar filtros repetidos)
+    // Chave: "loteria|horario|data" -> Array de resultados
+    const indiceResultados = new Map<string, ResultadoItem[]>()
+    
+    // Pré-processar resultados em índice para acesso O(1) ao invés de O(n) por aposta
+    for (const resultado of resultados) {
+      const loteriaNormalizada = normalizarLoteria(resultado.loteria || '') || ''
+      const horario = resultado.horario || ''
+      const data = resultado.date || resultado.dataExtracao || ''
+      const chave = `${loteriaNormalizada}|${horario}|${data}`
+      
+      if (!indiceResultados.has(chave)) {
+        indiceResultados.set(chave, [])
+      }
+      indiceResultados.get(chave)!.push(resultado)
+    }
+    
+    console.log(`📊 Índice de resultados criado: ${indiceResultados.size} chaves únicas`)
+
     // Processar cada aposta
     for (const aposta of apostasPendentes) {
       try {
@@ -481,8 +500,22 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Filtrar resultados por loteria/horário/data da aposta
-        let resultadosFiltrados = resultados
+        // Buscar resultados do índice (muito mais rápido que filtrar)
+        let resultadosFiltrados: ResultadoItem[] = []
+        
+        // Tentar buscar por chave exata primeiro
+        if (aposta.loteria && aposta.horario && aposta.dataConcurso) {
+          const loteriaNormalizada = normalizarLoteria(aposta.loteria) || ''
+          const horarioAposta = aposta.horario
+          const dataAposta = aposta.dataConcurso.toISOString().split('T')[0]
+          const chaveExata = `${loteriaNormalizada}|${horarioAposta}|${dataAposta}`
+          
+          resultadosFiltrados = indiceResultados.get(chaveExata) || []
+        }
+        
+        // Se não encontrou por chave exata, fazer busca flexível
+        if (resultadosFiltrados.length === 0) {
+          resultadosFiltrados = resultados
 
         if (aposta.loteria) {
           // Normalizar loteria antes de fazer match
