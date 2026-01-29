@@ -357,7 +357,7 @@ export async function POST(request: NextRequest) {
         }
       })
       
-      // Buscar resultados para cada combinação loteria/data
+      // Buscar resultados para cada combinação loteria/data EM PARALELO
       const loteriasArray = Array.from(loteriasUnicas)
       const datasArray = Array.from(datasUnicas)
       
@@ -371,30 +371,50 @@ export async function POST(request: NextRequest) {
         })
       }
       
+      // Criar array de promessas para executar em paralelo
+      const promessasBusca: Promise<{ loteria: string; dataISO: string; resultados: any[] }>[] = []
+      
       for (const loteria of loteriasArray) {
         for (const dataISO of datasArray) {
-          console.log(`🔍 Buscando resultados: loteria="${loteria}", data="${dataISO}"`)
-          const resultadosAPI = await buscarResultadosAgenciaMidas(loteria, dataISO)
-          
-          // Converter formato da API para formato ResultadoItem
-          resultadosAPI.forEach(resultadoAPI => {
-            resultadoAPI.premios.forEach(premio => {
-              resultados.push({
-                position: premio.posicao,
-                milhar: premio.numero,
-                grupo: premio.grupo,
-                animal: premio.animal,
-                drawTime: resultadoAPI.horario,
-                horario: resultadoAPI.horario,
-                loteria: loteria,
-                location: inferUfFromName(loteria) || '',
-                date: dataISO,
-                dataExtracao: dataISO,
-                estado: inferUfFromName(loteria) || undefined,
+          promessasBusca.push(
+            buscarResultadosAgenciaMidas(loteria, dataISO)
+              .then(resultadosAPI => ({
+                loteria,
+                dataISO,
+                resultados: resultadosAPI,
+              }))
+              .catch(error => {
+                console.error(`❌ Erro ao buscar ${loteria} ${dataISO}:`, error)
+                return { loteria, dataISO, resultados: [] }
               })
+          )
+        }
+      }
+      
+      // Executar todas as buscas em paralelo
+      console.log(`🚀 Buscando ${promessasBusca.length} combinações de loteria/data em paralelo...`)
+      const resultadosBuscados = await Promise.all(promessasBusca)
+      
+      // Processar resultados obtidos
+      for (const { loteria, dataISO, resultados: resultadosAPI } of resultadosBuscados) {
+        // Converter formato da API para formato ResultadoItem
+        resultadosAPI.forEach(resultadoAPI => {
+          resultadoAPI.premios.forEach(premio => {
+            resultados.push({
+              position: premio.posicao,
+              milhar: premio.numero,
+              grupo: premio.grupo,
+              animal: premio.animal,
+              drawTime: resultadoAPI.horario,
+              horario: resultadoAPI.horario,
+              loteria: loteria,
+              location: inferUfFromName(loteria) || '',
+              date: dataISO,
+              dataExtracao: dataISO,
+              estado: inferUfFromName(loteria) || undefined,
             })
           })
-        }
+        })
       }
       
       console.log(`✅ Resultados obtidos da API Agência Midas: ${resultados.length} resultados`)
