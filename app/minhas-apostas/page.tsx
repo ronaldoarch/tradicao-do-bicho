@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import BottomNav from '@/components/BottomNav'
@@ -28,7 +28,7 @@ export default function MinhasApostasPage() {
   const [selecionada, setSelecionada] = useState<Aposta | null>(null)
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date>(new Date())
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -50,7 +50,7 @@ export default function MinhasApostasPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     // Carregar imediatamente
@@ -63,7 +63,7 @@ export default function MinhasApostasPage() {
     }, 30000) // 30 segundos
     
     return () => clearInterval(interval)
-  }, [])
+  }, [load])
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-scale-100">
@@ -297,7 +297,22 @@ function CartelaBingoVisual({
   numerosSorteados: number[]
 }) {
   const colunas = ['B', 'I', 'N', 'G', 'O']
-  const numerosCartela = numeros as { b: number[]; i: number[]; n: number[]; g: number[]; o: number[] }
+  
+  // Validar e converter numeros com segurança
+  if (!numeros || typeof numeros !== 'object') {
+    return <div className="text-sm text-gray-500">Cartela não disponível</div>
+  }
+  
+  const numerosCartela = numeros as { b?: number[]; i?: number[]; n?: number[]; g?: number[]; o?: number[] }
+  
+  // Validar que todas as colunas existem e são arrays
+  const colunasValidas = colunas.every(
+    letra => Array.isArray(numerosCartela[letra.toLowerCase() as keyof typeof numerosCartela])
+  )
+  
+  if (!colunasValidas) {
+    return <div className="text-sm text-gray-500">Formato de cartela inválido</div>
+  }
 
   return (
     <div className="border-2 border-gray-300 rounded-lg p-4 bg-white">
@@ -311,8 +326,10 @@ function CartelaBingoVisual({
       {[0, 1, 2, 3, 4].map((linha) => (
         <div key={linha} className="grid grid-cols-5 gap-1">
           {colunas.map((letra, colIndex) => {
-            const numero = numerosCartela[letra.toLowerCase() as keyof typeof numerosCartela][linha]
-            const sorteado = numerosSorteados.includes(numero)
+            const colunaKey = letra.toLowerCase() as keyof typeof numerosCartela
+            const colunaNumeros = numerosCartela[colunaKey]
+            const numero = colunaNumeros && Array.isArray(colunaNumeros) ? colunaNumeros[linha] : null
+            const sorteado = numero !== null && numero !== undefined && numerosSorteados.includes(numero)
             const isCentro = linha === 2 && colIndex === 2
 
             return (
@@ -326,7 +343,7 @@ function CartelaBingoVisual({
                     : 'bg-gray-50 text-gray-700'
                 }`}
               >
-                {isCentro ? 'FREE' : numero}
+                {isCentro ? 'FREE' : (numero !== null && numero !== undefined ? numero : '')}
               </div>
             )
           })}
