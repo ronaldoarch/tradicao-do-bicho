@@ -78,7 +78,7 @@ export function useConfiguracoes() {
     setLoading(globalLoading)
     
     const listener = () => {
-      setConfiguracoes(globalConfiguracoes)
+      setConfiguracoes({ ...globalConfiguracoes })
       setLoading(globalLoading)
     }
     listeners.add(listener)
@@ -88,6 +88,6 @@ export function useConfiguracoes() {
     }
   }, [])
 
-  // Memoizar o objeto retornado para evitar re-renders desnecessários
-  return useMemo(() => ({ configuracoes, loading }), [configuracoes, loading])
+  // Retornar diretamente sem useMemo para evitar problemas com dependências
+  return { configuracoes, loading }
 }
