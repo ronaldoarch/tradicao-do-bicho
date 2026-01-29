@@ -517,60 +517,61 @@ export async function POST(request: NextRequest) {
         if (resultadosFiltrados.length === 0) {
           resultadosFiltrados = resultados
 
-        if (aposta.loteria) {
-          // Normalizar loteria antes de fazer match
-          const loteriaApostaNormalizada = normalizarLoteria(aposta.loteria)
-          const antesFiltro = resultadosFiltrados.length
-          
-          resultadosFiltrados = resultadosFiltrados.filter((r) => {
-            if (!r.loteria) return false
-            // Normalizar loteria do resultado também para comparação
-            const loteriaResultadoNormalizada = normalizarLoteria(r.loteria)
-            return matchExtracao(loteriaResultadoNormalizada, loteriaApostaNormalizada)
-          })
-          
-          if (resultadosFiltrados.length === 0 && antesFiltro > 0) {
-            console.log(
-              `⚠️ Nenhum resultado encontrado para "${loteriaApostaNormalizada}" após filtro flexível (antes: ${antesFiltro})`
-            )
-            console.log(`   Nomes possíveis: ${getNomesPossiveis(loteriaApostaNormalizada).join(', ')}`)
-          } else if (resultadosFiltrados.length > 0) {
-            console.log(
-              `✅ Após filtro de loteria "${loteriaApostaNormalizada}": ${resultadosFiltrados.length} resultados (antes: ${antesFiltro})`
-            )
-          }
-        }
-
-        if (aposta.horario) {
-          const horarioAposta = aposta.horario // Garantir que não é null
-          resultadosFiltrados = resultadosFiltrados.filter((r) => r.horario === horarioAposta)
-        }
-
-        if (aposta.dataConcurso) {
-          // Normalizar data da aposta (formato ISO: 2026-01-14)
-          const dataAposta = aposta.dataConcurso.toISOString().split('T')[0]
-          const [anoAposta, mesAposta, diaAposta] = dataAposta.split('-')
-          const dataApostaFormatada = `${diaAposta}/${mesAposta}/${anoAposta}` // Formato brasileiro: 14/01/2026
-          
-          resultadosFiltrados = resultadosFiltrados.filter((r) => {
-            if (!r.date && !r.dataExtracao) return false
-            const dataResultado = r.date || r.dataExtracao || ''
+          if (aposta.loteria) {
+            // Normalizar loteria antes de fazer match
+            const loteriaApostaNormalizada = normalizarLoteria(aposta.loteria)
+            const antesFiltro = resultadosFiltrados.length
             
-            // Comparar formato ISO (2026-01-14)
-            if (dataResultado.split('T')[0] === dataAposta) return true
+            resultadosFiltrados = resultadosFiltrados.filter((r) => {
+              if (!r.loteria) return false
+              // Normalizar loteria do resultado também para comparação
+              const loteriaResultadoNormalizada = normalizarLoteria(r.loteria)
+              return matchExtracao(loteriaResultadoNormalizada, loteriaApostaNormalizada)
+            })
             
-            // Comparar formato brasileiro (14/01/2026)
-            if (dataResultado === dataApostaFormatada) return true
-            
-            // Comparação parcial (dia/mês/ano)
-            const matchBR = dataResultado.match(/(\d{2})\/(\d{2})\/(\d{4})/)
-            if (matchBR) {
-              const [_, dia, mes, ano] = matchBR
-              if (`${ano}-${mes}-${dia}` === dataAposta) return true
+            if (resultadosFiltrados.length === 0 && antesFiltro > 0) {
+              console.log(
+                `⚠️ Nenhum resultado encontrado para "${loteriaApostaNormalizada}" após filtro flexível (antes: ${antesFiltro})`
+              )
+              console.log(`   Nomes possíveis: ${getNomesPossiveis(loteriaApostaNormalizada).join(', ')}`)
+            } else if (resultadosFiltrados.length > 0) {
+              console.log(
+                `✅ Após filtro de loteria "${loteriaApostaNormalizada}": ${resultadosFiltrados.length} resultados (antes: ${antesFiltro})`
+              )
             }
+          }
+
+          if (aposta.horario) {
+            const horarioAposta = aposta.horario // Garantir que não é null
+            resultadosFiltrados = resultadosFiltrados.filter((r) => r.horario === horarioAposta)
+          }
+
+          if (aposta.dataConcurso) {
+            // Normalizar data da aposta (formato ISO: 2026-01-14)
+            const dataAposta = aposta.dataConcurso.toISOString().split('T')[0]
+            const [anoAposta, mesAposta, diaAposta] = dataAposta.split('-')
+            const dataApostaFormatada = `${diaAposta}/${mesAposta}/${anoAposta}` // Formato brasileiro: 14/01/2026
             
-            return false
-          })
+            resultadosFiltrados = resultadosFiltrados.filter((r) => {
+              if (!r.date && !r.dataExtracao) return false
+              const dataResultado = r.date || r.dataExtracao || ''
+              
+              // Comparar formato ISO (2026-01-14)
+              if (dataResultado.split('T')[0] === dataAposta) return true
+              
+              // Comparar formato brasileiro (14/01/2026)
+              if (dataResultado === dataApostaFormatada) return true
+              
+              // Comparação parcial (dia/mês/ano)
+              const matchBR = dataResultado.match(/(\d{2})\/(\d{2})\/(\d{4})/)
+              if (matchBR) {
+                const [_, dia, mes, ano] = matchBR
+                if (`${ano}-${mes}-${dia}` === dataAposta) return true
+              }
+              
+              return false
+            })
+          }
         }
 
         if (resultadosFiltrados.length === 0) {
