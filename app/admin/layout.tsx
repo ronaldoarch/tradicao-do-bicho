@@ -13,6 +13,7 @@ export default function AdminLayout({
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [adminUser, setAdminUser] = useState<{ nome: string; email: string } | null>(null)
+  const [isChecking, setIsChecking] = useState(false)
 
   useEffect(() => {
     // Verificar autenticação admin
@@ -20,16 +21,19 @@ export default function AdminLayout({
       // Não verificar se já estiver na página de login
       if (pathname === '/admin/login') {
         setIsAuthenticated(null)
+        setIsChecking(false)
         return
       }
 
       // Evitar múltiplas verificações simultâneas
-      if (isAuthenticated === false) {
+      if (isChecking) {
         return
       }
 
+      setIsChecking(true)
+
       try {
-        console.log('🔍 Verificando autenticação admin para:', pathname)
+        console.log('🔍 Layout: Verificando autenticação admin para:', pathname)
         const res = await fetch('/api/admin/auth/me', { 
           credentials: 'include',
           cache: 'no-store',
@@ -38,41 +42,43 @@ export default function AdminLayout({
           }
         })
         
-        console.log('📡 Resposta auth/me:', res.status, res.statusText)
+        console.log('📡 Layout: Resposta auth/me:', res.status, res.statusText)
         
         if (res.ok) {
           const data = await res.json()
-          console.log('✅ Autenticado:', data.user?.email)
+          console.log('✅ Layout: Autenticado:', data.user?.email)
           setIsAuthenticated(true)
           setAdminUser(data.user)
         } else {
           // Se retornar 401 ou 403, não está autenticado
           const errorData = await res.json().catch(() => ({}))
-          console.warn('⚠️ Falha na autenticação:', res.status, res.statusText, errorData)
+          console.warn('⚠️ Layout: Falha na autenticação:', res.status, res.statusText, errorData)
           setIsAuthenticated(false)
           
           // Evitar redirecionamento múltiplo - só redirecionar se não estiver já indo para login
           const currentPath = window.location.pathname
           if (currentPath !== '/admin/login' && !currentPath.includes('/admin/login')) {
-            console.log('🔄 Redirecionando para login...')
+            console.log('🔄 Layout: Redirecionando para login...')
             window.location.href = '/admin/login'
           }
         }
       } catch (error) {
-        console.error('❌ Erro ao verificar autenticação:', error)
+        console.error('❌ Layout: Erro ao verificar autenticação:', error)
         setIsAuthenticated(false)
         
         // Evitar redirecionamento múltiplo
         const currentPath = window.location.pathname
         if (currentPath !== '/admin/login' && !currentPath.includes('/admin/login')) {
-          console.log('🔄 Redirecionando para login (erro)...')
+          console.log('🔄 Layout: Redirecionando para login (erro)...')
           window.location.href = '/admin/login'
         }
+      } finally {
+        setIsChecking(false)
       }
     }
 
     checkAuth()
-  }, [pathname])
+  }, [pathname, isChecking])
 
   const handleLogout = async () => {
     try {

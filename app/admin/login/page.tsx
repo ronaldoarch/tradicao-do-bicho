@@ -11,8 +11,13 @@ export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Verificar se já está logado
+    // Verificar se já está logado apenas uma vez
+    let hasChecked = false
+    
     const checkSession = async () => {
+      if (hasChecked) return
+      hasChecked = true
+
       try {
         console.log('🔍 Login page: Verificando se já está autenticado...')
         const res = await fetch('/api/admin/auth/me', { 
@@ -30,10 +35,8 @@ export default function AdminLoginPage() {
           // Verificar se realmente tem dados de usuário e é admin
           if (data.user && data.user.isAdmin && data.user.email) {
             console.log('✅ Login page: Já autenticado, redirecionando para /admin')
-            // Usar replace para evitar histórico de navegação e delay para evitar race condition
-            setTimeout(() => {
-              router.replace('/admin')
-            }, 100)
+            // Usar replace para evitar histórico de navegação
+            router.replace('/admin')
           } else {
             console.log('⚠️ Login page: Resposta OK mas dados inválidos:', data)
           }
@@ -46,8 +49,8 @@ export default function AdminLoginPage() {
       }
     }
     
-    // Delay pequeno para evitar race condition com layout
-    const timeoutId = setTimeout(checkSession, 200)
+    // Delay para evitar race condition com layout
+    const timeoutId = setTimeout(checkSession, 300)
     return () => clearTimeout(timeoutId)
   }, [router])
 
