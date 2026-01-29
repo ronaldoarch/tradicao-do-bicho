@@ -39,10 +39,6 @@ export default function BingoSorteadosCounter({
         const sala = data.salas?.find((s: any) => s.id === salaId)
         
         if (sala && sala.numerosSorteados) {
-          const novosNumeros = Array.isArray(sala.numerosSorteados) 
-            ? sala.numerosSorteados 
-            : []
-          
           const novosNumerosArray = Array.isArray(sala.numerosSorteados) 
             ? sala.numerosSorteados 
             : []
