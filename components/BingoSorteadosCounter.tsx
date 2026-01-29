@@ -43,12 +43,16 @@ export default function BingoSorteadosCounter({
             ? sala.numerosSorteados 
             : []
           
+          const novosNumerosArray = Array.isArray(sala.numerosSorteados) 
+            ? sala.numerosSorteados 
+            : []
+          
           setNumerosSorteados((prev) => {
             // Verificar se há novo número sorteado
-            if (novosNumeros.length > prev.length) {
-              setUltimoNumero(novosNumeros[novosNumeros.length - 1])
+            if (novosNumerosArray.length > prev.length) {
+              setUltimoNumero(novosNumerosArray[novosNumerosArray.length - 1])
             }
-            return novosNumeros
+            return novosNumerosArray
           })
         }
       } catch (error) {

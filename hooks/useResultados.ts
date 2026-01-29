@@ -43,8 +43,7 @@ export function useResultados(initialOptions?: UseResultadosOptions) {
 
   useEffect(() => {
     load(initialOptions)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [load, initialOptions])
 
   return { results, updatedAt, loading, load }
 }
