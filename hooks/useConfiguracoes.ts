@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 interface Configuracoes {
   nomePlataforma: string
@@ -20,22 +20,9 @@ export function useConfiguracoes() {
   })
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const loadConfiguracoes = useCallback(async () => {
     if (typeof window === 'undefined') return
     
-    loadConfiguracoes()
-    
-    const handleFocus = () => {
-      loadConfiguracoes()
-    }
-    window.addEventListener('focus', handleFocus)
-    
-    return () => {
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [])
-
-  const loadConfiguracoes = async () => {
     try {
       const response = await fetch(`/api/configuracoes?t=${Date.now()}`, {
         cache: 'no-store',
@@ -53,7 +40,22 @@ export function useConfiguracoes() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    
+    loadConfiguracoes()
+    
+    const handleFocus = () => {
+      loadConfiguracoes()
+    }
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [loadConfiguracoes])
 
   return { configuracoes, loading }
 }
