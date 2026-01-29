@@ -247,6 +247,24 @@ export async function gateboxCreatePix(
   // Autenticar primeiro
   const token = await gateboxAuthenticate(options)
 
+  // Preparar body removendo campos undefined/null conforme documentação Postman
+  const requestBody: any = {
+    externalId: payload.externalId,
+    amount: payload.amount,
+    expire: payload.expire || 3600, // Padrão: 1 hora
+  }
+  
+  // Adicionar campos opcionais apenas se estiverem definidos
+  if (payload.document) requestBody.document = payload.document
+  if (payload.name) requestBody.name = payload.name
+  if (payload.email) requestBody.email = payload.email
+  if (payload.phone) requestBody.phone = payload.phone
+  if (payload.identification) requestBody.identification = payload.identification
+  if (payload.description) requestBody.description = payload.description
+
+  // Log do body que será enviado (sem senha)
+  console.log('📤 Body enviado para Gatebox:', JSON.stringify(requestBody, null, 2))
+
   let response: Response
   try {
     response = await fetch(url, {
@@ -255,17 +273,7 @@ export async function gateboxCreatePix(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        externalId: payload.externalId,
-        amount: payload.amount,
-        document: payload.document,
-        name: payload.name,
-        email: payload.email,
-        phone: payload.phone,
-        identification: payload.identification,
-        expire: payload.expire || 3600, // Padrão: 1 hora
-        description: payload.description,
-      }),
+      body: JSON.stringify(requestBody),
       // Adicionar timeout
       signal: AbortSignal.timeout(30000), // 30 segundos
     })
