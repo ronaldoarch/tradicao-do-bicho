@@ -61,9 +61,8 @@ export default function LocationSelection({
     return () => clearInterval(timer)
   }, [])
 
-  const now = Date.now()
-
   const normalized = useMemo(() => {
+    const now = Date.now()
     return extracoes
       .map((e) => {
         const closeStr = e.realCloseTime || e.closeTime || e.time
@@ -72,7 +71,7 @@ export default function LocationSelection({
         return { ...e, closeStr, closeDate, minutesToClose }
       })
       .sort((a, b) => (a.closeDate?.getTime() || 0) - (b.closeDate?.getTime() || 0))
-  }, [extracoes, now])
+  }, [extracoes])
 
   const available = normalized.filter((e) => e.minutesToClose > CLOSE_THRESHOLD_MINUTES)
 
@@ -112,9 +111,11 @@ export default function LocationSelection({
       (available.length > 0 ? available[0] : normalized[0])
     if (!location && current) {
       onLocationChange(current.id.toString())
+      return // Evitar múltiplas chamadas
     }
     if (location && current && current.id.toString() !== location) {
       onLocationChange(current.id.toString())
+      return // Evitar múltiplas chamadas
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [available, normalized, location])
