@@ -115,25 +115,14 @@ export default function LocationSelection({
   const locationInitializedRef = useRef(false)
   const lastProcessedLocationRef = useRef<string | null>(null)
   const lastAvailableIdsRef = useRef<string>('')
-  const pendingLocationUpdateRef = useRef<string | null>(null)
+  const isUpdatingRef = useRef(false)
   
   useEffect(() => {
     if (available.length === 0 && normalized.length === 0) return
+    if (isUpdatingRef.current) return // Prevenir processamento durante atualização
     
     // Criar uma string com IDs das extrações disponíveis para detectar mudanças
     const currentAvailableIds = [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
-    
-    // Se há uma atualização pendente e a location ainda não refletiu essa mudança, aguardar
-    if (pendingLocationUpdateRef.current !== null) {
-      if (location === pendingLocationUpdateRef.current) {
-        // A atualização foi aplicada, limpar o flag
-        pendingLocationUpdateRef.current = null
-        lastProcessedLocationRef.current = location
-        lastAvailableIdsRef.current = currentAvailableIds
-      }
-      // Se ainda não foi aplicada, não fazer nada
-      return
-    }
     
     // Se location não mudou E as extrações disponíveis não mudaram, não fazer nada
     if (lastProcessedLocationRef.current === location && 
@@ -161,9 +150,18 @@ export default function LocationSelection({
     if (!location && !locationInitializedRef.current) {
       locationInitializedRef.current = true
       const newLocation = current.id.toString()
-      pendingLocationUpdateRef.current = newLocation
-      lastProcessedLocationRef.current = newLocation
-      onLocationChangeRef.current(newLocation)
+      // Só atualizar se realmente for diferente
+      if (newLocation !== lastProcessedLocationRef.current) {
+        lastProcessedLocationRef.current = newLocation
+        isUpdatingRef.current = true
+        onLocationChangeRef.current(newLocation)
+        // Usar requestAnimationFrame para garantir que o reset aconteça após o próximo render
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            isUpdatingRef.current = false
+          })
+        })
+      }
       return
     }
     
@@ -176,22 +174,37 @@ export default function LocationSelection({
       // Se não está disponível, mudar para o current
       if (!isLocationStillAvailable) {
         const newLocation = current.id.toString()
-        pendingLocationUpdateRef.current = newLocation
-        lastProcessedLocationRef.current = newLocation
-        onLocationChangeRef.current(newLocation)
+        // Só atualizar se realmente for diferente do que já processamos
+        if (newLocation !== lastProcessedLocationRef.current) {
+          lastProcessedLocationRef.current = newLocation
+          isUpdatingRef.current = true
+          onLocationChangeRef.current(newLocation)
+          // Usar requestAnimationFrame para garantir que o reset aconteça após o próximo render
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              isUpdatingRef.current = false
+            })
+          })
+        }
         return
       }
     }
     
-    // Atualizar ref com a location atual processada (só se realmente mudou)
-    if (location !== lastProcessedLocationRef.current) {
+    // Atualizar ref com a location atual processada
+    // Se estávamos atualizando e agora a location refletiu a mudança, resetar flag
+    if (isUpdatingRef.current && location === lastProcessedLocationRef.current) {
+      isUpdatingRef.current = false
+    }
+    
+    // Atualizar o ref apenas se não estamos no meio de uma atualização e a location mudou
+    if (!isUpdatingRef.current && location !== lastProcessedLocationRef.current) {
       lastProcessedLocationRef.current = location
     }
     
     // Reset flag se location foi limpa
     if (!location) {
       locationInitializedRef.current = false
-      pendingLocationUpdateRef.current = null
+      isUpdatingRef.current = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [available, normalized, location])
