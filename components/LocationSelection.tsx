@@ -130,26 +130,33 @@ export default function LocationSelection({
   const availableRef = useRef<ExtracaoWithMeta[]>([])
   const normalizedRef = useRef<ExtracaoWithMeta[]>([])
   
-  // Atualizar refs quando os arrays mudarem (sem causar re-renders)
+  // Atualizar refs sempre que os arrays mudarem (usando useLayoutEffect para sincronização)
   useEffect(() => {
     const currentAvailableIds = [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
     const idsChanged = lastAvailableIdsRef.current !== currentAvailableIds
     
+    // Sempre atualizar refs para manter sincronizado
+    availableRef.current = available
+    normalizedRef.current = normalized
+    
     if (idsChanged) {
       lastAvailableIdsRef.current = currentAvailableIds
-      availableRef.current = available
-      normalizedRef.current = normalized
       
       // Se os IDs mudaram e não estamos atualizando, verificar se precisa atualizar location
+      // Usar setTimeout para garantir que isso aconteça após o render atual
       if (!isUpdatingRef.current && location) {
-        const isLocationStillAvailable = available.some(e => e.id.toString() === location) || 
-                                         normalized.some(e => e.id.toString() === location)
-        
-        if (!isLocationStillAvailable) {
-          const current = available.length > 0 ? available[0] : normalized[0]
-          if (current && current.id.toString() !== location) {
-            const newLocation = current.id.toString()
-            if (newLocation !== lastProcessedLocationRef.current) {
+        setTimeout(() => {
+          if (isUpdatingRef.current) return // Verificar novamente após delay
+          
+          const currentAvailable = availableRef.current
+          const currentNormalized = normalizedRef.current
+          const isLocationStillAvailable = currentAvailable.some(e => e.id.toString() === location) || 
+                                           currentNormalized.some(e => e.id.toString() === location)
+          
+          if (!isLocationStillAvailable) {
+            const current = currentAvailable.length > 0 ? currentAvailable[0] : currentNormalized[0]
+            if (current && current.id.toString() !== location && current.id.toString() !== lastProcessedLocationRef.current) {
+              const newLocation = current.id.toString()
               lastProcessedLocationRef.current = newLocation
               isUpdatingRef.current = true
               onLocationChangeRef.current(newLocation)
@@ -158,12 +165,8 @@ export default function LocationSelection({
               }, 100)
             }
           }
-        }
+        }, 0)
       }
-    } else {
-      // Atualizar refs mesmo se IDs não mudaram (para manter sincronizado)
-      availableRef.current = available
-      normalizedRef.current = normalized
     }
   }, [available, normalized]) // Manter apenas available e normalized, sem location
   
