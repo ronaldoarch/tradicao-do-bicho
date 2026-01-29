@@ -94,9 +94,12 @@ export default function LocationSelection({
     setOpenStates((prev) => ({ ...prev, [estado]: !prev[estado] }))
   }
 
+  const hasInitializedRef = useRef(false)
+  
   useEffect(() => {
-    // abre todos por padrão na primeira carga
-    if (groupedByEstado.length > 0 && Object.keys(openStates).length === 0) {
+    // abre todos por padrão na primeira carga (apenas uma vez)
+    if (!hasInitializedRef.current && groupedByEstado.length > 0 && Object.keys(openStates).length === 0) {
+      hasInitializedRef.current = true
       const next: Record<string, boolean> = {}
       groupedByEstado.forEach((g) => {
         next[g.estado] = true
@@ -109,18 +112,31 @@ export default function LocationSelection({
   const onLocationChangeRef = useRef(onLocationChange)
   onLocationChangeRef.current = onLocationChange
 
+  const locationInitializedRef = useRef(false)
+  
   useEffect(() => {
     if (available.length === 0 && normalized.length === 0) return
+    
     const current =
       available.find((e) => e.id.toString() === location) ||
       (available.length > 0 ? available[0] : normalized[0])
-    if (!location && current) {
+    
+    // Só inicializar location uma vez quando não há location selecionada
+    if (!location && current && !locationInitializedRef.current) {
+      locationInitializedRef.current = true
       onLocationChangeRef.current(current.id.toString())
-      return // Evitar múltiplas chamadas
+      return
     }
+    
+    // Se location mudou externamente, atualizar
     if (location && current && current.id.toString() !== location) {
       onLocationChangeRef.current(current.id.toString())
-      return // Evitar múltiplas chamadas
+      return
+    }
+    
+    // Reset flag se location foi limpa
+    if (!location) {
+      locationInitializedRef.current = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [available, normalized, location])
