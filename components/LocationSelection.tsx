@@ -130,43 +130,54 @@ export default function LocationSelection({
   const availableRef = useRef<ExtracaoWithMeta[]>([])
   const normalizedRef = useRef<ExtracaoWithMeta[]>([])
   
-  // Atualizar refs quando os arrays mudarem e verificar se precisa atualizar location
+  // Atualizar refs quando os arrays mudarem (sem causar re-renders)
   useEffect(() => {
     const currentAvailableIds = [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
     const idsChanged = lastAvailableIdsRef.current !== currentAvailableIds
-    lastAvailableIdsRef.current = currentAvailableIds
-    availableRef.current = available
-    normalizedRef.current = normalized
     
-    // Se os IDs mudaram e não estamos atualizando, verificar se precisa atualizar location
-    if (idsChanged && !isUpdatingRef.current && location) {
-      const isLocationStillAvailable = available.some(e => e.id.toString() === location) || 
-                                       normalized.some(e => e.id.toString() === location)
+    if (idsChanged) {
+      lastAvailableIdsRef.current = currentAvailableIds
+      availableRef.current = available
+      normalizedRef.current = normalized
       
-      if (!isLocationStillAvailable) {
-        const current = available.length > 0 ? available[0] : normalized[0]
-        if (current && current.id.toString() !== location) {
-          const newLocation = current.id.toString()
-          if (newLocation !== lastProcessedLocationRef.current) {
-            lastProcessedLocationRef.current = newLocation
-            isUpdatingRef.current = true
-            onLocationChangeRef.current(newLocation)
-            setTimeout(() => {
-              isUpdatingRef.current = false
-            }, 100)
+      // Se os IDs mudaram e não estamos atualizando, verificar se precisa atualizar location
+      if (!isUpdatingRef.current && location) {
+        const isLocationStillAvailable = available.some(e => e.id.toString() === location) || 
+                                         normalized.some(e => e.id.toString() === location)
+        
+        if (!isLocationStillAvailable) {
+          const current = available.length > 0 ? available[0] : normalized[0]
+          if (current && current.id.toString() !== location) {
+            const newLocation = current.id.toString()
+            if (newLocation !== lastProcessedLocationRef.current) {
+              lastProcessedLocationRef.current = newLocation
+              isUpdatingRef.current = true
+              onLocationChangeRef.current(newLocation)
+              setTimeout(() => {
+                isUpdatingRef.current = false
+              }, 100)
+            }
           }
         }
       }
+    } else {
+      // Atualizar refs mesmo se IDs não mudaram (para manter sincronizado)
+      availableRef.current = available
+      normalizedRef.current = normalized
     }
-  }, [available, normalized, location])
+  }, [available, normalized]) // Manter apenas available e normalized, sem location
   
   useEffect(() => {
-    if (available.length === 0 && normalized.length === 0) return
+    // Usar refs para acessar valores atuais sem causar re-renders
+    const currentAvailable = availableRef.current.length > 0 ? availableRef.current : available
+    const currentNormalized = normalizedRef.current.length > 0 ? normalizedRef.current : normalized
+    
+    if (currentAvailable.length === 0 && currentNormalized.length === 0) return
     if (isUpdatingRef.current) return // Prevenir processamento durante atualização
     
     const current =
-      available.find((e) => e.id.toString() === location) ||
-      (available.length > 0 ? available[0] : normalized[0])
+      currentAvailable.find((e) => e.id.toString() === location) ||
+      (currentAvailable.length > 0 ? currentAvailable[0] : currentNormalized[0])
     
     if (!current) {
       if (location !== lastProcessedLocationRef.current) {
@@ -208,7 +219,7 @@ export default function LocationSelection({
       locationInitializedRef.current = false
       isUpdatingRef.current = false
     }
-  }, [location]) // Apenas location como dependência
+  }, [location]) // Apenas location como dependência - usar refs para available/normalized
 
   return (
     <div>
