@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { ResultadoItem } from '@/types/resultados'
 
 interface UseResultadosOptions {
@@ -12,14 +12,21 @@ export function useResultados(initialOptions?: UseResultadosOptions) {
   const [results, setResults] = useState<ResultadoItem[]>([])
   const [updatedAt, setUpdatedAt] = useState<string | undefined>(undefined)
   const [loading, setLoading] = useState<boolean>(false)
+  const initialOptionsRef = useRef(initialOptions)
+  const hasLoadedRef = useRef(false)
+
+  // Atualizar ref quando initialOptions mudar
+  useEffect(() => {
+    initialOptionsRef.current = initialOptions
+  }, [initialOptions])
 
   const load = useCallback(
     async (options?: UseResultadosOptions) => {
       setLoading(true)
       try {
         const params = new URLSearchParams()
-        const date = options?.date ?? initialOptions?.date
-        const location = options?.location ?? initialOptions?.location
+        const date = options?.date ?? initialOptionsRef.current?.date
+        const location = options?.location ?? initialOptionsRef.current?.location
         if (date) params.set('date', date)
         if (location) params.set('location', location)
 
@@ -38,12 +45,16 @@ export function useResultados(initialOptions?: UseResultadosOptions) {
         setLoading(false)
       }
     },
-    [initialOptions?.date, initialOptions?.location]
+    []
   )
 
   useEffect(() => {
-    load(initialOptions)
-  }, [load, initialOptions])
+    if (!hasLoadedRef.current && initialOptionsRef.current) {
+      hasLoadedRef.current = true
+      load(initialOptionsRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return { results, updatedAt, loading, load }
 }

@@ -102,7 +102,8 @@ export default function LocationSelection({
       })
       setOpenStates(next)
     }
-  }, [groupedByEstado, openStates])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupedByEstado])
 
   useEffect(() => {
     if (available.length === 0 && normalized.length === 0) return
