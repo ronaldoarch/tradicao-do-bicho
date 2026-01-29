@@ -56,25 +56,30 @@ const loadConfiguracoesGlobal = async () => {
   return loadPromise
 }
 
-// Inicializar carregamento uma vez
-if (typeof window !== 'undefined') {
+// Inicializar carregamento uma vez (apenas no cliente)
+if (typeof window !== 'undefined' && !loadPromise) {
   loadConfiguracoesGlobal()
   
   const handleFocus = () => {
-    loadConfiguracoesGlobal()
+    if (!loadPromise) {
+      loadConfiguracoesGlobal()
+    }
   }
   window.addEventListener('focus', handleFocus)
 }
 
 export function useConfiguracoes() {
-  const [, forceUpdate] = useState({})
-  
-  const configuracoes = useMemo(() => globalConfiguracoes, [])
-  const loading = globalLoading
+  const [configuracoes, setConfiguracoes] = useState<Configuracoes>(globalConfiguracoes)
+  const [loading, setLoading] = useState(globalLoading)
 
   useEffect(() => {
+    // Atualizar estado inicial
+    setConfiguracoes(globalConfiguracoes)
+    setLoading(globalLoading)
+    
     const listener = () => {
-      forceUpdate({})
+      setConfiguracoes(globalConfiguracoes)
+      setLoading(globalLoading)
     }
     listeners.add(listener)
     
@@ -83,5 +88,6 @@ export function useConfiguracoes() {
     }
   }, [])
 
-  return { configuracoes, loading }
+  // Memoizar o objeto retornado para evitar re-renders desnecessários
+  return useMemo(() => ({ configuracoes, loading }), [configuracoes, loading])
 }
