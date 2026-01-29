@@ -210,7 +210,7 @@ export default function BetFlow() {
     return valorTotal <= saldoDisponivel
   }
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     // Validar saldo antes de confirmar
     if (!validarSaldo()) {
       const valorTotal = calcularValorTotalAposta()
