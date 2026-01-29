@@ -494,9 +494,9 @@ export default function BetFlow() {
             instant={betData.instant}
             location={betData.location}
             specialTime={betData.specialTime}
-            onInstantChange={useCallback((checked: boolean) => setBetData((prev) => ({ ...prev, instant: checked })), [])}
-            onLocationChange={useCallback((loc: string) => setBetData((prev) => ({ ...prev, location: loc })), [])}
-            onSpecialTimeChange={useCallback((time: string | null) => setBetData((prev) => ({ ...prev, specialTime: time })), [])}
+            onInstantChange={handleInstantChange}
+            onLocationChange={handleLocationChange}
+            onSpecialTimeChange={handleSpecialTimeChange}
           />
         )
 
