@@ -113,25 +113,61 @@ export default function LocationSelection({
   onLocationChangeRef.current = onLocationChange
 
   const locationInitializedRef = useRef(false)
+  const lastProcessedLocationRef = useRef<string | null>(null)
+  const lastAvailableIdsRef = useRef<string>('')
   
   useEffect(() => {
     if (available.length === 0 && normalized.length === 0) return
+    
+    // Criar uma string com IDs das extrações disponíveis para detectar mudanças
+    const currentAvailableIds = [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
+    
+    // Se location não mudou E as extrações disponíveis não mudaram, não fazer nada
+    if (lastProcessedLocationRef.current === location && 
+        lastAvailableIdsRef.current === currentAvailableIds) {
+      return
+    }
     
     const current =
       available.find((e) => e.id.toString() === location) ||
       (available.length > 0 ? available[0] : normalized[0])
     
-    // Só inicializar location uma vez quando não há location selecionada
-    if (!location && current && !locationInitializedRef.current) {
-      locationInitializedRef.current = true
-      onLocationChangeRef.current(current.id.toString())
+    if (!current) {
+      // Atualizar refs mesmo se não houver current para evitar reprocessamento
+      lastAvailableIdsRef.current = currentAvailableIds
       return
     }
     
-    // Se location mudou externamente, atualizar
-    if (location && current && current.id.toString() !== location) {
-      onLocationChangeRef.current(current.id.toString())
+    // Atualizar ref das extrações disponíveis ANTES de qualquer processamento
+    lastAvailableIdsRef.current = currentAvailableIds
+    
+    // Só inicializar location uma vez quando não há location selecionada
+    if (!location && !locationInitializedRef.current) {
+      locationInitializedRef.current = true
+      const newLocation = current.id.toString()
+      lastProcessedLocationRef.current = newLocation
+      onLocationChangeRef.current(newLocation)
       return
+    }
+    
+    // Se location mudou externamente e não corresponde ao current, atualizar
+    if (location && current.id.toString() !== location) {
+      // Verificar se a location atual ainda está disponível
+      const isLocationStillAvailable = available.some(e => e.id.toString() === location) || 
+                                       normalized.some(e => e.id.toString() === location)
+      
+      // Se não está disponível, mudar para o current
+      if (!isLocationStillAvailable) {
+        const newLocation = current.id.toString()
+        lastProcessedLocationRef.current = newLocation
+        onLocationChangeRef.current(newLocation)
+        return
+      }
+    }
+    
+    // Atualizar ref com a location atual processada (só se realmente mudou)
+    if (location !== lastProcessedLocationRef.current) {
+      lastProcessedLocationRef.current = location
     }
     
     // Reset flag se location foi limpa
