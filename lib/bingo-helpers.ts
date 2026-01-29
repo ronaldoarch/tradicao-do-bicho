@@ -136,6 +136,18 @@ export async function verificarCartelasSala(salaId: number): Promise<{
   }
 
   for (const cartela of sala.cartelas) {
+    // IMPORTANTE: Ignorar cartelas que já perderam ou já ganharam
+    // Uma cartela que já perdeu não pode ser marcada como ganhadora em uma nova rodada
+    // Uma cartela que já ganhou também não pode ganhar novamente
+    if (cartela.status === 'perdida' || cartela.status === 'ganhou') {
+      continue
+    }
+    
+    // Só verificar cartelas com status "ativa"
+    if (cartela.status !== 'ativa') {
+      continue
+    }
+
     const numerosCartela = cartela.numeros as unknown as CartelaNumeros
     const resultado = verificarGanhadores(numerosCartela, numerosSorteados)
 
