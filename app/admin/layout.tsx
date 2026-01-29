@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 
 export default function AdminLayout({
@@ -13,27 +13,32 @@ export default function AdminLayout({
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [adminUser, setAdminUser] = useState<{ nome: string; email: string } | null>(null)
-  const [isChecking, setIsChecking] = useState(false)
+  const checkingRef = useRef(false)
+  const lastPathnameRef = useRef<string | null>(null)
 
   useEffect(() => {
+    // Não verificar se já estiver na página de login
+    if (pathname === '/admin/login') {
+      setIsAuthenticated(null)
+      return
+    }
+
+    // Evitar verificações duplicadas para a mesma rota
+    if (lastPathnameRef.current === pathname && isAuthenticated !== null) {
+      return
+    }
+
+    // Evitar múltiplas verificações simultâneas
+    if (checkingRef.current) {
+      return
+    }
+
+    checkingRef.current = true
+    lastPathnameRef.current = pathname
+
     // Verificar autenticação admin
     const checkAuth = async () => {
-      // Não verificar se já estiver na página de login
-      if (pathname === '/admin/login') {
-        setIsAuthenticated(null)
-        setIsChecking(false)
-        return
-      }
-
-      // Evitar múltiplas verificações simultâneas
-      if (isChecking) {
-        return
-      }
-
-      setIsChecking(true)
-
       try {
-        console.log('🔍 Layout: Verificando autenticação admin para:', pathname)
         const res = await fetch('/api/admin/auth/me', { 
           credentials: 'include',
           cache: 'no-store',
@@ -42,22 +47,15 @@ export default function AdminLayout({
           }
         })
         
-        console.log('📡 Layout: Resposta auth/me:', res.status, res.statusText)
-        
         if (res.ok) {
           const data = await res.json()
-          console.log('✅ Layout: Autenticado:', data.user?.email)
           setIsAuthenticated(true)
           setAdminUser(data.user)
         } else {
-          // Se retornar 401 ou 403, não está autenticado
-          const errorData = await res.json().catch(() => ({}))
-          console.warn('⚠️ Layout: Falha na autenticação:', res.status, res.statusText, errorData)
           setIsAuthenticated(false)
           
           // Evitar redirecionamento múltiplo - só redirecionar se não estiver já indo para login
           if (pathname !== '/admin/login') {
-            console.log('🔄 Layout: Redirecionando para login...')
             router.push('/admin/login')
           }
         }
@@ -67,16 +65,15 @@ export default function AdminLayout({
         
         // Evitar redirecionamento múltiplo
         if (pathname !== '/admin/login') {
-          console.log('🔄 Layout: Redirecionando para login (erro)...')
           router.push('/admin/login')
         }
       } finally {
-        setIsChecking(false)
+        checkingRef.current = false
       }
     }
 
     checkAuth()
-  }, [pathname, isChecking])
+  }, [pathname, router])
 
   const handleLogout = async () => {
     try {
