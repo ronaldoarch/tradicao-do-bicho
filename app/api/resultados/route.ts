@@ -232,49 +232,109 @@ export async function GET(req: NextRequest) {
     let results: ResultadoItem[] = []
     const extracaoStats: Record<string, { horarios: Set<string>, total: number }> = {}
     
-    // Buscar resultados para cada loteria principal
-    for (const loteriaNome of LOTERIAS_PRINCIPAIS) {
+    // Função auxiliar para buscar resultados de uma loteria
+    const buscarLoteria = async (loteriaNome: string): Promise<{ loteria: string; resultados: any[] }> => {
       try {
         const resultadosAPI = await buscarResultadosAgenciaMidas(loteriaNome, dataHoje)
-        
-        if (resultadosAPI.length === 0) continue
-        
-        if (!extracaoStats[loteriaNome]) {
-          extracaoStats[loteriaNome] = { horarios: new Set(), total: 0 }
-        }
-        
-        const estadoLoteria = inferUfFromName(loteriaNome)
-        const locationResolved = UF_NAME_MAP[estadoLoteria || ''] || loteriaNome
-        
-        resultadosAPI.forEach(resultado => {
-          extracaoStats[loteriaNome].horarios.add(resultado.horario)
-          
-          resultado.premios.forEach(premio => {
-            extracaoStats[loteriaNome].total++
-            results.push({
-              position: premio.posicao,
-              posicao: parseInt(premio.posicao.replace(/\D/g, ''), 10) || undefined,
-              milhar: premio.numero,
-              grupo: premio.grupo,
-              animal: premio.animal,
-              drawTime: resultado.horario,
-              horario: resultado.horario,
-              loteria: loteriaNome,
-              location: locationResolved,
-              date: dataHoje,
-              dataExtracao: dataHoje,
-              estado: estadoLoteria,
-              fonte: 'agenciamidas.com',
-            } as ResultadoItem)
-          })
-        })
-        
-        // Pequeno delay para evitar rate limiting
-        await new Promise(resolve => setTimeout(resolve, 300))
+        return { loteria: loteriaNome, resultados: resultadosAPI }
       } catch (error) {
         console.error(`❌ Erro ao buscar resultados para "${loteriaNome}":`, error)
-        // Continua com outras loterias
+        return { loteria: loteriaNome, resultados: [] }
       }
+    }
+    
+    // Criar array de promessas para executar TODAS as buscas em paralelo
+    const promessasBusca = LOTERIAS_PRINCIPAIS.map(loteriaNome => buscarLoteria(loteriaNome))
+    
+    // Executar todas as buscas em paralelo com timeout de 30 segundos
+    console.log(`🚀 Buscando ${LOTERIAS_PRINCIPAIS.length} loterias em paralelo (timeout: 30s)...`)
+    const inicioBusca = Date.now()
+    
+    // Executar todas as buscas em paralelo com timeout de 30 segundos
+    // Usar Promise.race para garantir que retornamos após 30s mesmo que algumas ainda estejam pendentes
+    const resultadosSettled = await Promise.race([
+      Promise.allSettled(promessasBusca),
+      new Promise<PromiseSettledResult<{ loteria: string; resultados: any[] }>[]>((resolve) => {
+        setTimeout(() => {
+          console.log(`⏱️ Timeout de 30s atingido. Retornando resultados parciais...`)
+          // Retornar array vazio para indicar timeout
+          resolve([])
+        }, 30000) // 30 segundos
+      })
+    ])
+    
+    // Processar resultados obtidos
+    const resultadosBuscados: Array<{ loteria: string; resultados: any[] }> = []
+    
+    if (Array.isArray(resultadosSettled) && resultadosSettled.length > 0) {
+      // Todas as promessas completaram antes do timeout
+      resultadosSettled.forEach((settled, index) => {
+        if (settled.status === 'fulfilled') {
+          resultadosBuscados.push(settled.value)
+        } else {
+          console.error(`❌ Falha ao buscar ${LOTERIAS_PRINCIPAIS[index]}:`, settled.reason)
+        }
+      })
+    } else {
+      // Timeout atingido - aguardar um pouco mais para coletar resultados parciais
+      console.log(`⏱️ Coletando resultados parciais disponíveis...`)
+      try {
+        // Aguardar mais 2 segundos para coletar resultados que já estão quase prontos
+        const resultadosParciais = await Promise.race([
+          Promise.allSettled(promessasBusca),
+          new Promise<PromiseSettledResult<{ loteria: string; resultados: any[] }>[]>((resolve) => {
+            setTimeout(() => resolve([]), 2000)
+          })
+        ])
+        
+        if (Array.isArray(resultadosParciais) && resultadosParciais.length > 0) {
+          resultadosParciais.forEach((settled) => {
+            if (settled.status === 'fulfilled' && settled.value.resultados.length > 0) {
+              resultadosBuscados.push(settled.value)
+            }
+          })
+        }
+      } catch (error) {
+        console.error('Erro ao coletar resultados parciais:', error)
+      }
+    }
+    
+    const tempoBusca = Date.now() - inicioBusca
+    console.log(`✅ Busca concluída em ${tempoBusca}ms (${(tempoBusca / 1000).toFixed(1)}s) - ${resultadosBuscados.length}/${LOTERIAS_PRINCIPAIS.length} loterias processadas`)
+    
+    // Processar resultados obtidos
+    for (const { loteria: loteriaNome, resultados: resultadosAPI } of resultadosBuscados) {
+      if (resultadosAPI.length === 0) continue
+      
+      if (!extracaoStats[loteriaNome]) {
+        extracaoStats[loteriaNome] = { horarios: new Set(), total: 0 }
+      }
+      
+      const estadoLoteria = inferUfFromName(loteriaNome)
+      const locationResolved = UF_NAME_MAP[estadoLoteria || ''] || loteriaNome
+      
+      resultadosAPI.forEach(resultado => {
+        extracaoStats[loteriaNome].horarios.add(resultado.horario)
+        
+        resultado.premios.forEach((premio: { posicao: string; numero: string; grupo: string; animal: string }) => {
+          extracaoStats[loteriaNome].total++
+          results.push({
+            position: premio.posicao,
+            posicao: parseInt(premio.posicao.replace(/\D/g, ''), 10) || undefined,
+            milhar: premio.numero,
+            grupo: premio.grupo,
+            animal: premio.animal,
+            drawTime: resultado.horario,
+            horario: resultado.horario,
+            loteria: loteriaNome,
+            location: locationResolved,
+            date: dataHoje,
+            dataExtracao: dataHoje,
+            estado: estadoLoteria,
+            fonte: 'agenciamidas.com',
+          } as ResultadoItem)
+        })
+      })
     }
     
     // Logs detalhados de debug
