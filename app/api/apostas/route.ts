@@ -239,7 +239,8 @@ export async function POST(request: Request) {
         const betData = (detalhes as any).betData as {
           modality: string | null
           modalityName?: string | null
-          animalBets: number[][]
+          animalBets?: number[][]
+          numberBets?: string[]
           position: string | null
           customPosition?: boolean
           customPositionValue?: string
