@@ -30,7 +30,8 @@ export async function GET() {
   try {
     const apostas = await prisma.aposta.findMany({
       where: { usuarioId: user.id },
-      orderBy: { id: 'desc' },
+      orderBy: { createdAt: 'desc' },
+      take: 100, // Limitar a 100 apostas mais recentes para melhor performance
     })
 
     // Buscar cartelas de bingo do usuário
