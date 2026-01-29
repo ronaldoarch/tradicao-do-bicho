@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { SPECIAL_TIMES } from '@/data/modalities'
 
 interface Extracao {
@@ -73,7 +73,9 @@ export default function LocationSelection({
       .sort((a, b) => (a.closeDate?.getTime() || 0) - (b.closeDate?.getTime() || 0))
   }, [extracoes])
 
-  const available = normalized.filter((e) => e.minutesToClose > CLOSE_THRESHOLD_MINUTES)
+  const available = useMemo(() => {
+    return normalized.filter((e) => e.minutesToClose > CLOSE_THRESHOLD_MINUTES)
+  }, [normalized])
 
   const groupedByEstado = useMemo(() => {
     const groups: Record<string, ExtracaoWithMeta[]> = {}
@@ -104,17 +106,20 @@ export default function LocationSelection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupedByEstado])
 
+  const onLocationChangeRef = useRef(onLocationChange)
+  onLocationChangeRef.current = onLocationChange
+
   useEffect(() => {
     if (available.length === 0 && normalized.length === 0) return
     const current =
       available.find((e) => e.id.toString() === location) ||
       (available.length > 0 ? available[0] : normalized[0])
     if (!location && current) {
-      onLocationChange(current.id.toString())
+      onLocationChangeRef.current(current.id.toString())
       return // Evitar múltiplas chamadas
     }
     if (location && current && current.id.toString() !== location) {
-      onLocationChange(current.id.toString())
+      onLocationChangeRef.current(current.id.toString())
       return // Evitar múltiplas chamadas
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
