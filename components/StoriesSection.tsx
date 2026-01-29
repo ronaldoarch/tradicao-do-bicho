@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import StoryViewer from './StoryViewer'
 
 export default function StoriesSection() {
@@ -9,21 +9,7 @@ export default function StoriesSection() {
   const [viewerOpen, setViewerOpen] = useState(false)
   const [selectedStoryIndex, setSelectedStoryIndex] = useState(0)
 
-  useEffect(() => {
-    loadStories()
-    
-    // Recarrega quando a janela ganha foco
-    const handleFocus = () => {
-      loadStories()
-    }
-    window.addEventListener('focus', handleFocus)
-    
-    return () => {
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [])
-
-  const loadStories = async () => {
+  const loadStories = useCallback(async () => {
     try {
       const response = await fetch(`/api/stories?t=${Date.now()}`, {
         cache: 'no-store',
@@ -41,7 +27,21 @@ export default function StoriesSection() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    loadStories()
+    
+    // Recarrega quando a janela ganha foco
+    const handleFocus = () => {
+      loadStories()
+    }
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [loadStories])
 
   // Stories padrão caso não carregue
   const defaultStories = [

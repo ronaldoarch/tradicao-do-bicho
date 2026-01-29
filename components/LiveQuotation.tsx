@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Navigation, Autoplay } from 'swiper/modules'
 import 'swiper/css'
@@ -16,11 +16,7 @@ export default function LiveQuotation() {
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadQuotations()
-  }, [])
-
-  const loadQuotations = async () => {
+  const loadQuotations = useCallback(async () => {
     try {
       const res = await fetch('/api/modalidades', { cache: 'no-store' })
       const data = await res.json()
@@ -47,7 +43,11 @@ export default function LiveQuotation() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    loadQuotations()
+  }, [loadQuotations])
 
   if (loading) {
     return (
