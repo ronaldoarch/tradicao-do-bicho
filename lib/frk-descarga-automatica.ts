@@ -150,7 +150,7 @@ export async function efetuarDescargaAutomatica(
     const client = new FrkApiClient(config)
     const resultados: Array<{ success: boolean; message: string; pule?: number }> = []
 
-    for (const [key, apostasGrupo] of grupos.entries()) {
+    for (const [key, apostasGrupo] of Array.from(grupos.entries())) {
       const [loteria, horario, dataStr] = key.split('|')
       
       // Buscar código da extração (tnyExtracao)
