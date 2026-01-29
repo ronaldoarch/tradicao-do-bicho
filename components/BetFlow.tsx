@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { BetData } from '@/types/bet'
 import { ANIMALS } from '@/data/animals'
 import { MODALITIES } from '@/data/modalities'
@@ -174,11 +174,21 @@ export default function BetFlow() {
     }
   }
 
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
-    }
-  }
+  const handleBack = useCallback(() => {
+    setCurrentStep((prev) => Math.max(1, prev - 1))
+  }, [])
+
+  const handleLocationChange = useCallback((loc: string) => {
+    setBetData((prev) => ({ ...prev, location: loc }))
+  }, [])
+
+  const handleInstantChange = useCallback((checked: boolean) => {
+    setBetData((prev) => ({ ...prev, instant: checked }))
+  }, [])
+
+  const handleSpecialTimeChange = useCallback((time: string | null) => {
+    setBetData((prev) => ({ ...prev, specialTime: time }))
+  }, [])
 
   const handleAddAnimalBet = (ids: number[]) => {
     setBetData((prev) => {
@@ -484,9 +494,9 @@ export default function BetFlow() {
             instant={betData.instant}
             location={betData.location}
             specialTime={betData.specialTime}
-            onInstantChange={(checked) => setBetData((prev) => ({ ...prev, instant: checked }))}
-            onLocationChange={(loc) => setBetData((prev) => ({ ...prev, location: loc }))}
-            onSpecialTimeChange={(time) => setBetData((prev) => ({ ...prev, specialTime: time }))}
+            onInstantChange={useCallback((checked: boolean) => setBetData((prev) => ({ ...prev, instant: checked })), [])}
+            onLocationChange={useCallback((loc: string) => setBetData((prev) => ({ ...prev, location: loc })), [])}
+            onSpecialTimeChange={useCallback((time: string | null) => setBetData((prev) => ({ ...prev, specialTime: time })), [])}
           />
         )
 

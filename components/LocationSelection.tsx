@@ -116,7 +116,8 @@ export default function LocationSelection({
     if (location && current && current.id.toString() !== location) {
       onLocationChange(current.id.toString())
     }
-  }, [available, normalized, location, onLocationChange])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [available, normalized, location])
 
   return (
     <div>
