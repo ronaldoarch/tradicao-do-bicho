@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { MODALITIES as DEFAULT_MODALITIES } from '@/data/modalities'
 import { Modality } from '@/types/bet'
 
@@ -17,6 +17,14 @@ export default function ModalitySelection({
 }: ModalitySelectionProps) {
   const [modalidades, setModalidades] = useState<Modality[]>([])
   const [loading, setLoading] = useState(true)
+  const onModalitySelectRef = useRef(onModalitySelect)
+  const selectedModalityRef = useRef(selectedModality)
+
+  // Atualizar refs quando props mudarem
+  useEffect(() => {
+    onModalitySelectRef.current = onModalitySelect
+    selectedModalityRef.current = selectedModality
+  }, [onModalitySelect, selectedModality])
 
   const loadModalidades = useCallback(async () => {
     try {
@@ -35,12 +43,12 @@ export default function ModalitySelection({
         setModalidades(activeModalidades)
         
         // Se a modalidade selecionada foi desativada, limpa a seleção
-        if (selectedModality) {
+        if (selectedModalityRef.current) {
           const selectedMod = activeModalidades.find(
-            (m: Modality) => m.id.toString() === selectedModality
+            (m: Modality) => m.id.toString() === selectedModalityRef.current
           )
           if (!selectedMod) {
-            onModalitySelect('', '') // Limpa a seleção
+            onModalitySelectRef.current('', '') // Limpa a seleção usando ref
           }
         }
       }
@@ -50,7 +58,7 @@ export default function ModalitySelection({
     } finally {
       setLoading(false)
     }
-  }, [selectedModality, onModalitySelect])
+  }, []) // Sem dependências - usa refs para acessar valores atuais
 
   useEffect(() => {
     loadModalidades()

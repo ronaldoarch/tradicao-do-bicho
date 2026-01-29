@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Autoplay, Pagination } from 'swiper/modules'
 import 'swiper/css'
@@ -12,21 +12,7 @@ export default function HeroBanner() {
   const [loading, setLoading] = useState(true)
   const { configuracoes } = useConfiguracoes()
 
-  useEffect(() => {
-    loadBanners()
-    
-    // Recarrega quando a janela ganha foco
-    const handleFocus = () => {
-      loadBanners()
-    }
-    window.addEventListener('focus', handleFocus)
-    
-    return () => {
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [])
-
-  const loadBanners = async () => {
+  const loadBanners = useCallback(async () => {
     try {
       const response = await fetch(`/api/banners?t=${Date.now()}`, {
         cache: 'no-store',
@@ -48,7 +34,21 @@ export default function HeroBanner() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    loadBanners()
+    
+    // Recarrega quando a janela ganha foco
+    const handleFocus = () => {
+      loadBanners()
+    }
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [loadBanners])
 
   if (loading) {
     return (
