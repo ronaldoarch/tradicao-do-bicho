@@ -11,7 +11,7 @@ import { ResultadoItem } from '@/types/resultados'
 import { extracoes } from '@/data/extracoes'
 import { buscarExtracaoPorNomeEHorario } from '@/lib/extracao-helpers'
 import { getHorarioRealApuracao, temSorteioNoDia } from '@/data/horarios-reais-apuracao'
-import { buscarResultadosBichoCerto } from '@/lib/bichocerto-parser'
+import { buscarResultadosAgenciaMidas } from '@/lib/agenciamidas-api'
 import { normalizarLoteria } from '@/lib/descarga-helpers'
 
 // Configurar timeout maior para operações longas
@@ -291,7 +291,7 @@ export async function GET() {
  * Se não enviar parâmetros, processa todas as apostas pendentes
  * 
  * Estratégia:
- * - Busca resultados APENAS do bichocerto.com usando parser direto
+ * - Busca resultados APENAS da API Agência Midas
  * - Não usa fallbacks (API interna ou externa)
  * - Se não encontrar resultados, retorna erro claro
  */
@@ -300,7 +300,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}))
     const { loteria, dataConcurso, horario } = body
 
-    // Sistema usa APENAS parser direto do bichocerto.com (sem fallbacks)
+    // Sistema usa APENAS API Agência Midas (sem fallbacks)
 
     // Buscar apostas pendentes
     const whereClause: any = {
@@ -333,12 +333,10 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Buscar resultados oficiais APENAS do bichocerto.com (parser direto)
+    // Buscar resultados oficiais APENAS da API Agência Midas (sem fallback)
     let resultados: ResultadoItem[] = []
     
     try {
-      const { buscarResultadosBichoCerto } = await import('@/lib/bichocerto-parser')
-      
       // Coletar loterias únicas das apostas pendentes (normalizadas)
       const loteriasUnicas = new Set<string>()
       apostasPendentes.forEach(aposta => {
@@ -376,18 +374,18 @@ export async function POST(request: NextRequest) {
       for (const loteria of loteriasArray) {
         for (const dataISO of datasArray) {
           console.log(`🔍 Buscando resultados: loteria="${loteria}", data="${dataISO}"`)
-          const resultadosBichoCerto = await buscarResultadosBichoCerto(loteria, dataISO)
+          const resultadosAPI = await buscarResultadosAgenciaMidas(loteria, dataISO)
           
-          // Converter formato do parser para formato ResultadoItem
-          resultadosBichoCerto.forEach(resultadoBingo => {
-            resultadoBingo.premios.forEach(premio => {
+          // Converter formato da API para formato ResultadoItem
+          resultadosAPI.forEach(resultadoAPI => {
+            resultadoAPI.premios.forEach(premio => {
               resultados.push({
                 position: premio.posicao,
                 milhar: premio.numero,
                 grupo: premio.grupo,
                 animal: premio.animal,
-                drawTime: resultadoBingo.horario,
-                horario: resultadoBingo.horario,
+                drawTime: resultadoAPI.horario,
+                horario: resultadoAPI.horario,
                 loteria: loteria,
                 location: inferUfFromName(loteria) || '',
                 date: dataISO,
@@ -399,12 +397,12 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      console.log(`✅ Resultados obtidos do bichocerto.com: ${resultados.length} resultados`)
+      console.log(`✅ Resultados obtidos da API Agência Midas: ${resultados.length} resultados`)
     } catch (error: any) {
-      console.error('❌ Erro ao buscar resultados do bichocerto.com:', error)
+      console.error('❌ Erro ao buscar resultados da API Agência Midas:', error)
       return NextResponse.json(
         {
-          error: 'Erro ao buscar resultados do bichocerto.com',
+          error: 'Erro ao buscar resultados da API Agência Midas',
           detalhes: error.message || String(error),
           message: 'Não foi possível buscar resultados oficiais. Tente novamente mais tarde.',
         },
@@ -414,7 +412,7 @@ export async function POST(request: NextRequest) {
 
     if (resultados.length === 0) {
       return NextResponse.json({
-        message: 'Nenhum resultado oficial encontrado no bichocerto.com para as apostas pendentes',
+        message: 'Nenhum resultado oficial encontrado na API Agência Midas para as apostas pendentes',
         processadas: 0,
         liquidadas: 0,
         premioTotal: 0,
@@ -756,7 +754,7 @@ export async function POST(request: NextRequest) {
       processadas,
       liquidadas,
       premioTotal: premioTotalGeral,
-      fonte: 'bichocerto.com',
+      fonte: 'agenciamidas.com',
     })
   } catch (error) {
     console.error('Erro ao liquidar apostas:', error)

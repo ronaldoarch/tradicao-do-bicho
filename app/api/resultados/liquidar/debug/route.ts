@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { buscarResultadosBichoCerto } from '@/lib/bichocerto-parser'
+import { buscarResultadosAgenciaMidas } from '@/lib/agenciamidas-api'
 import { extracoes } from '@/data/extracoes'
 import { getHorarioRealApuracao, temSorteioNoDia } from '@/data/horarios-reais-apuracao'
 
@@ -120,19 +120,19 @@ export async function GET(request: NextRequest) {
           }
         }
         
-        // Buscar resultados do bichocerto.com
-        const resultadosBichoCerto = await buscarResultadosBichoCerto(grupo.loteria, grupo.data)
+        // Buscar resultados da API Agência Midas
+        const resultadosAPI = await buscarResultadosAgenciaMidas(grupo.loteria, grupo.data)
         
-        grupo.resultadosDisponiveis = resultadosBichoCerto.map(r => ({
+        grupo.resultadosDisponiveis = resultadosAPI.map(r => ({
           horario: r.horario,
-          titulo: r.titulo,
+          titulo: `Resultado ${r.horario}`,
           quantidadePremios: r.premios.length,
           posicoes: r.premios.map(p => p.posicao),
           premios: r.premios.slice(0, 7), // Primeiros 7 para preview
         }))
         
         // Verificar se resultado está completo (tem pelo menos 7 posições)
-        const resultadoCompleto = resultadosBichoCerto.some(r => {
+        const resultadoCompleto = resultadosAPI.some(r => {
           const posicoes = r.premios.map(p => p.posicao)
           const posicoesObrigatorias = ['1º', '2º', '3º', '4º', '5º', '6º', '7º']
           return posicoesObrigatorias.every(pos => posicoes.includes(pos))
@@ -152,8 +152,8 @@ export async function GET(request: NextRequest) {
       totalApostasPendentes: apostasPendentes.length,
       grupos: Object.values(apostasPorLoteria),
       configuracoes: {
-        usarBichoCertoDireto: process.env.USAR_BICHOCERTO_DIRETO !== 'false',
-        bichoCertoPhpsessid: process.env.BICHOCERTO_PHPSESSID ? 'Configurado' : 'Não configurado',
+        api: 'Agência Midas',
+        apiUrl: 'https://rk48ccsoo8kcooc00wwwog04.agenciamidas.com/api_resultados.php',
       },
     })
   } catch (error) {

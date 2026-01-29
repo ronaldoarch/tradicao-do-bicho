@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ResultadosResponse, ResultadoItem } from '@/types/resultados'
 import { toIsoDate } from '@/lib/resultados-helpers'
-import { buscarResultadosBichoCerto } from '@/lib/bichocerto-parser'
+import { buscarResultadosAgenciaMidas } from '@/lib/agenciamidas-api'
 
 const UF_NAME_MAP: Record<string, string> = {
   RJ: 'Rio de Janeiro',
@@ -226,7 +226,7 @@ export async function GET(req: NextRequest) {
   const uf = resolveUF(locationFilter)
 
   try {
-    // Usar APENAS parser direto do bichocerto.com (sem API externa)
+    // Usar APENAS API da Agência Midas (sem fallback)
     const dataHoje = dateFilter || new Date().toISOString().split('T')[0]
     
     let results: ResultadoItem[] = []
@@ -235,9 +235,9 @@ export async function GET(req: NextRequest) {
     // Buscar resultados para cada loteria principal
     for (const loteriaNome of LOTERIAS_PRINCIPAIS) {
       try {
-        const resultadosBichoCerto = await buscarResultadosBichoCerto(loteriaNome, dataHoje)
+        const resultadosAPI = await buscarResultadosAgenciaMidas(loteriaNome, dataHoje)
         
-        if (resultadosBichoCerto.length === 0) continue
+        if (resultadosAPI.length === 0) continue
         
         if (!extracaoStats[loteriaNome]) {
           extracaoStats[loteriaNome] = { horarios: new Set(), total: 0 }
@@ -246,7 +246,7 @@ export async function GET(req: NextRequest) {
         const estadoLoteria = inferUfFromName(loteriaNome)
         const locationResolved = UF_NAME_MAP[estadoLoteria || ''] || loteriaNome
         
-        resultadosBichoCerto.forEach(resultado => {
+        resultadosAPI.forEach(resultado => {
           extracaoStats[loteriaNome].horarios.add(resultado.horario)
           
           resultado.premios.forEach(premio => {
@@ -264,7 +264,7 @@ export async function GET(req: NextRequest) {
               date: dataHoje,
               dataExtracao: dataHoje,
               estado: estadoLoteria,
-              fonte: 'bichocerto.com',
+              fonte: 'agenciamidas.com',
             } as ResultadoItem)
           })
         })

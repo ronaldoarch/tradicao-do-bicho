@@ -36,7 +36,17 @@ export default function GatewaysPage() {
   const load = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/gateways', { cache: 'no-store' })
+      const res = await fetch('/api/admin/gateways', { 
+        cache: 'no-store',
+        credentials: 'include'
+      })
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          window.location.href = '/admin/login'
+          return
+        }
+        throw new Error(`Erro ${res.status}: ${res.statusText}`)
+      }
       const data = await res.json()
       setGateways(data.gateways || [])
     } catch (error) {
@@ -56,16 +66,26 @@ export default function GatewaysPage() {
     try {
       const method = editingId ? 'PUT' : 'POST'
       const body = editingId ? { id: editingId, ...form } : form
-      await fetch('/api/admin/gateways', {
+      const res = await fetch('/api/admin/gateways', {
         method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(body),
       })
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          window.location.href = '/admin/login'
+          return
+        }
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || `Erro ${res.status}`)
+      }
       setForm(emptyForm)
       setEditingId(null)
       load()
     } catch (error) {
       console.error('Erro ao salvar gateway', error)
+      alert(error instanceof Error ? error.message : 'Erro ao salvar gateway')
     } finally {
       setSaving(false)
     }
@@ -88,23 +108,43 @@ export default function GatewaysPage() {
   const handleDelete = async (id: number) => {
     if (!confirm('Tem certeza que deseja remover este gateway?')) return
     try {
-      await fetch(`/api/admin/gateways?id=${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/admin/gateways?id=${id}`, { 
+        method: 'DELETE',
+        credentials: 'include'
+      })
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          window.location.href = '/admin/login'
+          return
+        }
+        throw new Error(`Erro ${res.status}`)
+      }
       load()
     } catch (error) {
       console.error('Erro ao deletar gateway', error)
+      alert(error instanceof Error ? error.message : 'Erro ao deletar gateway')
     }
   }
 
   const handleToggle = async (gw: Gateway) => {
     try {
-      await fetch('/api/admin/gateways', {
+      const res = await fetch('/api/admin/gateways', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ id: gw.id, active: !gw.active }),
       })
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          window.location.href = '/admin/login'
+          return
+        }
+        throw new Error(`Erro ${res.status}`)
+      }
       load()
     } catch (error) {
       console.error('Erro ao ativar/desativar gateway', error)
+      alert(error instanceof Error ? error.message : 'Erro ao alterar status do gateway')
     }
   }
 
