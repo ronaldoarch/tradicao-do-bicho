@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import BottomNav from '@/components/BottomNav'
+import { extracoes } from '@/data/extracoes'
 
 interface Aposta {
   id: number
@@ -206,11 +207,15 @@ export default function MinhasApostasPage() {
                 label="Valor apostado"
                 value={`R$ ${Number(selecionada.valor || 0).toFixed(2)}`}
               />
-              <Detail
+              <Detail 
                 label="Retorno previsto"
                 value={
-                  selecionada.retornoPrevisto && selecionada.retornoPrevisto > 0
-                    ? `R$ ${Number(selecionada.retornoPrevisto).toFixed(2)}`
+                  selecionada.retornoPrevisto !== null && selecionada.retornoPrevisto !== undefined
+                    ? selecionada.retornoPrevisto > 0
+                      ? `R$ ${Number(selecionada.retornoPrevisto).toFixed(2)}`
+                      : selecionada.status === 'perdida' || selecionada.status === 'perdeu'
+                      ? 'R$ 0,00'
+                      : 'Aguardando resultado'
                     : selecionada.status === 'pendente'
                     ? 'Aguardando resultado'
                     : '—'
@@ -219,21 +224,69 @@ export default function MinhasApostasPage() {
               <Detail 
                 label="Horário" 
                 value={
-                  selecionada.horario 
-                    ? selecionada.horario 
-                    : selecionada.detalhes?.betData?.specialTime 
-                    ? selecionada.detalhes.betData.specialTime
-                    : '—'
+                  (() => {
+                    // Se horário já está preenchido, usar diretamente
+                    if (selecionada.horario) {
+                      return selecionada.horario
+                    }
+                    // Se loteria é um ID de extração, buscar horário dela
+                    if (selecionada.loteria && /^\d+$/.test(selecionada.loteria)) {
+                      const extracaoId = parseInt(selecionada.loteria, 10)
+                      const extracao = extracoes.find(e => e.id === extracaoId)
+                      if (extracao?.time || extracao?.closeTime) {
+                        return extracao.time || extracao.closeTime || '—'
+                      }
+                    }
+                    // Fallback para specialTime nos detalhes
+                    if (selecionada.detalhes?.betData?.specialTime) {
+                      return selecionada.detalhes.betData.specialTime
+                    }
+                    // Se estado é um ID de extração, buscar horário dela
+                    if (selecionada.estado && /^\d+$/.test(selecionada.estado)) {
+                      const extracaoId = parseInt(selecionada.estado, 10)
+                      const extracao = extracoes.find(e => e.id === extracaoId)
+                      if (extracao?.time || extracao?.closeTime) {
+                        return extracao.time || extracao.closeTime || '—'
+                      }
+                    }
+                    return '—'
+                  })()
                 } 
               />
               <Detail 
                 label="Estado" 
                 value={
-                  selecionada.estado 
-                    ? selecionada.estado 
-                    : selecionada.detalhes?.betData?.location 
-                    ? selecionada.detalhes.betData.location
-                    : '—'
+                  (() => {
+                    // Se estado já é uma sigla (CE, PB, etc), usar diretamente
+                    if (selecionada.estado && selecionada.estado.length <= 3 && /^[A-Z]{2}$/.test(selecionada.estado)) {
+                      return selecionada.estado
+                    }
+                    // Se estado é um número (ID da extração), buscar o estado real
+                    if (selecionada.estado && /^\d+$/.test(selecionada.estado)) {
+                      const extracaoId = parseInt(selecionada.estado, 10)
+                      const extracao = extracoes.find(e => e.id === extracaoId)
+                      if (extracao?.estado) {
+                        return extracao.estado
+                      }
+                    }
+                    // Se loteria é um ID de extração, buscar estado dela
+                    if (selecionada.loteria && /^\d+$/.test(selecionada.loteria)) {
+                      const extracaoId = parseInt(selecionada.loteria, 10)
+                      const extracao = extracoes.find(e => e.id === extracaoId)
+                      if (extracao?.estado) {
+                        return extracao.estado
+                      }
+                    }
+                    // Fallback para detalhes
+                    if (selecionada.detalhes?.betData?.location && /^\d+$/.test(selecionada.detalhes.betData.location)) {
+                      const extracaoId = parseInt(selecionada.detalhes.betData.location, 10)
+                      const extracao = extracoes.find(e => e.id === extracaoId)
+                      if (extracao?.estado) {
+                        return extracao.estado
+                      }
+                    }
+                    return '—'
+                  })()
                 } 
               />
               <Detail label="Loteria" value={selecionada.loteria || '—'} />

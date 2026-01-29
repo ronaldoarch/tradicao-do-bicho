@@ -819,6 +819,7 @@ export async function POST(request: NextRequest) {
             where: { id: aposta.id },
             data: {
               status: 'perdida',
+              retornoPrevisto: 0,
               detalhes: {
                 ...detalhes,
                 resultadoOficial: resultadoOficial,
