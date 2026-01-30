@@ -77,8 +77,16 @@ export async function GET() {
       },
     }))
 
+    // Mapear status do banco (liquidado/perdida) para exibição (ganhou/perdeu)
+    const statusParaExibicao = (s: string) =>
+      s === 'liquidado' ? 'ganhou' : s === 'perdida' ? 'perdeu' : s
+    const apostasComStatusExibicao = apostas.map((a) => ({
+      ...a,
+      status: statusParaExibicao(a.status),
+    }))
+
     // Combinar apostas normais com cartelas de bingo
-    const todasApostas = [...apostas, ...apostasBingo].sort((a, b) => {
+    const todasApostas = [...apostasComStatusExibicao, ...apostasBingo].sort((a, b) => {
       // Usar dataConcurso se disponível, senão usar createdAt da aposta ou dataConcurso da cartela
       const dateA = a.dataConcurso 
         ? new Date(a.dataConcurso).getTime() 

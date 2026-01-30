@@ -222,7 +222,7 @@ export default function MinhasApostasPage() {
                                 : 'bg-gray-100 text-gray-700'
                           }`}
                         >
-                          {a.status}
+                          {a.status === 'ganhou' ? 'Ganhou' : a.status === 'perdeu' ? 'Perdeu' : 'Pendente'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -273,7 +273,7 @@ export default function MinhasApostasPage() {
 
             <div className="grid grid-cols-2 gap-4 text-sm text-gray-800">
               <Detail label="Modalidade" value={selecionada.modalidade || '—'} />
-              <Detail label="Status" value={selecionada.status} />
+              <Detail label="Status" value={selecionada.status === 'ganhou' ? 'Ganhou' : selecionada.status === 'perdeu' ? 'Perdeu' : 'Pendente'} />
               <Detail
                 label="Valor apostado"
                 value={`R$ ${Number(selecionada.valor || 0).toFixed(2)}`}

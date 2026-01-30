@@ -12,6 +12,9 @@
 API_URL="${API_URL:-http://localhost:3001}"
 LOG_FILE="${LOG_FILE:-/var/log/liquidar.log}"
 
+# Remover quebras de linha e espaços nas bordas (evita "Malformed input to a URL function")
+API_URL="$(printf '%s' "$API_URL" | tr -d '\n\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+
 # Função para log
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE" 2>&1
@@ -32,11 +35,14 @@ fi
 # Remover barra final se existir
 API_URL="${API_URL%/}"
 
+# URL completa em uma única variável (evita malformed URL no curl)
+FULL_URL="${API_URL}/api/resultados/liquidar"
+
 log "Iniciando liquidação automática..."
 log "API URL: $API_URL"
 
 # Executar liquidação com timeout de 120 segundos
-RESPONSE=$(curl -f -s --max-time 120 -X POST "$API_URL/api/resultados/liquidar" \
+RESPONSE=$(curl -f -s --max-time 120 -X POST "$FULL_URL" \
     -H "Content-Type: application/json" \
     -d '{"usarMonitor": false}' \
     -w "\nHTTP_CODE:%{http_code}" 2>&1)

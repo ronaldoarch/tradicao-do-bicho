@@ -33,8 +33,9 @@ O script `scripts/cron/liquidar.sh` **exige** a variável **`API_URL`** com a UR
 
 - **Coolify / job agendado:** na configuração do job, defina a variável de ambiente:
   - Nome: `API_URL`
-  - Valor: `https://tradicaodobicho.site` (use a URL real do seu app, **sem barra no final**)
+  - Valor: `https://tradicaodobicho.site` (use a URL real do seu app, **sem barra no final**, **sem espaços nem quebras de linha**)
 - **Não use** `...` nem deixe vazio — isso gera `Could not resolve host` e `No host part in the URL`.
+- Se aparecer **Malformed input to a URL function**: a URL tem caractere inválido (espaço, Enter, etc.). O script já remove espaços/quebras nas bordas; confira no Coolify se o valor está exatamente `https://tradicaodobicho.site` (uma linha só).
 
 Se `API_URL` estiver vazia ou inválida, o script falha logo no início com mensagem clara.
 
