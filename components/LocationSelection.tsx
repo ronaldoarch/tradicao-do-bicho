@@ -173,70 +173,45 @@ export default function LocationSelection({
     }
   }, [availableIdsString]) // REMOVIDO location - usar locationRef em vez disso
   
+  // Inicializar location apenas uma vez quando o componente monta
   useEffect(() => {
-    // Se já processamos esta location, não fazer nada
-    if (location === lastProcessedLocationRef.current && location !== null) {
-      // Reset flag se estávamos atualizando e agora a location refletiu a mudança
-      if (isUpdatingRef.current) {
-        isUpdatingRef.current = false
-      }
+    if (locationInitializedRef.current) return
+    if (available.length === 0 && normalized.length === 0) return
+    if (location) {
+      locationInitializedRef.current = true
+      lastProcessedLocationRef.current = location
       return
     }
     
-    // Usar refs para acessar valores atuais sem causar re-renders
-    const currentAvailable = availableRef.current.length > 0 ? availableRef.current : available
-    const currentNormalized = normalizedRef.current.length > 0 ? normalizedRef.current : normalized
-    
-    if (currentAvailable.length === 0 && currentNormalized.length === 0) {
-      // Atualizar ref mesmo se arrays estão vazios
-      if (location !== lastProcessedLocationRef.current) {
-        lastProcessedLocationRef.current = location
-      }
-      return
-    }
-    
-    if (isUpdatingRef.current) return // Prevenir processamento durante atualização
-    
-    const current =
-      currentAvailable.find((e) => e.id.toString() === location) ||
-      (currentAvailable.length > 0 ? currentAvailable[0] : currentNormalized[0])
-    
-    if (!current) {
-      if (location !== lastProcessedLocationRef.current) {
-        lastProcessedLocationRef.current = location
-      }
-      return
-    }
-    
-    // Só inicializar location uma vez quando não há location selecionada
-    if (!location && !locationInitializedRef.current) {
+    const current = available.length > 0 ? available[0] : normalized[0]
+    if (current) {
       locationInitializedRef.current = true
       const newLocation = current.id.toString()
-      // Só atualizar se realmente for diferente
-      if (newLocation !== lastProcessedLocationRef.current) {
-        lastProcessedLocationRef.current = newLocation
-        isUpdatingRef.current = true
-        onLocationChangeRef.current(newLocation)
-        // Reset flag após um pequeno delay
-        setTimeout(() => {
-          isUpdatingRef.current = false
-        }, 100)
-      }
-      return
+      lastProcessedLocationRef.current = newLocation
+      isUpdatingRef.current = true
+      onLocationChangeRef.current(newLocation)
+      setTimeout(() => {
+        isUpdatingRef.current = false
+      }, 100)
+    }
+  }, [available.length, normalized.length]) // Apenas quando arrays mudam de vazio para não-vazio
+  
+  // Atualizar ref quando location muda (sem causar atualizações)
+  useEffect(() => {
+    if (isUpdatingRef.current && location === lastProcessedLocationRef.current) {
+      isUpdatingRef.current = false
     }
     
-    // Atualizar ref com a location atual processada
     if (location !== lastProcessedLocationRef.current) {
       lastProcessedLocationRef.current = location
     }
     
-    // Reset flag se location foi limpa
     if (!location) {
       locationInitializedRef.current = false
       isUpdatingRef.current = false
       lastProcessedLocationRef.current = null
     }
-  }, [location]) // Apenas location como dependência
+  }, [location])
 
   return (
     <div>
