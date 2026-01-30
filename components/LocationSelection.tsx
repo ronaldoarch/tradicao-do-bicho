@@ -101,17 +101,36 @@ export default function LocationSelection({
       .map(([estado, items]) => ({ estado, items }))
   }, [normalized])
 
-  const toggleEstado = (estado: string) => {
-    setOpenStates((prev) => ({ ...prev, [estado]: !prev[estado] }))
-  }
-
-  const hasInitializedRef = useRef(false)
-  
   // Criar string estável dos estados para evitar re-execução desnecessária
   const estadosString = useMemo(() => {
     return groupedByEstado.map(g => g.estado).sort().join(',')
   }, [groupedByEstado])
   
+  // Criar string estável de IDs usando useMemo
+  const availableIdsString = useMemo(() => {
+    return [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
+  }, [available, normalized])
+
+  const toggleEstado = (estado: string) => {
+    setOpenStates((prev) => ({ ...prev, [estado]: !prev[estado] }))
+  }
+
+  // TODOS OS REFS ANTES DOS useEffect
+  const hasInitializedRef = useRef(false)
+  const onLocationChangeRef = useRef(onLocationChange)
+  const locationInitializedRef = useRef(false)
+  const lastProcessedLocationRef = useRef<string | null>(null)
+  const lastAvailableIdsRef = useRef<string>('')
+  const isUpdatingRef = useRef(false)
+  const availableRef = useRef<ExtracaoWithMeta[]>([])
+  const normalizedRef = useRef<ExtracaoWithMeta[]>([])
+  const locationRef = useRef<string | null>(location)
+  
+  // Atualizar refs que precisam ser atualizados a cada render
+  onLocationChangeRef.current = onLocationChange
+  locationRef.current = location
+  
+  // TODOS OS useEffect DEPOIS DOS REFS E useMemo
   useEffect(() => {
     // abre todos por padrão na primeira carga (apenas uma vez)
     if (!hasInitializedRef.current && groupedByEstado.length > 0 && Object.keys(openStates).length === 0) {
@@ -124,25 +143,6 @@ export default function LocationSelection({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estadosString]) // Usar string estável em vez do array
-
-  const onLocationChangeRef = useRef(onLocationChange)
-  onLocationChangeRef.current = onLocationChange
-
-  const locationInitializedRef = useRef(false)
-  const lastProcessedLocationRef = useRef<string | null>(null)
-  const lastAvailableIdsRef = useRef<string>('')
-  const isUpdatingRef = useRef(false)
-  const availableRef = useRef<ExtracaoWithMeta[]>([])
-  const normalizedRef = useRef<ExtracaoWithMeta[]>([])
-  
-  // Ref para rastrear location atual sem causar re-renders
-  const locationRef = useRef<string | null>(location)
-  locationRef.current = location
-  
-  // Criar string estável de IDs usando useMemo
-  const availableIdsString = useMemo(() => {
-    return [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
-  }, [available, normalized])
   
   // Atualizar refs quando os IDs realmente mudarem (não quando arrays são recriados)
   useEffect(() => {
