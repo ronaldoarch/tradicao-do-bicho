@@ -174,11 +174,27 @@ export default function LocationSelection({
   }, [availableIdsString]) // REMOVIDO location - usar locationRef em vez disso
   
   useEffect(() => {
+    // Se já processamos esta location, não fazer nada
+    if (location === lastProcessedLocationRef.current && location !== null) {
+      // Reset flag se estávamos atualizando e agora a location refletiu a mudança
+      if (isUpdatingRef.current) {
+        isUpdatingRef.current = false
+      }
+      return
+    }
+    
     // Usar refs para acessar valores atuais sem causar re-renders
     const currentAvailable = availableRef.current.length > 0 ? availableRef.current : available
     const currentNormalized = normalizedRef.current.length > 0 ? normalizedRef.current : normalized
     
-    if (currentAvailable.length === 0 && currentNormalized.length === 0) return
+    if (currentAvailable.length === 0 && currentNormalized.length === 0) {
+      // Atualizar ref mesmo se arrays estão vazios
+      if (location !== lastProcessedLocationRef.current) {
+        lastProcessedLocationRef.current = location
+      }
+      return
+    }
+    
     if (isUpdatingRef.current) return // Prevenir processamento durante atualização
     
     const current =
@@ -210,13 +226,7 @@ export default function LocationSelection({
     }
     
     // Atualizar ref com a location atual processada
-    // Se estávamos atualizando e agora a location refletiu a mudança, resetar flag
-    if (isUpdatingRef.current && location === lastProcessedLocationRef.current) {
-      isUpdatingRef.current = false
-    }
-    
-    // Atualizar o ref apenas se não estamos no meio de uma atualização e a location mudou
-    if (!isUpdatingRef.current && location !== lastProcessedLocationRef.current) {
+    if (location !== lastProcessedLocationRef.current) {
       lastProcessedLocationRef.current = location
     }
     
@@ -224,8 +234,9 @@ export default function LocationSelection({
     if (!location) {
       locationInitializedRef.current = false
       isUpdatingRef.current = false
+      lastProcessedLocationRef.current = null
     }
-  }, [location]) // Apenas location como dependência - usar refs para available/normalized
+  }, [location]) // Apenas location como dependência
 
   return (
     <div>
