@@ -176,9 +176,11 @@ export default function LocationSelection({
     if (available.length === 0 && normalized.length === 0) return
     if (isUpdatingRef.current) return
     
-    if (location) {
+    // Usar locationRef para evitar dependência
+    const currentLocation = locationRef.current
+    if (currentLocation) {
       locationInitializedRef.current = true
-      lastProcessedLocationRef.current = location
+      lastProcessedLocationRef.current = currentLocation
       return
     }
     
@@ -195,7 +197,7 @@ export default function LocationSelection({
         }, 100)
       }
     }
-  }, [available.length, normalized.length, location]) // Adicionar location para detectar quando já foi definida
+  }, [available.length, normalized.length]) // Remover location - usar locationRef em vez disso
   
   // Atualizar ref quando location muda (sem causar atualizações)
   useEffect(() => {
