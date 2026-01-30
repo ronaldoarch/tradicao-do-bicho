@@ -107,6 +107,11 @@ export default function LocationSelection({
 
   const hasInitializedRef = useRef(false)
   
+  // Criar string estável dos estados para evitar re-execução desnecessária
+  const estadosString = useMemo(() => {
+    return groupedByEstado.map(g => g.estado).sort().join(',')
+  }, [groupedByEstado])
+  
   useEffect(() => {
     // abre todos por padrão na primeira carga (apenas uma vez)
     if (!hasInitializedRef.current && groupedByEstado.length > 0 && Object.keys(openStates).length === 0) {
@@ -118,7 +123,7 @@ export default function LocationSelection({
       setOpenStates(next)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupedByEstado])
+  }, [estadosString]) // Usar string estável em vez do array
 
   const onLocationChangeRef = useRef(onLocationChange)
   onLocationChangeRef.current = onLocationChange
