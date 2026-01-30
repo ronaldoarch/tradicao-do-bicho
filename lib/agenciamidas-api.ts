@@ -5,6 +5,8 @@
  * https://rk48ccsoo8kcooc00wwwog04.agenciamidas.com/api_resultados.php
  */
 
+import { extracoes } from '@/data/extracoes'
+
 export interface AgenciaMidasResultado {
   horario: string
   premios: Array<{
@@ -120,11 +122,22 @@ function converterResposta(
   const resultados: AgenciaMidasResultado[] = []
   
   // A API pode retornar dados como objeto ou array
-  const extracoes = Array.isArray(resposta.dados) 
+  const extracoesAPI = Array.isArray(resposta.dados) 
     ? resposta.dados 
     : Object.values(resposta.dados)
 
-  extracoes.forEach((extracao, index) => {
+  // Quando a API não retorna horario, usar nossa lista de extrações (mesma loteria) ordenada por time
+  // para atribuir o horário correto por índice (ex: NACIONAL 21:00 não vira 20:00 por 8+12)
+  const nomesLoteria = loteria.toLowerCase().trim()
+  const temposPorIndice =
+    extracoes.every((e) => !e.name || e.name.toLowerCase() !== nomesLoteria)
+      ? []
+      : extracoes
+          .filter((e) => e.name && e.name.toLowerCase() === nomesLoteria)
+          .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+          .map((e) => e.time || '00:00')
+
+  extracoesAPI.forEach((extracao, index) => {
     if (!extracao.premios || !Array.isArray(extracao.premios)) {
       return
     }
@@ -151,8 +164,10 @@ function converterResposta(
       }
     })
 
-    // Usar horário da extração ou um padrão
-    const horario = extracao.horario || `${String(8 + index).padStart(2, '0')}:00`
+    // Usar horário da API; se ausente, usar horário da nossa extração no mesmo índice (evita 08:00, 09:00... genérico)
+    const horario =
+      extracao.horario ||
+      (temposPorIndice[index] ?? `${String(8 + index).padStart(2, '0')}:00`)
 
     resultados.push({
       horario,
