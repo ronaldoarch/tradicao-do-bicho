@@ -28,6 +28,11 @@ export default function CarteiraPage() {
   const [loading, setLoading] = useState(true)
   const [showDepositModal, setShowDepositModal] = useState(false)
   const [depositValue, setDepositValue] = useState('25,00')
+  const [withdrawValue, setWithdrawValue] = useState('30,00')
+  const [withdrawChavePix, setWithdrawChavePix] = useState('')
+  const [withdrawLoading, setWithdrawLoading] = useState(false)
+  const [withdrawError, setWithdrawError] = useState<string | null>(null)
+  const [withdrawSuccess, setWithdrawSuccess] = useState<string | null>(null)
 
   // Placeholder de transações (ajuste quando houver endpoint de transações)
   const [transactions] = useState<Transaction[]>([])
@@ -127,35 +132,81 @@ export default function CarteiraPage() {
           <section className="grid gap-6 md:grid-cols-2">
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <h2 className="text-xl font-bold text-gray-900">Saque</h2>
-              <p className="text-sm text-gray-700">Taxa: R$ 5,00 | Valor mínimo: R$ 30,00</p>
+              <p className="text-sm text-gray-700">Valor mínimo: R$ 30,00. Informe a chave PIX para receber.</p>
+
+              {withdrawError && (
+                <p className="mt-2 text-sm text-red-600" role="alert">{withdrawError}</p>
+              )}
+              {withdrawSuccess && (
+                <p className="mt-2 text-sm text-green-600" role="status">{withdrawSuccess}</p>
+              )}
 
               <div className="mt-4 space-y-3">
                 <div className="flex items-center gap-2 rounded-lg border-2 border-gray-200 px-3 py-2">
                   <span className="text-gray-700">R$</span>
                   <input
+                    type="text"
+                    value={withdrawValue}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '')
+                      if (value === '') setWithdrawValue('0,00')
+                      else setWithdrawValue((Number(value) / 100).toFixed(2).replace('.', ','))
+                    }}
                     className="w-full border-none text-base outline-none"
-                    defaultValue="30,00"
                     aria-label="Valor do saque"
                   />
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 rounded-lg border-2 border-gray-200 px-3 py-2">
-                    <span className="text-gray-700">CPF</span>
-                    <span className="text-gray-500">↓</span>
-                  </div>
-                  <div className="flex items-center gap-2 rounded-lg border-2 border-gray-200 px-3 py-2 flex-1">
-                    <input
-                      className="w-full border-none text-base outline-none"
-                      defaultValue="01463973128"
-                      aria-label="CPF"
-                    />
-                    <span className="text-gray-500">🔒</span>
-                  </div>
+                <div className="flex items-center gap-2 rounded-lg border-2 border-gray-200 px-3 py-2">
+                  <span className="text-gray-700 shrink-0">Chave PIX</span>
+                  <input
+                    type="text"
+                    value={withdrawChavePix}
+                    onChange={(e) => setWithdrawChavePix(e.target.value)}
+                    placeholder="CPF, e-mail, telefone ou chave aleatória"
+                    className="w-full border-none text-base outline-none"
+                    aria-label="Chave PIX"
+                  />
                 </div>
 
-                <button className="w-full rounded-lg bg-blue px-4 py-3 text-center font-semibold text-white hover:bg-blue-scale-70 transition-colors">
-                  Efetuar saque
+                <button
+                  onClick={async () => {
+                    setWithdrawError(null)
+                    setWithdrawSuccess(null)
+                    const valor = parseFloat(withdrawValue.replace(',', '.'))
+                    if (valor < 30) {
+                      setWithdrawError('Valor mínimo para saque é R$ 30,00.')
+                      return
+                    }
+                    if (!withdrawChavePix.trim()) {
+                      setWithdrawError('Informe a chave PIX para receber o saque.')
+                      return
+                    }
+                    setWithdrawLoading(true)
+                    try {
+                      const res = await fetch('/api/saques', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ valor, chavePix: withdrawChavePix.trim() }),
+                      })
+                      const data = await res.json()
+                      if (!res.ok) {
+                        setWithdrawError(data.error || 'Erro ao solicitar saque.')
+                        return
+                      }
+                      setWithdrawSuccess(data.message || 'Saque enviado! O PIX será processado em instantes.')
+                      setWithdrawValue('30,00')
+                      setWithdrawChavePix('')
+                    } catch {
+                      setWithdrawError('Erro de conexão. Tente novamente.')
+                    } finally {
+                      setWithdrawLoading(false)
+                    }
+                  }}
+                  disabled={withdrawLoading}
+                  className="w-full rounded-lg bg-blue px-4 py-3 text-center font-semibold text-white hover:bg-blue-scale-70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {withdrawLoading ? 'Enviando...' : 'Efetuar saque'}
                 </button>
               </div>
             </div>

@@ -6,7 +6,7 @@ interface Saque {
   id: number
   usuario: string
   valor: number
-  status: 'pendente' | 'aprovado' | 'rejeitado'
+  status: 'pendente' | 'processando' | 'aprovado' | 'rejeitado'
   data: string
 }
 
@@ -131,10 +131,18 @@ export default function SaquesPage() {
                           ? 'bg-green-100 text-green-800'
                           : saque.status === 'rejeitado'
                           ? 'bg-red-100 text-red-800'
+                          : saque.status === 'processando'
+                          ? 'bg-blue-100 text-blue-800'
                           : 'bg-yellow-100 text-yellow-800'
                       }`}
                     >
-                      {saque.status === 'pendente' ? 'Pendente' : saque.status === 'aprovado' ? 'Aprovado' : 'Rejeitado'}
+                      {saque.status === 'pendente'
+                        ? 'Pendente'
+                        : saque.status === 'processando'
+                        ? 'Processando'
+                        : saque.status === 'aprovado'
+                        ? 'Aprovado'
+                        : 'Rejeitado'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{saque.data}</td>

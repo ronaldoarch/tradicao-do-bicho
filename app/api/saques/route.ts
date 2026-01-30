@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { parseSessionToken } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getActiveGateway } from '@/lib/gateways-store'
+import { getGateboxConfig, gateboxWithdraw } from '@/lib/gatebox-client'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * POST /api/saques
- * Cria uma solicitação de saque
+ * Cria solicitação de saque. Se o gateway ativo for Gatebox, dispara PIX automaticamente.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -19,17 +21,27 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { valor } = body
+    const { valor, chavePix } = body
 
     if (!valor || valor <= 0) {
       return NextResponse.json({ error: 'Valor inválido' }, { status: 400 })
     }
 
-    // Buscar usuário com dados completos
+    const gateway = await getActiveGateway()
+    const isGatebox = gateway?.type === 'gatebox'
+    if (isGatebox && (!chavePix || typeof chavePix !== 'string' || !chavePix.trim())) {
+      return NextResponse.json(
+        { error: 'Informe a chave PIX (CPF, e-mail, telefone ou chave aleatória) para receber o saque.' },
+        { status: 400 }
+      )
+    }
+
     const usuario = await prisma.usuario.findUnique({
       where: { id: user.id },
       select: {
         id: true,
+        nome: true,
+        cpf: true,
         saldo: true,
         saldoSacavel: true,
         bonus: true,
@@ -43,50 +55,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
     }
 
-    // Verificar se tem rollover pendente
     const temRolloverPendente = usuario.rolloverNecessario > 0 && usuario.rolloverAtual < usuario.rolloverNecessario
-    
     if (temRolloverPendente) {
       const faltaRollover = usuario.rolloverNecessario - usuario.rolloverAtual
       return NextResponse.json(
-        { 
+        {
           error: 'Você ainda precisa completar o rollover antes de poder sacar.',
           detalhes: {
             rolloverNecessario: usuario.rolloverNecessario,
             rolloverAtual: usuario.rolloverAtual,
             faltaRollover,
-            mensagem: `Você precisa apostar mais R$ ${faltaRollover.toFixed(2)} com dinheiro real antes de poder sacar.`
-          }
+            mensagem: `Você precisa apostar mais R$ ${faltaRollover.toFixed(2)} com dinheiro real antes de poder sacar.`,
+          },
         },
         { status: 400 }
       )
     }
 
-    // IMPORTANTE: Apenas prêmios de apostas podem ser sacados
-    // Bônus (liberado ou bloqueado) nunca é sacável
-    const saldoDisponivelParaSaque = usuario.saldoSacavel || 0
-    
+    const saldoDisponivelParaSaque = usuario.saldoSacavel ?? 0
     if (valor > saldoDisponivelParaSaque) {
       const saldoTotal = usuario.saldo
-      const bonusTotal = (usuario.bonus || 0) + (usuario.bonusBloqueado || 0)
+      const bonusTotal = (usuario.bonus ?? 0) + (usuario.bonusBloqueado ?? 0)
       const saldoNaoSacavel = saldoTotal - saldoDisponivelParaSaque
-      
       return NextResponse.json(
-        { 
+        {
           error: 'Saldo insuficiente para saque',
           detalhes: {
             saldoSacavel: saldoDisponivelParaSaque,
             saldoTotal,
             bonusTotal,
             saldoNaoSacavel,
-            mensagem: `Você pode sacar apenas R$ ${saldoDisponivelParaSaque.toFixed(2)}. Bônus não pode ser sacado, apenas prêmios de apostas.`
-          }
+            mensagem: `Você pode sacar apenas R$ ${saldoDisponivelParaSaque.toFixed(2)}. Bônus não pode ser sacado, apenas prêmios de apostas.`,
+          },
         },
         { status: 400 }
       )
     }
-    
-    // Debitar do saldo e saldoSacavel quando saque é criado
+
+    const chavePixTrim = typeof chavePix === 'string' ? chavePix.trim() : null
+
+    const saque = await prisma.saque.create({
+      data: {
+        usuarioId: usuario.id,
+        valor,
+        status: 'pendente',
+        chavePix: chavePixTrim,
+      },
+    })
+
     await prisma.usuario.update({
       where: { id: usuario.id },
       data: {
@@ -95,17 +111,47 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Criar solicitação de saque
-    const saque = await prisma.saque.create({
-      data: {
-        usuarioId: usuario.id,
-        valor,
-        status: 'pendente',
-      },
-    })
+    if (isGatebox && chavePixTrim) {
+      const gateboxConfig = await getGateboxConfig()
+      if (!gateboxConfig) {
+        await refundAndReject(usuario.id, saque.id, valor, 'Gateway Gatebox não configurado.')
+        return NextResponse.json(
+          { error: 'Saque automático indisponível. Tente novamente mais tarde ou entre em contato com o suporte.' },
+          { status: 503 }
+        )
+      }
+
+      try {
+        const withdrawPayload = {
+          externalId: `saque-${saque.id}`,
+          key: chavePixTrim,
+          name: usuario.nome,
+          amount: valor,
+          description: `Saque #${saque.id}`,
+          documentNumber: usuario.cpf ?? undefined,
+        }
+        const result = await gateboxWithdraw(gateboxConfig, withdrawPayload)
+        const refExterna = result.transactionId ?? result.endToEnd ?? null
+        await prisma.saque.update({
+          where: { id: saque.id },
+          data: { status: 'processando', referenciaExterna: refExterna },
+        })
+        return NextResponse.json({
+          message: 'Saque enviado. O PIX será processado em instantes. Acompanhe na sua carteira.',
+          saque: { ...saque, status: 'processando', referenciaExterna: refExterna },
+        })
+      } catch (gateboxError: unknown) {
+        const msg = gateboxError instanceof Error ? gateboxError.message : 'Falha ao enviar PIX'
+        await refundAndReject(usuario.id, saque.id, valor, msg)
+        return NextResponse.json(
+          { error: 'Não foi possível processar o saque. Valor devolvido ao saldo. ' + msg },
+          { status: 502 }
+        )
+      }
+    }
 
     return NextResponse.json({
-      message: 'Solicitação de saque criada com sucesso',
+      message: 'Solicitação de saque criada. Aguarde a aprovação.',
       saque,
     })
   } catch (error) {
@@ -115,6 +161,27 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+async function refundAndReject(
+  usuarioId: number,
+  saqueId: number,
+  valor: number,
+  motivo: string
+): Promise<void> {
+  await prisma.$transaction([
+    prisma.usuario.update({
+      where: { id: usuarioId },
+      data: {
+        saldo: { increment: valor },
+        saldoSacavel: { increment: valor },
+      },
+    }),
+    prisma.saque.update({
+      where: { id: saqueId },
+      data: { status: 'rejeitado', motivo },
+    }),
+  ])
 }
 
 /**

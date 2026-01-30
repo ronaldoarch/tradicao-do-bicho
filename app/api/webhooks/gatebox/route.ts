@@ -44,8 +44,6 @@ export async function POST(req: NextRequest) {
       // Continua processando mesmo se falhar o tracking
     }
 
-    // Validar payload do webhook
-    // Gatebox pode enviar diferentes formatos, vamos suportar os mais comuns
     const transactionId = body.transactionId || body.id || body.idTransaction
     const externalId = body.externalId || body.external_id
     const status = body.status || body.statusTransaction
@@ -57,22 +55,59 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Payload inválido - sem identificador de transação' }, { status: 400 })
     }
 
-    // Processar apenas transações pagas
-    // Gatebox pode usar diferentes status: "paid", "completed", "PAID", etc.
+    const eventType = (body.type || body.eventType || '').toUpperCase()
     const statusLower = (status || '').toLowerCase()
-    const isPaid = statusLower === 'paid' || 
-                   statusLower === 'completed' || 
-                   statusLower === 'pago' ||
-                   statusLower === 'paid_out' ||
-                   body.paid === true ||
-                   body.completed === true
+
+    // Saque (PIX enviado): apenas eventos explícitos de payout
+    const isPayoutEvent =
+      eventType === 'PIX_PAY_OUT' ||
+      eventType === 'PAY_OUT' ||
+      eventType === 'PIX_PAYMENT_EFFECTIVE' ||
+      eventType === 'PIX_EFFECTIVE' ||
+      statusLower === 'paid_out'
+
+    if (isPayoutEvent) {
+      const refs = [transactionId, externalId, endToEnd].filter(Boolean) as string[]
+      const saque = await prisma.saque.findFirst({
+        where: {
+          referenciaExterna: { in: refs },
+          status: 'processando',
+        },
+      })
+      if (saque) {
+        await prisma.saque.update({
+          where: { id: saque.id },
+          data: { status: 'aprovado' },
+        })
+        if (webhookEventId) {
+          try {
+            await prisma.webhookEvent.update({
+              where: { id: webhookEventId },
+              data: { status: 'processed', statusCode: 200, response: { message: 'Saque confirmado' }, processedAt: new Date() },
+            })
+          } catch (_) {}
+        }
+        return NextResponse.json({ message: 'Saque confirmado' })
+      }
+      return NextResponse.json({ message: 'Saque não encontrado ou já processado' })
+    }
+
+    // Depósito (PIX recebido): PIX_PAY_IN
+    const isPaidByEvent = eventType === 'PIX_PAY_IN'
+    const isPaidByStatus =
+      statusLower === 'paid' ||
+      statusLower === 'completed' ||
+      statusLower === 'pago' ||
+      statusLower === 'paid_out' ||
+      body.paid === true ||
+      body.completed === true
+    const isPaid = isPaidByEvent || isPaidByStatus
 
     if (!isPaid) {
-      console.log(`Transação não paga (status: ${status}), ignorando`)
+      console.log(`Transação não paga (eventType: ${eventType}, status: ${status}), ignorando`)
       return NextResponse.json({ message: 'Transação não paga, ignorando' }, { status: 200 })
     }
 
-    // Buscar transação pelo externalId (preferencial), transactionId ou endToEnd
     const transacao = await prisma.transacao.findFirst({
       where: {
         OR: [

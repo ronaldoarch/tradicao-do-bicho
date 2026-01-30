@@ -226,16 +226,19 @@ model Aposta {
 }
 
 model Saque {
-  id        Int      @id @default(autoincrement())
-  usuarioId Int
-  valor     Float
-  status    String   @default("pendente") // pendente, aprovado, rejeitado
-  motivo    String?
-  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 Int      @id @default(autoincrement())
+  usuarioId          Int
+  valor              Float
+  status             String   @default("pendente") // pendente, processando, aprovado, rejeitado
+  motivo             String?
+  chavePix           String?  // Chave PIX do recebedor (CPF, e-mail, telefone ou aleatória)
+  referenciaExterna  String?  // ID da transação no gateway (para webhook)
+  usuario            Usuario  @relation(fields: [usuarioId], references: [id])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@index([usuarioId])
+  @@index([referenciaExterna])
 }
 
 model Transacao {
