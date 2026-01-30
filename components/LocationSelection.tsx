@@ -174,6 +174,8 @@ export default function LocationSelection({
   useEffect(() => {
     if (locationInitializedRef.current) return
     if (available.length === 0 && normalized.length === 0) return
+    if (isUpdatingRef.current) return
+    
     if (location) {
       locationInitializedRef.current = true
       lastProcessedLocationRef.current = location
@@ -184,14 +186,16 @@ export default function LocationSelection({
     if (current) {
       locationInitializedRef.current = true
       const newLocation = current.id.toString()
-      lastProcessedLocationRef.current = newLocation
-      isUpdatingRef.current = true
-      onLocationChangeRef.current(newLocation)
-      setTimeout(() => {
-        isUpdatingRef.current = false
-      }, 100)
+      if (newLocation !== lastProcessedLocationRef.current) {
+        lastProcessedLocationRef.current = newLocation
+        isUpdatingRef.current = true
+        onLocationChangeRef.current(newLocation)
+        setTimeout(() => {
+          isUpdatingRef.current = false
+        }, 100)
+      }
     }
-  }, [available.length, normalized.length]) // Apenas quando arrays mudam de vazio para não-vazio
+  }, [available.length, normalized.length, location]) // Adicionar location para detectar quando já foi definida
   
   // Atualizar ref quando location muda (sem causar atualizações)
   useEffect(() => {
