@@ -134,18 +134,21 @@ export default function LocationSelection({
   const locationRef = useRef<string | null>(location)
   locationRef.current = location
   
-  // Atualizar refs quando os arrays mudarem (usar useLayoutEffect para sincronização imediata)
+  // Criar string estável de IDs usando useMemo
+  const availableIdsString = useMemo(() => {
+    return [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
+  }, [available, normalized])
+  
+  // Atualizar refs quando os IDs realmente mudarem (não quando arrays são recriados)
   useEffect(() => {
-    // Calcular IDs atuais
-    const currentAvailableIds = [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
-    const idsChanged = lastAvailableIdsRef.current !== currentAvailableIds
+    const idsChanged = lastAvailableIdsRef.current !== availableIdsString
     
     // Sempre atualizar refs para manter sincronizado
     availableRef.current = available
     normalizedRef.current = normalized
     
     if (idsChanged) {
-      lastAvailableIdsRef.current = currentAvailableIds
+      lastAvailableIdsRef.current = availableIdsString
       
       // Se os IDs mudaram e não estamos atualizando, verificar se precisa atualizar location
       // Usar locationRef em vez de location para evitar dependência
@@ -168,7 +171,7 @@ export default function LocationSelection({
         }
       }
     }
-  }, [available, normalized]) // Manter arrays mas usar comparação de IDs para evitar loops
+  }, [availableIdsString]) // Usar string estável em vez dos arrays - isso evita loops!
   
   // Inicializar location apenas uma vez quando o componente monta
   useEffect(() => {
@@ -197,7 +200,7 @@ export default function LocationSelection({
         }, 100)
       }
     }
-  }, [available.length, normalized.length]) // Remover location - usar locationRef em vez disso
+  }, [availableIdsString]) // Usar availableIdsString para detectar quando arrays estão prontos
   
   // Atualizar ref quando location muda (sem causar atualizações)
   useEffect(() => {
