@@ -130,25 +130,22 @@ export default function LocationSelection({
   const availableRef = useRef<ExtracaoWithMeta[]>([])
   const normalizedRef = useRef<ExtracaoWithMeta[]>([])
   
-  // Criar uma string estável dos IDs para usar como dependência
-  const availableIdsString = useMemo(() => {
-    return [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
-  }, [available, normalized])
-  
   // Ref para rastrear location atual sem causar re-renders
   const locationRef = useRef<string | null>(location)
   locationRef.current = location
   
-  // Atualizar refs quando os IDs realmente mudarem
+  // Atualizar refs quando os arrays mudarem (usar useLayoutEffect para sincronização imediata)
   useEffect(() => {
-    const idsChanged = lastAvailableIdsRef.current !== availableIdsString
+    // Calcular IDs atuais
+    const currentAvailableIds = [...available, ...normalized].map(e => e.id.toString()).sort().join(',')
+    const idsChanged = lastAvailableIdsRef.current !== currentAvailableIds
     
     // Sempre atualizar refs para manter sincronizado
     availableRef.current = available
     normalizedRef.current = normalized
     
     if (idsChanged) {
-      lastAvailableIdsRef.current = availableIdsString
+      lastAvailableIdsRef.current = currentAvailableIds
       
       // Se os IDs mudaram e não estamos atualizando, verificar se precisa atualizar location
       // Usar locationRef em vez de location para evitar dependência
@@ -171,7 +168,7 @@ export default function LocationSelection({
         }
       }
     }
-  }, [availableIdsString]) // REMOVIDO location - usar locationRef em vez disso
+  }, [available, normalized]) // Manter arrays mas usar comparação de IDs para evitar loops
   
   // Inicializar location apenas uma vez quando o componente monta
   useEffect(() => {
