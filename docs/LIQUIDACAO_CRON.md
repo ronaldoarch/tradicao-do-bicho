@@ -7,26 +7,42 @@ A liquidação usa a API Agência Midas e marca apostas como **liquidado** ou **
 - **POST** `/api/resultados/liquidar` — processa todas as apostas pendentes (ou filtra por `loteria`, `dataConcurso`, `horario` no body).
 - **GET** `/api/resultados/liquidar` — retorna apenas estatísticas (pendentes, liquidadas, perdidas).
 
-## Cron em produção
+## Comando usado (local e produção)
 
-O script `scripts/cron/liquidar.sh` chama o endpoint. **Em produção é obrigatório definir a URL do app:**
+O mesmo comando que o cron usa — em **local** com `localhost:3001`, em **produção** troque pela URL do app:
 
 ```bash
+# Local
+curl -X POST http://localhost:3001/api/resultados/liquidar \
+  -H "Content-Type: application/json" \
+  -d '{"usarMonitor": false}' \
+  --max-time 120
+
+# Produção (troque pela URL do seu app)
+curl -X POST https://tradicaodobicho.site/api/resultados/liquidar \
+  -H "Content-Type: application/json" \
+  -d '{"usarMonitor": false}' \
+  --max-time 120
+```
+
+O body `{"usarMonitor": false}` é opcional; o endpoint aceita também `{}`. Resposta esperada: `processadas`, `liquidadas`, `premioTotal`.
+
+## Cron em produção (Coolify / job)
+
+O script `scripts/cron/liquidar.sh` **exige** a variável **`API_URL`** com a URL do app.
+
+- **Coolify / job agendado:** na configuração do job, defina a variável de ambiente:
+  - Nome: `API_URL`
+  - Valor: `https://tradicaodobicho.site` (use a URL real do seu app, **sem barra no final**)
+- **Não use** `...` nem deixe vazio — isso gera `Could not resolve host` e `No host part in the URL`.
+
+Se `API_URL` estiver vazia ou inválida, o script falha logo no início com mensagem clara.
+
+**Cron manual (servidor):**
+```bash
 export API_URL=https://tradicaodobicho.site
-# ou no cron:
+# ou na linha do cron:
 # */10 * * * * API_URL=https://tradicaodobicho.site /caminho/scripts/cron/liquidar.sh
 ```
 
-Se `API_URL` não for definida, o script usa `http://localhost:3001` e a liquidação não rodará no servidor real.
-
-Sugestão: rodar a cada 10–15 minutos para liquidar assim que os resultados estiverem disponíveis.
-
-## Teste manual
-
-```bash
-curl -X POST "https://tradicaodobicho.site/api/resultados/liquidar" \
-  -H "Content-Type: application/json" \
-  -d '{}'
-```
-
-Resposta esperada: `processadas`, `liquidadas`, `premioTotal`.
+Sugestão: rodar a cada 10–15 minutos.
