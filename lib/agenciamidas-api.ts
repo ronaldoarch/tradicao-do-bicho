@@ -6,6 +6,7 @@
  */
 
 import { extracoes } from '@/data/extracoes'
+import { ANIMALS } from '@/data/animals'
 
 export interface AgenciaMidasResultado {
   horario: string
@@ -95,6 +96,40 @@ function nomeParaCodigo(nomeLoteria: string): string | null {
 }
 
 /**
+ * LOTEP (PB) e LOTECE (CE): só são sorteados os 5 primeiros prêmios.
+ * 6º = (1º+2º+3º+4º+5º) mod 10000
+ * 7º = floor((1º×2º)/1000) mod 1000, exibido como 4 dígitos (ex: 858 → "0858")
+ */
+function calcularPremiosLotepLotece(premios: Array<{ posicao: string; numero: string; grupo: string; animal: string }>): Array<{ posicao: string; numero: string; grupo: string; animal: string }> {
+  if (!premios || premios.length < 5) return premios
+  const p = premios.slice(0, 5).map((x) => parseInt(x.numero.replace(/\D/g, '').padStart(4, '0').slice(-4), 10))
+  const soma = p[0] + p[1] + p[2] + p[3] + p[4]
+  const sexto = soma % 10000
+  const setimo = Math.floor((p[0] * p[1]) / 1000) % 1000
+  const numero6 = String(sexto).padStart(4, '0')
+  const numero7 = String(setimo).padStart(4, '0')
+  const grupoFromNumero = (n: string) => {
+    const num = parseInt(n.replace(/\D/g, ''), 10)
+    if (isNaN(num)) return ''
+    const dezena = num % 100
+    if (dezena === 0) return '25'
+    return String(Math.floor((dezena - 1) / 4) + 1).padStart(2, '0')
+  }
+  const animalFromGrupo = (g: string) => {
+    const id = parseInt(g, 10)
+    if (id < 1 || id > 25) return ''
+    return ANIMALS[id - 1]?.name ?? ''
+  }
+  const g6 = grupoFromNumero(numero6)
+  const g7 = grupoFromNumero(numero7)
+  return [
+    ...premios.slice(0, 5),
+    { posicao: '6º', numero: numero6, grupo: g6, animal: animalFromGrupo(g6) },
+    { posicao: '7º', numero: numero7, grupo: g7, animal: animalFromGrupo(g7) },
+  ]
+}
+
+/**
  * Extrai grupo do número (últimos 2 dígitos)
  */
 function extrairGrupo(numero: string): string {
@@ -180,7 +215,7 @@ function converterResposta(
       return
     }
 
-    const premios = extracao.premios.map((premio, premioIndex) => {
+    let premios = extracao.premios.map((premio, premioIndex) => {
       let posicao = premio.posicao
       if (!posicao) {
         posicao = `${premioIndex + 1}º`
@@ -196,6 +231,13 @@ function converterResposta(
         animal: premio.animal || '',
       }
     })
+
+    // LOTEP (PB) e LOTECE (CE): só são sorteados 5 prêmios; 6º e 7º são calculados. Exibir só 7 prêmios.
+    if (nomesLoteria === 'lotep' || nomesLoteria === 'lotece') {
+      premios = calcularPremiosLotepLotece(premios)
+    } else if (premios.length > 7) {
+      premios = premios.slice(0, 7)
+    }
 
     // Prioridade: extracao.horario > chave do objeto normalizada (ex: "21:00") > nossa lista por índice > fallback 08:00, 09:00...
     let horario = extracao.horario || null
