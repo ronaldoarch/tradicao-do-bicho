@@ -48,12 +48,12 @@ export const HORARIOS_REAIS_APURACAO: HorarioRealApuracao[] = [
   { name: 'PARA TODOS', time: '20:40', startTimeReal: '20:40', closeTimeReal: '20:40', diasSemSorteio: [3] }, // Sem sorteio na quinta
   
   // PT RIO
-  { name: 'PT RIO', time: '09:20', startTimeReal: '09:20', closeTimeReal: '09:20' },
-  { name: 'PT RIO', time: '11:20', startTimeReal: '11:20', closeTimeReal: '11:20' },
-  { name: 'PT RIO', time: '14:20', startTimeReal: '14:20', closeTimeReal: '14:20' },
-  { name: 'PT RIO', time: '16:20', startTimeReal: '16:20', closeTimeReal: '16:20' },
-  { name: 'PT RIO', time: '18:20', startTimeReal: '18:20', closeTimeReal: '18:20', diasSemSorteio: [3, 5] }, // Sem sorteio na quinta e sábado
-  { name: 'PT RIO', time: '21:20', startTimeReal: '21:20', closeTimeReal: '21:20', diasSemSorteio: [3] }, // Sem sorteio na quinta
+  { name: 'PT RIO', time: '09:30', startTimeReal: '09:30', closeTimeReal: '09:30' },
+  { name: 'PT RIO', time: '11:30', startTimeReal: '11:30', closeTimeReal: '11:30' },
+  { name: 'PT RIO', time: '14:30', startTimeReal: '14:30', closeTimeReal: '14:30' },
+  { name: 'PT RIO', time: '16:30', startTimeReal: '16:30', closeTimeReal: '16:30' },
+  { name: 'PT RIO', time: '18:30', startTimeReal: '18:30', closeTimeReal: '18:30', diasSemSorteio: [3, 5] }, // Sem sorteio na quinta e sábado
+  { name: 'PT RIO', time: '21:30', startTimeReal: '21:30', closeTimeReal: '21:30', diasSemSorteio: [3] }, // Sem sorteio na quinta
   
   // NACIONAL
   { name: 'NACIONAL', time: '08:00', startTimeReal: '08:00', closeTimeReal: '08:00' },

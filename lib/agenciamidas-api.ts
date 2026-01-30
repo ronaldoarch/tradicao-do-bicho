@@ -108,7 +108,44 @@ function extrairGrupo(numero: string): string {
 }
 
 /**
- * Converte resposta da API para formato interno
+ * Normaliza chave de horário para "HH:MM".
+ * Usado por todas as loterias/estados (RJ, SP, BA, PB, GO, CE, BR).
+ * Aceita: "21:00", "21h", "21h00", "21h0", "9h20", "9:20", "09h20", "21"
+ */
+function normalizarChaveHorario(chave: string): string | null {
+  if (!chave || typeof chave !== 'string') return null
+  const s = chave.trim().toLowerCase().replace(/\s/g, '')
+  // Já no formato HH:MM ou H:MM
+  const matchColon = s.match(/^(\d{1,2}):(\d{1,2})$/)
+  if (matchColon) {
+    const h = parseInt(matchColon[1], 10)
+    const m = parseInt(matchColon[2], 10)
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+    }
+  }
+  // Formato "21h", "21h00", "21h0", "9h20", "09h20"
+  const matchH = s.match(/^(\d{1,2})h(\d{1,2})?$/)
+  if (matchH) {
+    const h = parseInt(matchH[1], 10)
+    const m = matchH[2] ? parseInt(matchH[2], 10) : 0
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+    }
+  }
+  // Apenas número (hora)
+  const matchNum = s.match(/^(\d{1,2})$/)
+  if (matchNum) {
+    const h = parseInt(matchNum[1], 10)
+    if (h >= 0 && h <= 23) return `${String(h).padStart(2, '0')}:00`
+  }
+  return null
+}
+
+/**
+ * Converte resposta da API para formato interno.
+ * Aplica a todas as loterias/estados (PT RIO/RJ, PT SP/SP, PT BAHIA/BA, LOTEP/PB, LOOK/GO, LOTECE/CE, NACIONAL/BR, FEDERAL/BR).
+ * Se dados for objeto, usa a chave como horário (ex: "21:00", "09:20") para evitar troca de extrações entre horários.
  */
 function converterResposta(
   resposta: AgenciaMidasResponse,
@@ -120,14 +157,14 @@ function converterResposta(
   }
 
   const resultados: AgenciaMidasResultado[] = []
-  
-  // A API pode retornar dados como objeto ou array
-  const extracoesAPI = Array.isArray(resposta.dados) 
-    ? resposta.dados 
-    : Object.values(resposta.dados)
+  const dados = resposta.dados
 
-  // Quando a API não retorna horario, usar nossa lista de extrações (mesma loteria) ordenada por time
-  // para atribuir o horário correto por índice (ex: NACIONAL 21:00 não vira 20:00 por 8+12)
+  // Quando a API retorna objeto, as chaves podem ser os horários (ex: "08:00", "21:00")
+  const ehObjeto = !Array.isArray(dados) && typeof dados === 'object'
+  const entradas: [string | number, AgenciaMidasExtracao][] = ehObjeto
+    ? Object.entries(dados)
+    : (dados as AgenciaMidasExtracao[]).map((ext, i) => [i, ext])
+
   const nomesLoteria = loteria.toLowerCase().trim()
   const temposPorIndice =
     extracoes.every((e) => !e.name || e.name.toLowerCase() !== nomesLoteria)
@@ -137,25 +174,20 @@ function converterResposta(
           .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
           .map((e) => e.time || '00:00')
 
-  extracoesAPI.forEach((extracao, index) => {
+  entradas.forEach(([chaveOuIndice, extracao], index) => {
     if (!extracao.premios || !Array.isArray(extracao.premios)) {
       return
     }
 
     const premios = extracao.premios.map((premio, premioIndex) => {
-      // Tentar extrair posição do prêmio
       let posicao = premio.posicao
       if (!posicao) {
-        // Se não tem posição explícita, usar índice + 1
         posicao = `${premioIndex + 1}º`
       }
-
-      // Extrair grupo se não fornecido
       let grupo = premio.grupo
       if (!grupo && premio.numero) {
         grupo = extrairGrupo(premio.numero)
       }
-
       return {
         posicao,
         numero: premio.numero?.padStart(4, '0') || '',
@@ -164,10 +196,14 @@ function converterResposta(
       }
     })
 
-    // Usar horário da API; se ausente, usar horário da nossa extração no mesmo índice (evita 08:00, 09:00... genérico)
-    const horario =
-      extracao.horario ||
-      (temposPorIndice[index] ?? `${String(8 + index).padStart(2, '0')}:00`)
+    // Prioridade: extracao.horario > chave do objeto normalizada (ex: "21:00") > nossa lista por índice > fallback 08:00, 09:00...
+    let horario = extracao.horario || null
+    if (!horario && ehObjeto && typeof chaveOuIndice === 'string') {
+      horario = normalizarChaveHorario(chaveOuIndice) || null
+    }
+    if (!horario) {
+      horario = temposPorIndice[index] ?? `${String(8 + index).padStart(2, '0')}:00`
+    }
 
     resultados.push({
       horario,

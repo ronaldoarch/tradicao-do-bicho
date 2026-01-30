@@ -39,13 +39,13 @@ export const HORARIOS_ENVIO_DESCARGA: HorarioEnvioDescarga[] = [
   { loteria: 'LOOK', horarioExtracao: '21:20', horarioEnvio: '21:05' },
   { loteria: 'LOOK', horarioExtracao: '23:20', horarioEnvio: '23:05' },
   
-  // PT RIO - 15 minutos antes do closeTime
-  { loteria: 'PT RIO', horarioExtracao: '09:20', horarioEnvio: '09:05' },
-  { loteria: 'PT RIO', horarioExtracao: '11:20', horarioEnvio: '11:05' },
-  { loteria: 'PT RIO', horarioExtracao: '14:20', horarioEnvio: '14:05' },
-  { loteria: 'PT RIO', horarioExtracao: '16:20', horarioEnvio: '16:05' },
-  { loteria: 'PT RIO', horarioExtracao: '18:20', horarioEnvio: '18:05' },
-  { loteria: 'PT RIO', horarioExtracao: '21:20', horarioEnvio: '21:05' },
+  // PT RIO - 10 minutos antes do closeTime (09:30, 11:30, etc.)
+  { loteria: 'PT RIO', horarioExtracao: '09:30', horarioEnvio: '09:20' },
+  { loteria: 'PT RIO', horarioExtracao: '11:30', horarioEnvio: '11:20' },
+  { loteria: 'PT RIO', horarioExtracao: '14:30', horarioEnvio: '14:20' },
+  { loteria: 'PT RIO', horarioExtracao: '16:30', horarioEnvio: '16:20' },
+  { loteria: 'PT RIO', horarioExtracao: '18:30', horarioEnvio: '18:20' },
+  { loteria: 'PT RIO', horarioExtracao: '21:30', horarioEnvio: '21:20' },
   
   // PT SP - 15 minutos antes do closeTime
   { loteria: 'PT SP', horarioExtracao: '10:00', horarioEnvio: '09:45' },

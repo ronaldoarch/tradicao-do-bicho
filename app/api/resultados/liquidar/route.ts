@@ -577,9 +577,9 @@ export async function POST(request: NextRequest) {
             })
           }
 
-          // Fallback: quando a API não retorna horario (usa 08:00, 09:00... por índice),
-          // o filtro por horario da aposta (ex: 21:00) zera resultados. Tentar casar pelo
-          // índice da extração: nossa lista de extrações por loteria ordenada por time.
+          // Fallback (todas as loterias/estados: RJ, SP, BA, PB, GO, CE, BR): quando a API não
+          // retorna horario em cada extração, o filtro por horário zera. Casar pelo índice da
+          // extração na nossa lista (por loteria, ordenada por time).
           if (resultadosFiltrados.length === 0 && aposta.loteria && aposta.horario && aposta.dataConcurso) {
             const loteriaNorm = normalizarLoteria(aposta.loteria) || ''
             const dataApostaISO = aposta.dataConcurso.toISOString().split('T')[0]
@@ -595,8 +595,8 @@ export async function POST(request: NextRequest) {
             const premiosPorExtracao = 7
             if (todosLoteriaData.length >= premiosPorExtracao) {
               const extracoesLoteria = extracoes
-                .filter((e) => normalizarLoteria(e.name) === loteriaNorm || e.name.toUpperCase() === loteriaNorm.toUpperCase())
-                .sort((a, b) => a.time.localeCompare(b.time))
+                .filter((e) => e.name && (normalizarLoteria(e.name) === loteriaNorm || e.name.toUpperCase() === loteriaNorm.toUpperCase()))
+                .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
               const idxHorario = extracoesLoteria.findIndex((e) => e.time === horarioAposta)
               if (idxHorario >= 0) {
                 const inicio = idxHorario * premiosPorExtracao
