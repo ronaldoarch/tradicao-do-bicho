@@ -507,13 +507,13 @@ export async function POST(request: NextRequest) {
         // Buscar resultados do índice (muito mais rápido que filtrar)
         let resultadosFiltrados: ResultadoItem[] = []
         
-        // Tentar buscar por chave exata primeiro
+        // Tentar buscar por chave exata primeiro (horário normalizado HH:MM, trim)
         if (aposta.loteria && aposta.horario && aposta.dataConcurso) {
           const loteriaNormalizada = normalizarLoteria(aposta.loteria) || ''
-          const horarioAposta = aposta.horario
+          const h = (aposta.horario || '').trim()
+          const horarioAposta = h.match(/^\d{1,2}:\d{1,2}$/) ? h.replace(/^(\d{1,2}):(\d{1,2})$/, (_, a, b) => `${String(a).padStart(2, '0')}:${String(b).padStart(2, '0')}`) : h
           const dataAposta = aposta.dataConcurso.toISOString().split('T')[0]
           const chaveExata = `${loteriaNormalizada}|${horarioAposta}|${dataAposta}`
-          
           resultadosFiltrados = indiceResultados.get(chaveExata) || []
         }
         
@@ -577,26 +577,32 @@ export async function POST(request: NextRequest) {
             })
           }
 
-          // Fallback (todas as loterias/estados: RJ, SP, BA, PB, GO, CE, BR): quando a API não
-          // retorna horario em cada extração, o filtro por horário zera. Casar pelo índice da
-          // extração na nossa lista (por loteria, ordenada por time).
+          // Fallback: quando a API não retorna horario em cada extração, casar pelo índice da
+          // extração. Ordenar resultados por horário (mesma ordem de extracoes) antes de fatiar.
           if (resultadosFiltrados.length === 0 && aposta.loteria && aposta.horario && aposta.dataConcurso) {
             const loteriaNorm = normalizarLoteria(aposta.loteria) || ''
             const dataApostaISO = aposta.dataConcurso.toISOString().split('T')[0]
-            const horarioAposta = aposta.horario
+            const horarioAposta = (aposta.horario || '').trim()
 
-            const todosLoteriaData = resultados.filter((r) => {
+            let todosLoteriaData = resultados.filter((r) => {
               const loteriaOk = loteriaNorm && r.loteria && matchExtracao(normalizarLoteria(r.loteria) || '', loteriaNorm)
               const dataStr = (r.date || r.dataExtracao || '').toString().split('T')[0]
               const dataOk = dataStr === dataApostaISO
               return loteriaOk && dataOk
             })
 
+            const extracoesLoteria = extracoes
+              .filter((e) => e.name && (normalizarLoteria(e.name) === loteriaNorm || e.name.toUpperCase() === loteriaNorm.toUpperCase()))
+              .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
             const premiosPorExtracao = 7
-            if (todosLoteriaData.length >= premiosPorExtracao) {
-              const extracoesLoteria = extracoes
-                .filter((e) => e.name && (normalizarLoteria(e.name) === loteriaNorm || e.name.toUpperCase() === loteriaNorm.toUpperCase()))
-                .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+            if (todosLoteriaData.length >= premiosPorExtracao && extracoesLoteria.length > 0) {
+              // Ordenar pela mesma ordem das extrações (por horário) para o slice pegar o bloco certo
+              const ordemHorarios = extracoesLoteria.map((e) => e.time || '')
+              todosLoteriaData = todosLoteriaData.sort((a, b) => {
+                const ia = ordemHorarios.indexOf(a.horario || '')
+                const ib = ordemHorarios.indexOf(b.horario || '')
+                return ia - ib
+              })
               const idxHorario = extracoesLoteria.findIndex((e) => e.time === horarioAposta)
               if (idxHorario >= 0) {
                 const inicio = idxHorario * premiosPorExtracao

@@ -64,6 +64,7 @@ const CODIGO_LOTERIA_MAP: Record<string, string> = {
   'nacional': 'ln',
   'loteria nacional': 'ln',
   'para todos': 'ln',
+  'br': 'ln', // sigla estado usado em algumas UIs
   'federal': 'fd',
   'loteria federal': 'fd',
   'boa sorte': 'bs',

@@ -2,6 +2,10 @@
 
 # Script de liquidação automática de apostas
 # Executa a liquidação de apostas pendentes via API
+#
+# Em produção, defina API_URL com a URL do app, ex.:
+#   export API_URL=https://tradicaodobicho.site
+# Ou no cron: API_URL=https://tradicaodobicho.site ./liquidar.sh
 
 # Configurações
 API_URL="${API_URL:-http://localhost:3001}"
