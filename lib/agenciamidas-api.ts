@@ -179,6 +179,26 @@ function normalizarChaveHorario(chave: string): string | null {
 }
 
 /**
+ * Mapeia nome da loteria (ex: "Look Goiás") para nome da extração (ex: "LOOK")
+ * para buscar horários corretos em extracoes.
+ */
+function nomeLoteriaParaExtracao(nomeLoteria: string): string {
+  const n = nomeLoteria.toLowerCase().trim()
+  if (n.includes('look')) return 'look'
+  if (n.includes('lotep')) return 'lotep'
+  if (n.includes('lotece')) return 'lotece'
+  if (n.includes('paraiba') || n.includes('paraíba')) return 'lotep'
+  if (n.includes('para todos')) return 'para todos'
+  if ((n.includes('rio') || n.includes('rj')) && !n.includes('grande')) return 'pt rio'
+  if (n.includes('federal')) return 'federal'
+  if (n.includes('nacional')) return 'nacional'
+  if (n.includes('bahia')) return 'pt bahia'
+  if (n.includes('bandeirantes')) return 'pt sp (band)'
+  if (n.includes('sp') || n.includes('são paulo') || n.includes('sao paulo')) return 'pt sp'
+  return n
+}
+
+/**
  * Converte resposta da API para formato interno.
  * Aplica a todas as loterias/estados (PT RIO/RJ, PT SP/SP, PT BAHIA/BA, LOTEP/PB, LOOK/GO, LOTECE/CE, NACIONAL/BR, FEDERAL/BR).
  * Se dados for objeto, usa a chave como horário (ex: "21:00", "09:20") para evitar troca de extrações entre horários.
@@ -201,14 +221,11 @@ function converterResposta(
     ? Object.entries(dados)
     : (dados as AgenciaMidasExtracao[]).map((ext, i) => [i, ext])
 
-  const nomesLoteria = loteria.toLowerCase().trim()
-  const temposPorIndice =
-    extracoes.every((e) => !e.name || e.name.toLowerCase() !== nomesLoteria)
-      ? []
-      : extracoes
-          .filter((e) => e.name && e.name.toLowerCase() === nomesLoteria)
-          .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
-          .map((e) => e.time || '00:00')
+  const nomeExtracao = nomeLoteriaParaExtracao(loteria)
+  const temposPorIndice = extracoes
+    .filter((e) => e.name && e.name.toLowerCase() === nomeExtracao)
+    .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+    .map((e) => e.time || '00:00')
 
   entradas.forEach(([chaveOuIndice, extracao], index) => {
     if (!extracao.premios || !Array.isArray(extracao.premios)) {
@@ -233,14 +250,16 @@ function converterResposta(
     })
 
     // LOTEP (PB) e LOTECE (CE): só são sorteados 5 prêmios; 6º e 7º são calculados. Exibir só 7 prêmios.
-    if (nomesLoteria === 'lotep' || nomesLoteria === 'lotece') {
+    if (nomeExtracao === 'lotep' || nomeExtracao === 'lotece') {
       premios = calcularPremiosLotepLotece(premios)
     } else if (premios.length > 7) {
       premios = premios.slice(0, 7)
     }
 
-    // Prioridade: extracao.horario > chave do objeto normalizada (ex: "21:00") > nossa lista por índice > fallback 08:00, 09:00...
-    let horario = extracao.horario || null
+    // Prioridade: extracao.horario (normalizado) > chave do objeto > nossa lista por índice > fallback
+    let horario: string | null = extracao.horario
+      ? (normalizarChaveHorario(extracao.horario) || extracao.horario)
+      : null
     if (!horario && ehObjeto && typeof chaveOuIndice === 'string') {
       horario = normalizarChaveHorario(chaveOuIndice) || null
     }

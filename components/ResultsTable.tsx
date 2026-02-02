@@ -2,6 +2,7 @@
 
 import { SAMPLE_RESULTS, ResultData } from '@/data/results'
 import { ResultadoItem } from '@/types/resultados'
+import { formatDrawTimeForDisplay } from '@/lib/resultados-helpers'
 
 interface ResultsTableProps {
   date?: string
@@ -36,7 +37,7 @@ export default function ResultsTable({
     <div className="overflow-x-auto rounded-xl bg-white">
       <div className="mb-4">
         <h2 className="text-lg font-bold text-gray-950">
-          {date} - {drawTime}
+          {date} - {formatDrawTimeForDisplay(drawTime)}
         </h2>
         <p className="text-sm text-gray-600">Local: {location}</p>
       </div>

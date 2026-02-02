@@ -65,6 +65,23 @@ export function formatDateLabel(dateString?: string): string {
 }
 
 /**
+ * Formata horário para exibição (sempre HH:MM).
+ * Converte "11", "9", "11h", "9h20" etc. para "11:00", "09:00", "11:00", "09:20".
+ */
+export function formatDrawTimeForDisplay(drawTime?: string): string {
+  if (!drawTime || typeof drawTime !== 'string') return drawTime || '—'
+  const s = drawTime.trim().toLowerCase().replace(/\s/g, '')
+  if (/^\d{1,2}:\d{2}$/.test(s)) return drawTime.trim()
+  const mColon = s.match(/^(\d{1,2}):(\d{1,2})$/)
+  if (mColon) return `${mColon[1].padStart(2, '0')}:${mColon[2].padStart(2, '0')}`
+  const mH = s.match(/^(\d{1,2})h(\d{1,2})?$/)
+  if (mH) return `${mH[1].padStart(2, '0')}:${(mH[2] || '0').padStart(2, '0')}`
+  const mNum = s.match(/^(\d{1,2})$/)
+  if (mNum) return `${mNum[1].padStart(2, '0')}:00`
+  return drawTime.trim()
+}
+
+/**
  * Retorna a data padrão em formato ISO (hoje)
  */
 export function getDefaultDateISO(): string {

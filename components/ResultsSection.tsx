@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import Link from 'next/link'
 import { useResultados } from '@/hooks/useResultados'
 import { ResultadoItem } from '@/types/resultados'
-import { formatDateLabel, toIsoDate } from '@/lib/resultados-helpers'
+import { formatDateLabel, formatDrawTimeForDisplay, toIsoDate } from '@/lib/resultados-helpers'
 
 export default function ResultsSection() {
   const { results, loading } = useResultados()
@@ -96,7 +96,7 @@ export default function ResultsSection() {
               <div>
                 <h3 className="text-base font-bold text-blue uppercase">{g.loteria}</h3>
                 <p className="text-xs text-gray-600">
-                  {formatDateLabel(g.date)} • {g.drawTime}
+                  {formatDateLabel(g.date)} • {formatDrawTimeForDisplay(g.drawTime)}
                 </p>
               </div>
               <a
