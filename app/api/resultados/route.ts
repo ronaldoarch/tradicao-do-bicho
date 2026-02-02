@@ -229,8 +229,12 @@ const LOTERIAS_POR_UF: Record<string, string[]> = {
   GO: ['Look Goiás'],
   CE: ['Lotece'],
   BR: ['Loteria Nacional', 'Loteria Federal'],
-  MG: ['Loteria Nacional'],
-  DF: ['Loteria Nacional', 'Loteria Federal'],
+}
+
+// Nacional e Federal como opções diretas (em vez de Brasília/Belo Horizonte)
+const LOTERIAS_POR_LOCACAO: Record<string, string[]> = {
+  nacional: ['Loteria Nacional'],
+  federal: ['Loteria Federal'],
 }
 
 // Cache em memória: key = date|uf, value = { results, expires }
@@ -245,7 +249,19 @@ export async function GET(req: NextRequest) {
 
   try {
     const dataHoje = dateFilter || new Date().toISOString().split('T')[0]
-    const cacheKey = `${dataHoje}|${uf || 'all'}`
+    const locNorm = locationFilter ? normalizeText(locationFilter) : ''
+
+    // Nacional e Federal: buscar só a loteria correspondente
+    const loteriasPorLocacao = locNorm ? LOTERIAS_POR_LOCACAO[locNorm] : null
+    const loteriasParaBuscar = loteriasPorLocacao
+      ? loteriasPorLocacao
+      : uf && LOTERIAS_POR_UF[uf]
+        ? LOTERIAS_POR_UF[uf]
+        : LOTERIAS_PRINCIPAIS
+
+    const cacheKey = loteriasPorLocacao
+      ? `${dataHoje}|${locNorm}`
+      : `${dataHoje}|${uf || 'all'}`
 
     // Retorno instantâneo do cache se válido (dados já filtrados por cacheKey)
     const cached = cache.get(cacheKey)
@@ -255,10 +271,6 @@ export async function GET(req: NextRequest) {
         updatedAt: new Date().toISOString(),
       })
     }
-
-    // Buscar apenas loterias do estado (1-2 chamadas em vez de 9)
-    const loteriasParaBuscar =
-      uf && LOTERIAS_POR_UF[uf] ? LOTERIAS_POR_UF[uf] : LOTERIAS_PRINCIPAIS
 
     let results: ResultadoItem[] = []
     const extracaoStats: Record<string, { horarios: Set<string>, total: number }> = {}
