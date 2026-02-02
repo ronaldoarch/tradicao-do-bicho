@@ -106,6 +106,7 @@ const UF_ALIASES: Record<string, string> = {
   lotece: 'CE',
   mg: 'MG',
   minas: 'MG',
+  'belo horizonte': 'MG',
   pr: 'PR',
   parana: 'PR',
   'paraná': 'PR',
@@ -219,6 +220,23 @@ const LOTERIAS_PRINCIPAIS = [
   'Boa Sorte',
 ]
 
+// Buscar apenas loterias do estado selecionado (reduz de 9 para 1-2 chamadas)
+const LOTERIAS_POR_UF: Record<string, string[]> = {
+  RJ: ['PT Rio de Janeiro'],
+  SP: ['PT-SP/Bandeirantes'],
+  BA: ['PT Bahia'],
+  PB: ['PT Paraíba'],
+  GO: ['Look Goiás'],
+  CE: ['Lotece'],
+  BR: ['Loteria Nacional', 'Loteria Federal'],
+  MG: ['Loteria Nacional'],
+  DF: ['Loteria Nacional', 'Loteria Federal'],
+}
+
+// Cache em memória: key = date|uf, value = { results, expires }
+const cache = new Map<string, { results: ResultadoItem[]; expires: number }>()
+const CACHE_TTL_MS = 60_000 // 1 minuto
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const dateFilter = searchParams.get('date')
@@ -226,13 +244,25 @@ export async function GET(req: NextRequest) {
   const uf = resolveUF(locationFilter)
 
   try {
-    // Usar APENAS API da Agência Midas (sem fallback)
     const dataHoje = dateFilter || new Date().toISOString().split('T')[0]
-    
+    const cacheKey = `${dataHoje}|${uf || 'all'}`
+
+    // Retorno instantâneo do cache se válido (dados já filtrados por cacheKey)
+    const cached = cache.get(cacheKey)
+    if (cached && Date.now() < cached.expires) {
+      return NextResponse.json({
+        results: cached.results,
+        updatedAt: new Date().toISOString(),
+      })
+    }
+
+    // Buscar apenas loterias do estado (1-2 chamadas em vez de 9)
+    const loteriasParaBuscar =
+      uf && LOTERIAS_POR_UF[uf] ? LOTERIAS_POR_UF[uf] : LOTERIAS_PRINCIPAIS
+
     let results: ResultadoItem[] = []
     const extracaoStats: Record<string, { horarios: Set<string>, total: number }> = {}
-    
-    // Função auxiliar para buscar resultados de uma loteria
+
     const buscarLoteria = async (loteriaNome: string): Promise<{ loteria: string; resultados: any[] }> => {
       try {
         const resultadosAPI = await buscarResultadosAgenciaMidas(loteriaNome, dataHoje)
@@ -242,12 +272,10 @@ export async function GET(req: NextRequest) {
         return { loteria: loteriaNome, resultados: [] }
       }
     }
+
+    const promessasBusca = loteriasParaBuscar.map((loteriaNome) => buscarLoteria(loteriaNome))
     
-    // Criar array de promessas para executar TODAS as buscas em paralelo
-    const promessasBusca = LOTERIAS_PRINCIPAIS.map(loteriaNome => buscarLoteria(loteriaNome))
-    
-    // Executar todas as buscas em paralelo com timeout de 30 segundos
-    console.log(`🚀 Buscando ${LOTERIAS_PRINCIPAIS.length} loterias em paralelo (timeout: 30s)...`)
+    console.log(`🚀 Buscando ${loteriasParaBuscar.length} loteria(s) em paralelo (timeout: 30s)...`)
     const inicioBusca = Date.now()
     
     // Executar todas as buscas em paralelo com timeout de 30 segundos
@@ -276,13 +304,13 @@ export async function GET(req: NextRequest) {
         if (settled.status === 'fulfilled') {
           resultadosBuscados.push(settled.value)
         } else {
-          console.error(`❌ Falha ao buscar ${LOTERIAS_PRINCIPAIS[index]}:`, settled.reason)
+          console.error(`❌ Falha ao buscar ${loteriasParaBuscar[index]}:`, settled.reason)
         }
       })
     }
     
     const tempoBusca = Date.now() - inicioBusca
-    console.log(`✅ Busca concluída em ${tempoBusca}ms (${(tempoBusca / 1000).toFixed(1)}s) - ${resultadosBuscados.length}/${LOTERIAS_PRINCIPAIS.length} loterias processadas`)
+    console.log(`✅ Busca concluída em ${tempoBusca}ms (${(tempoBusca / 1000).toFixed(1)}s) - ${resultadosBuscados.length}/${loteriasParaBuscar.length} loterias processadas`)
     
     // Processar resultados obtidos
     for (const { loteria: loteriaNome, resultados: resultadosAPI } of resultadosBuscados) {
@@ -420,6 +448,12 @@ export async function GET(req: NextRequest) {
     results = gruposOrdenados
       .map(([, arr]) => orderByPosition(arr).slice(0, 7))
       .flat()
+
+    // Armazenar no cache para retorno instantâneo em requisições repetidas
+    cache.set(cacheKey, {
+      results,
+      expires: Date.now() + CACHE_TTL_MS,
+    })
 
     const payload: ResultadosResponse = {
       results,
