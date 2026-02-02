@@ -4,6 +4,7 @@ export interface ResultadoItem {
   grupo: string
   animal: string
   drawTime?: string
+  titulo?: string // Título completo da API (ex: "Resultado LOOK-GO 14:20")
   loteria?: string
   location?: string
   date?: string

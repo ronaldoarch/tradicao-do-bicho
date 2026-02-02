@@ -10,6 +10,7 @@ import { ANIMALS } from '@/data/animals'
 
 export interface AgenciaMidasResultado {
   horario: string
+  titulo?: string // ex: "Resultado LOOK-GO 14:20" - título completo da API
   premios: Array<{
     posicao: string // "1º", "2º", "7º"
     numero: string // "8051" (sempre 4 dígitos)
@@ -26,6 +27,7 @@ export interface AgenciaMidasExtracao {
     grupo?: string
   }>
   horario?: string
+  titulo?: string // ex: "Resultado LOOK-GO 14:20" - contém horário completo
   data?: string
 }
 
@@ -179,6 +181,39 @@ function normalizarChaveHorario(chave: string): string | null {
 }
 
 /**
+ * Extrai horário completo (HH:MM) do campo titulo da API.
+ * Ex: "Resultado LOOK-GO 14:20" -> "14:20", "Resultado PT-RJ 09:30" -> "09:30"
+ */
+function extrairHorarioDoTitulo(titulo?: string | null): string | null {
+  if (!titulo || typeof titulo !== 'string') return null
+  const m = titulo.match(/(\d{1,2}):(\d{2})\s*$/)
+  return m ? `${m[1].padStart(2, '0')}:${m[2]}` : null
+}
+
+/**
+ * Extrai a hora (0-23) de um horário "HH:MM" ou string como "7", "11", "11h20"
+ */
+function extrairHora(horario: string): number | null {
+  if (!horario || typeof horario !== 'string') return null
+  const norm = normalizarChaveHorario(horario) || horario.trim()
+  const m = norm.match(/^(\d{1,2})/)
+  return m ? parseInt(m[1], 10) : null
+}
+
+/**
+ * Encontra em temposPorIndice o horário que corresponde à hora da API.
+ * Ex: API "7" ou "07:00" -> hora 7 -> para LOOK retorna "07:20"
+ */
+function encontrarHorarioPorHora(temposPorIndice: string[], horaApi: number): string | null {
+  if (horaApi < 0 || horaApi > 23) return null
+  const match = temposPorIndice.find((t) => {
+    const h = parseInt(t.split(':')[0], 10)
+    return h === horaApi
+  })
+  return match || null
+}
+
+/**
  * Mapeia nome da loteria (ex: "Look Goiás") para nome da extração (ex: "LOOK")
  * para buscar horários corretos em extracoes.
  */
@@ -256,19 +291,24 @@ function converterResposta(
       premios = premios.slice(0, 7)
     }
 
-    // Prioridade: extracao.horario (normalizado) > chave do objeto > nossa lista por índice > fallback
-    let horario: string | null = extracao.horario
-      ? (normalizarChaveHorario(extracao.horario) || extracao.horario)
-      : null
-    if (!horario && ehObjeto && typeof chaveOuIndice === 'string') {
-      horario = normalizarChaveHorario(chaveOuIndice) || null
+    // A API retorna: horario="11" (só hora), titulo="Resultado LOOK-GO 11:20" (horário completo)
+    // Prioridade: titulo (exato) > nossa lista por hora > horario/chave normalizado
+    const horarioTitulo = extrairHorarioDoTitulo(extracao.titulo)
+    const valorApi = extracao.horario ?? (ehObjeto && typeof chaveOuIndice === 'string' ? chaveOuIndice : null)
+    const normApi = valorApi ? normalizarChaveHorario(valorApi) : null
+    const horaApi = valorApi ? extrairHora(valorApi) : null
+
+    let horario: string | null = horarioTitulo
+    if (!horario && temposPorIndice.length > 0 && horaApi !== null) {
+      horario = encontrarHorarioPorHora(temposPorIndice, horaApi)
     }
-    if (!horario) {
-      horario = temposPorIndice[index] ?? `${String(8 + index).padStart(2, '0')}:00`
-    }
+    if (!horario && normApi) horario = normApi
+    if (!horario && temposPorIndice[index]) horario = temposPorIndice[index]
+    if (!horario) horario = normApi ?? temposPorIndice[index] ?? `${String(8 + index).padStart(2, '0')}:00`
 
     resultados.push({
       horario,
+      titulo: extracao.titulo || undefined,
       premios,
     })
   })
