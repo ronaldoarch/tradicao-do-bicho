@@ -436,20 +436,37 @@ export class FrkApiClient {
       if (data.CodResposta === '013' && data.strErrorMessage?.includes('Favor ajustar para') && retryCount === 0) {
         const match = data.strErrorMessage.match(/(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})/)
         if (match) {
-          const horarioSugerido = match[1] // Formato: "04/02/2026 17:09"
-          console.log(`⚠️ API sugeriu horário: ${horarioSugerido}. Tentando novamente com este horário...`)
+          const horarioSugerido = match[1] // Formato: "04/02/2026 17:12"
+          console.log(`⚠️ API sugeriu horário: ${horarioSugerido}. Tentando novamente...`)
           
           // Extrair data e hora do horário sugerido (já está no formato brasileiro)
           const [dataPart, horaPart] = horarioSugerido.split(' ')
           
-          console.log(`🔄 Tentando novamente com horário sugerido: dataJogo=${dataPart}, dataHora=${horarioSugerido}`)
+          // Obter horário atual do servidor e converter para formato brasileiro
+          const agora = new Date()
+          // Converter para horário de Brasília (UTC-3)
+          const brasiliaOffset = -3 * 60 // UTC-3 em minutos
+          const utc = agora.getTime() + (agora.getTimezoneOffset() * 60000)
+          const brasiliaTime = new Date(utc + (brasiliaOffset * 60000))
           
-          // Tentar novamente com o horário sugerido diretamente (já está no formato brasileiro)
+          const diaTerminal = String(brasiliaTime.getUTCDate()).padStart(2, '0')
+          const mesTerminal = String(brasiliaTime.getUTCMonth() + 1).padStart(2, '0')
+          const anoTerminal = brasiliaTime.getUTCFullYear()
+          const horasTerminal = String(brasiliaTime.getUTCHours()).padStart(2, '0')
+          const minutosTerminal = String(brasiliaTime.getUTCMinutes()).padStart(2, '0')
+          const horarioTerminal = `${diaTerminal}/${mesTerminal}/${anoTerminal} ${horasTerminal}:${minutosTerminal}`
+          
+          console.log(`🔄 Tentando novamente com:`)
+          console.log(`   - sdtDataJogo: ${dataPart}`)
+          console.log(`   - sdtDataHora: ${horarioSugerido} (sugerido pela API)`)
+          console.log(`   - sdtDataHoraTerminal: ${horarioTerminal} (horário atual do terminal)`)
+          
+          // Usar horário sugerido para sdtDataHora, mas horário atual do terminal para sdtDataHoraTerminal
           return this.efetuarDescarga({
             ...request,
             sdtDataJogo: dataPart, // "04/02/2026"
-            sdtDataHora: horarioSugerido, // "04/02/2026 17:09"
-            sdtDataHoraTerminal: horarioSugerido, // "04/02/2026 17:09"
+            sdtDataHora: horarioSugerido, // "04/02/2026 17:12" (sugerido pela API)
+            sdtDataHoraTerminal: horarioTerminal, // Horário atual do terminal em Brasília
           }, retryCount + 1)
         }
       }
