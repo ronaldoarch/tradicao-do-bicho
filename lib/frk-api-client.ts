@@ -6,8 +6,8 @@
  */
 
 /**
- * Converte data/hora para formato brasileiro (DD/MM/YYYY HH:mm) no fuso horário de Brasília
- * Assume que a data recebida está em UTC e converte para UTC-3 (Brasília)
+ * Converte data/hora para formato brasileiro (DD/MM/YYYY HH:mm)
+ * Tenta manter o horário original sem conversão de fuso, pois a API pode fazer a conversão internamente
  */
 function formatarDataHoraBrasil(dataHora: string): string {
   // Se já está no formato DD/MM/YYYY HH:mm, retornar como está
@@ -21,13 +21,14 @@ function formatarDataHoraBrasil(dataHora: string): string {
   if (dataHora.includes('T')) {
     // Formato ISO: YYYY-MM-DDTHH:mm ou YYYY-MM-DDTHH:mm:ss
     const date = new Date(dataHora)
-    ano = date.getUTCFullYear()
-    mes = date.getUTCMonth() + 1
-    dia = date.getUTCDate()
-    horas = date.getUTCHours()
-    minutos = date.getUTCMinutes()
+    // Usar métodos locais para manter o horário como está
+    ano = date.getFullYear()
+    mes = date.getMonth() + 1
+    dia = date.getDate()
+    horas = date.getHours()
+    minutos = date.getMinutes()
   } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(dataHora)) {
-    // Formato YYYY-MM-DD HH:mm - assumir UTC
+    // Formato YYYY-MM-DD HH:mm - usar diretamente sem conversão
     const [dataPart, horaPart] = dataHora.split(' ')
     const [a, m, d] = dataPart.split('-').map(Number)
     const [h, min] = horaPart.split(':').map(Number)
@@ -39,23 +40,19 @@ function formatarDataHoraBrasil(dataHora: string): string {
   } else {
     // Tentar parse direto
     const date = new Date(dataHora)
-    ano = date.getUTCFullYear()
-    mes = date.getUTCMonth() + 1
-    dia = date.getUTCDate()
-    horas = date.getUTCHours()
-    minutos = date.getUTCMinutes()
+    ano = date.getFullYear()
+    mes = date.getMonth() + 1
+    dia = date.getDate()
+    horas = date.getHours()
+    minutos = date.getMinutes()
   }
   
-  // Converter de UTC para Brasília (UTC-3): subtrair 3 horas
-  const brasiliaDate = new Date(Date.UTC(ano, mes - 1, dia, horas, minutos))
-  brasiliaDate.setUTCHours(brasiliaDate.getUTCHours() - 3)
-  
-  // Formatar como DD/MM/YYYY HH:mm
-  const diaBR = String(brasiliaDate.getUTCDate()).padStart(2, '0')
-  const mesBR = String(brasiliaDate.getUTCMonth() + 1).padStart(2, '0')
-  const anoBR = brasiliaDate.getUTCFullYear()
-  const horasBR = String(brasiliaDate.getUTCHours()).padStart(2, '0')
-  const minutosBR = String(brasiliaDate.getUTCMinutes()).padStart(2, '0')
+  // Formatar como DD/MM/YYYY HH:mm (sem conversão de fuso)
+  const diaBR = String(dia).padStart(2, '0')
+  const mesBR = String(mes).padStart(2, '0')
+  const anoBR = ano
+  const horasBR = String(horas).padStart(2, '0')
+  const minutosBR = String(minutos).padStart(2, '0')
   
   return `${diaBR}/${mesBR}/${anoBR} ${horasBR}:${minutosBR}`
 }
@@ -412,6 +409,39 @@ export class FrkApiClient {
         this.accessToken = null
         this.tokenExpiresAt = 0
         return this.efetuarDescarga(request)
+      }
+
+      // Se erro de data/hora inválida, tentar extrair o horário sugerido da mensagem
+      if (data.CodResposta === '013' && data.strErrorMessage?.includes('Favor ajustar para')) {
+        const match = data.strErrorMessage.match(/(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})/)
+        if (match) {
+          const horarioSugerido = match[1]
+          console.log(`⚠️ API sugeriu horário: ${horarioSugerido}. Tentando novamente com este horário...`)
+          
+          // Extrair data e hora do horário sugerido
+          const [dataPart, horaPart] = horarioSugerido.split(' ')
+          const [dia, mes, ano] = dataPart.split('/')
+          const [horas, minutos] = horaPart.split(':')
+          
+          // Converter para formato que recebemos (YYYY-MM-DD HH:mm em UTC)
+          // O horário sugerido está em Brasília, então precisamos converter para UTC
+          const brasiliaDate = new Date(`${ano}-${mes}-${dia}T${horas}:${minutos}:00`)
+          // Adicionar 3 horas para converter de Brasília para UTC
+          const utcDate = new Date(brasiliaDate.getTime() + (3 * 60 * 60 * 1000))
+          
+          const novaDataJogo = `${ano}-${mes}-${dia}`
+          const novaDataHora = `${utcDate.getFullYear()}-${String(utcDate.getMonth() + 1).padStart(2, '0')}-${String(utcDate.getDate()).padStart(2, '0')} ${String(utcDate.getHours()).padStart(2, '0')}:${String(utcDate.getMinutes()).padStart(2, '0')}`
+          
+          console.log(`🔄 Tentando novamente com: dataJogo=${novaDataJogo}, dataHora=${novaDataHora}`)
+          
+          // Tentar novamente com o horário sugerido
+          return this.efetuarDescarga({
+            ...request,
+            sdtDataJogo: novaDataJogo,
+            sdtDataHora: novaDataHora,
+            sdtDataHoraTerminal: novaDataHora,
+          })
+        }
       }
 
       if (data.CodResposta !== '000') {
