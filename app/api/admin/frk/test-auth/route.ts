@@ -29,6 +29,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validar configuração antes de criar cliente
+    if (!config.grant || !config.CodigoIntegrador) {
+      return NextResponse.json({
+        success: false,
+        error: 'Grant ou Código Integrador não configurados',
+      }, { status: 400 })
+    }
+
     // Criar cliente e testar autenticação
     const client = new FrkApiClient(config)
     
@@ -37,8 +45,9 @@ export async function POST(request: NextRequest) {
       baseUrl: config.baseUrl,
       sistemaId: config.Sistema_ID,
       clienteId: config.Cliente_ID,
-      codigoIntegrador: config.CodigoIntegrador ? '***' : 'não configurado',
-      grant: config.grant ? '***' : 'não configurado',
+      bancaId: config.Banca_ID,
+      codigoIntegrador: config.CodigoIntegrador ? `${config.CodigoIntegrador.substring(0, 2)}***` : 'não configurado',
+      grant: config.grant ? `${config.grant.substring(0, 5)}***` : 'não configurado',
     })
 
     const token = await client.authenticate()
@@ -56,10 +65,12 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('❌ Erro ao testar autenticação FRK:', error)
     
+    const errorMessage = error?.message || error?.toString() || 'Erro desconhecido ao autenticar na API FRK'
+    
     return NextResponse.json({
       success: false,
-      error: error.message || 'Erro ao autenticar na API FRK',
-      details: error.toString(),
+      error: errorMessage,
+      details: error?.stack || error?.toString(),
     }, { status: 500 })
   }
 }

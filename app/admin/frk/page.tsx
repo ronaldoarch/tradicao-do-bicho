@@ -117,12 +117,15 @@ export default function FrkConfigPage() {
       const data = await response.json()
 
       if (data.success) {
-        alert(`✅ Autenticação bem-sucedida!\n\nCódigo de Resposta: ${data.data.codResposta}\nToken: ${data.data.accessToken.substring(0, 20)}...\nExpira em: ${data.data.expiraEm}s`)
+        alert(`✅ Autenticação bem-sucedida!\n\nCódigo de Resposta: ${data.data.codResposta}\nMensagem: ${data.data.mensagem}\nToken: ${data.data.accessToken.substring(0, 20)}...\nExpira em: ${data.data.expiraEm}s`)
       } else {
-        throw new Error(data.error || 'Erro ao testar autenticação')
+        const errorMsg = data.error || 'Erro ao testar autenticação'
+        const details = data.details ? `\n\nDetalhes: ${data.details.substring(0, 200)}` : ''
+        alert(`❌ Erro ao testar autenticação\n\n${errorMsg}${details}`)
       }
     } catch (error: any) {
-      alert(`❌ Erro ao testar autenticação: ${error.message || 'Erro desconhecido'}`)
+      console.error('Erro ao testar autenticação:', error)
+      alert(`❌ Erro ao testar autenticação: ${error.message || 'Erro desconhecido'}\n\nVerifique o console para mais detalhes.`)
     }
   }
 

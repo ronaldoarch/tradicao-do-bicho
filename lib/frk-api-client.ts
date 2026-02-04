@@ -159,6 +159,10 @@ export class FrkApiClient {
     }
 
     try {
+      console.log(`🔐 Autenticando em: ${url}`)
+      console.log(`📤 Headers: Grant=${this.config.grant ? '***' : 'não configurado'}, CodigoIntegrador=${this.config.CodigoIntegrador ? '***' : 'não configurado'}`)
+      console.log(`📤 Body:`, body)
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -169,14 +173,35 @@ export class FrkApiClient {
         body: JSON.stringify(body),
       })
 
+      const responseText = await response.text()
+      console.log(`📥 Resposta HTTP ${response.status}:`, responseText.substring(0, 200))
+
       if (!response.ok) {
-        throw new Error(`Erro HTTP ${response.status}: ${response.statusText}`)
+        let errorMessage = `Erro HTTP ${response.status}: ${response.statusText}`
+        try {
+          const errorData = JSON.parse(responseText)
+          if (errorData.mensagem) errorMessage += ` - ${errorData.mensagem}`
+          if (errorData.codResposta) errorMessage += ` (Código: ${errorData.codResposta})`
+        } catch {
+          errorMessage += ` - Resposta: ${responseText.substring(0, 100)}`
+        }
+        throw new Error(errorMessage)
       }
 
-      const data: FrkAuthResponse = await response.json()
+      let data: FrkAuthResponse
+      try {
+        data = JSON.parse(responseText)
+      } catch (parseError) {
+        throw new Error(`Resposta inválida da API: ${responseText.substring(0, 200)}`)
+      }
 
       if (data.codResposta !== '000') {
-        throw new Error(`Erro na autenticação: ${data.mensagem || data.codResposta}`)
+        const errorMsg = data.mensagem || `Código de resposta: ${data.codResposta}`
+        throw new Error(`Erro na autenticação: ${errorMsg}`)
+      }
+
+      if (!data.accessToken) {
+        throw new Error('Token não retornado pela API')
       }
 
       // Armazenar token e calcular expiração
@@ -186,9 +211,13 @@ export class FrkApiClient {
       console.log(`✅ Autenticação FRK bem-sucedida. Token expira em ${data.expiraEm}s`)
 
       return this.accessToken
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao autenticar na API FRK:', error)
-      throw error
+      // Re-throw com mensagem mais clara
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error(`Erro desconhecido: ${String(error)}`)
     }
   }
 
