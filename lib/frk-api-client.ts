@@ -418,12 +418,11 @@ export class FrkApiClient {
  * Mapeia tipo de jogo interno para código FRK
  */
 export function mapearTipoJogoFRK(modalidade: string, tipo: string): number {
-  // Mapeamento baseado na documentação
-  // Valores comuns: 1 = Grupo, 2 = Milhar, etc.
-  // Ajustar conforme necessário
+  // Mapeamento baseado na documentação FRK
+  // 1 = Milhar, 2 = Grupo, etc.
   const map: Record<string, number> = {
-    'GRUPO': 1,
-    'MILHAR': 2,
+    'MILHAR': 1,
+    'GRUPO': 2,
     'CENTENA': 3,
     'DEZENA': 4,
     'DUQUE_GRUPO': 5,
@@ -432,7 +431,7 @@ export function mapearTipoJogoFRK(modalidade: string, tipo: string): number {
     'TERNO_DEZENA': 8,
   }
 
-  return map[modalidade] || 1
+  return map[modalidade] || 1 // Default: milhar
 }
 
 /**

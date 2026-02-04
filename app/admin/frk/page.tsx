@@ -147,6 +147,46 @@ export default function FrkConfigPage() {
     }
   }
 
+  const handleTestDescarga = async () => {
+    try {
+      const hoje = new Date()
+      const dataJogo = hoje.toISOString().split('T')[0] // YYYY-MM-DD
+      const dataHora = hoje.toISOString().slice(0, 16).replace('T', ' ') // YYYY-MM-DD HH:mm
+
+      // Aposta de teste: milhar 1234, prêmio 1º, valor R$ 10,00
+      const apostas = [{
+        modalidade: 'MILHAR',
+        tipo: '',
+        numero: '1234',
+        premio: 1,
+        valor: 10.00,
+      }]
+
+      const response = await fetch('/api/admin/frk/descarga', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          dataJogo,
+          dataHora,
+          extracao: 130, // Extração de teste
+          apostas,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        alert(`✅ Descarga bem-sucedida!\n\nCódigo: ${data.resultado?.CodResposta || 'N/A'}\nMensagem: ${data.resultado?.Mensagem || data.message}\nPule: ${data.resultado?.intNumeroPule || 'N/A'}`)
+      } else {
+        throw new Error(data.error || data.message || 'Erro ao testar descarga')
+      }
+    } catch (error: any) {
+      console.error('Erro ao testar descarga:', error)
+      alert(`❌ Erro ao testar descarga: ${error.message || 'Erro desconhecido'}\n\nVerifique:\n- Configuração FRK salva\n- chrSerial, chrCodigoPonto, chrCodigoOperador preenchidos\n- Extração 130 cadastrada`)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -177,6 +217,12 @@ export default function FrkConfigPage() {
             className="rounded-lg bg-green-600 px-4 py-2 font-semibold text-white hover:bg-green-700 transition-colors"
           >
             🧪 Testar Conexão
+          </button>
+          <button
+            onClick={handleTestDescarga}
+            className="rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white hover:bg-purple-700 transition-colors"
+          >
+            📤 Testar Descarga
           </button>
         </div>
       </div>
@@ -342,14 +388,41 @@ export default function FrkConfigPage() {
         </form>
       </section>
 
+      <section className="bg-white rounded-xl shadow p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Teste de Descarga</h2>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+          <p className="text-sm text-gray-700 mb-2">
+            <strong>Dados de teste fornecidos:</strong>
+          </p>
+          <ul className="text-xs text-gray-600 space-y-1 font-mono">
+            <li>• chrSerial: <code className="bg-white px-1 rounded">99073001</code></li>
+            <li>• chrCodigoPonto: <code className="bg-white px-1 rounded">073001</code></li>
+            <li>• chrCodigoOperador: <code className="bg-white px-1 rounded">00073001</code></li>
+            <li>• tnyExtracao: <code className="bg-white px-1 rounded">130</code></li>
+            <li>• sntTipoJogo: <code className="bg-white px-1 rounded">1 (milhar)</code></li>
+          </ul>
+        </div>
+        <p className="text-sm text-gray-600 mb-4">
+          Preencha os campos acima com os valores de teste e clique em <strong>"📤 Testar Descarga"</strong> para enviar uma aposta de teste (milhar 1234, 1º prêmio, R$ 10,00) para a extração 130.
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={handleTestDescarga}
+            className="rounded-lg bg-purple-600 px-6 py-2 font-semibold text-white hover:bg-purple-700 transition-colors"
+          >
+            📤 Testar Descarga (Extração 130)
+          </button>
+        </div>
+      </section>
+
       <section className="bg-blue-50 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">ℹ️ Informações</h3>
         <ul className="space-y-2 text-sm text-gray-700">
           <li>• <strong>Grant</strong> e <strong>Código Integrador</strong> serão fornecidos pelo sistema de integração</li>
           <li>• <strong>Cliente ID</strong> e <strong>Banca ID</strong> geralmente são iguais (ex: 2853)</li>
-          <li>• Os campos opcionais podem ser preenchidos posteriormente</li>
+          <li>• Preencha <strong>chrSerial</strong>, <strong>chrCodigoPonto</strong> e <strong>chrCodigoOperador</strong> para testar descarga</li>
           <li>• A descarga automática será executada quando limites forem ultrapassados</li>
-          <li>• Use o botão "Testar Conexão" para verificar se as credenciais estão corretas</li>
+          <li>• Use os botões de teste para verificar cada etapa da integração</li>
         </ul>
       </section>
     </div>

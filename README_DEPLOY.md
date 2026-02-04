@@ -120,14 +120,17 @@ O schema do Prisma inclui as seguintes tabelas:
 
 **IMPORTANTE:** Os arquivos de upload (banners, logos, stories) são salvos em `public/uploads/`. Em containers Docker, esses arquivos são perdidos quando o container reinicia.
 
+📖 **Guia Completo:** Veja [docs/STORAGE_PERSISTENTE.md](./docs/STORAGE_PERSISTENTE.md) para instruções detalhadas.
+
 #### Opção 1: Volume Persistente (Recomendado)
 
-1. No painel do Colify, vá em **"Configuration"** → **"Persistent Storage"**
-2. Clique em **"Add Volume"**
+1. No painel do Coolify, vá em **"Configuration"** → **"Persistent Storage"**
+2. Clique em **"+ Add Volume"**
 3. Configure:
    - **Name**: `uploads-storage` (ou qualquer nome)
-   - **Mount Path**: `/app/public/uploads`
+   - **Mount Path**: `/app/public/uploads` ⚠️ **Deve ser exatamente este caminho**
    - **Size**: 5GB (ou o necessário)
+   - **Type**: `Directory Mount`
 4. Salve e reinicie a aplicação
 
 Isso garantirá que os arquivos de upload sejam persistidos mesmo quando o container reiniciar.
@@ -137,6 +140,7 @@ Isso garantirá que os arquivos de upload sejam persistidos mesmo quando o conta
 Para uma solução mais robusta, considere usar:
 - AWS S3
 - Cloudflare R2
+- DigitalOcean Spaces
 - DigitalOcean Spaces
 - Google Cloud Storage
 
