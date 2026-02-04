@@ -5,6 +5,79 @@
  * Base URL: https://frkentrypoint.com/ws.svc/
  */
 
+/**
+ * Converte data/hora para formato brasileiro (DD/MM/YYYY HH:mm) no fuso horário de Brasília
+ * Assume que a data recebida está em UTC e converte para UTC-3 (Brasília)
+ */
+function formatarDataHoraBrasil(dataHora: string): string {
+  // Se já está no formato DD/MM/YYYY HH:mm, retornar como está
+  if (/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(dataHora)) {
+    return dataHora
+  }
+
+  // Parse da data/hora
+  let ano: number, mes: number, dia: number, horas: number, minutos: number
+  
+  if (dataHora.includes('T')) {
+    // Formato ISO: YYYY-MM-DDTHH:mm ou YYYY-MM-DDTHH:mm:ss
+    const date = new Date(dataHora)
+    ano = date.getUTCFullYear()
+    mes = date.getUTCMonth() + 1
+    dia = date.getUTCDate()
+    horas = date.getUTCHours()
+    minutos = date.getUTCMinutes()
+  } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(dataHora)) {
+    // Formato YYYY-MM-DD HH:mm - assumir UTC
+    const [dataPart, horaPart] = dataHora.split(' ')
+    const [a, m, d] = dataPart.split('-').map(Number)
+    const [h, min] = horaPart.split(':').map(Number)
+    ano = a
+    mes = m
+    dia = d
+    horas = h
+    minutos = min
+  } else {
+    // Tentar parse direto
+    const date = new Date(dataHora)
+    ano = date.getUTCFullYear()
+    mes = date.getUTCMonth() + 1
+    dia = date.getUTCDate()
+    horas = date.getUTCHours()
+    minutos = date.getUTCMinutes()
+  }
+  
+  // Converter de UTC para Brasília (UTC-3): subtrair 3 horas
+  const brasiliaDate = new Date(Date.UTC(ano, mes - 1, dia, horas, minutos))
+  brasiliaDate.setUTCHours(brasiliaDate.getUTCHours() - 3)
+  
+  // Formatar como DD/MM/YYYY HH:mm
+  const diaBR = String(brasiliaDate.getUTCDate()).padStart(2, '0')
+  const mesBR = String(brasiliaDate.getUTCMonth() + 1).padStart(2, '0')
+  const anoBR = brasiliaDate.getUTCFullYear()
+  const horasBR = String(brasiliaDate.getUTCHours()).padStart(2, '0')
+  const minutosBR = String(brasiliaDate.getUTCMinutes()).padStart(2, '0')
+  
+  return `${diaBR}/${mesBR}/${anoBR} ${horasBR}:${minutosBR}`
+}
+
+/**
+ * Converte data para formato brasileiro (DD/MM/YYYY)
+ */
+function formatarDataBrasil(data: string): string {
+  // Se já está no formato DD/MM/YYYY, retornar como está
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(data)) {
+    return data
+  }
+
+  // Converter formato YYYY-MM-DD para DD/MM/YYYY
+  if (/^\d{4}-\d{2}-\d{2}/.test(data)) {
+    const [ano, mes, dia] = data.split('-')
+    return `${dia}/${mes}/${ano}`
+  }
+
+  return data
+}
+
 export interface FrkAuthRequest {
   Sistema_ID: number // Sempre 9
   Cliente_id: number // Cliente_ID fornecido
@@ -24,15 +97,15 @@ export interface FrkDescargaRequest {
   Sistema_ID: number // Sempre 9
   Cliente_ID: number // Igual ao Banca_ID
   Banca_ID: number
-  sdtDataJogo: string // "YYYY-MM-DD"
-  sdtDataHora: string // "YYYY-MM-DD HH:mm"
+  sdtDataJogo: string // "DD/MM/YYYY" (formato brasileiro)
+  sdtDataHora: string // "DD/MM/YYYY HH:mm" (formato brasileiro, horário de Brasília)
   tnyExtracao: number
   sntQuantidadeApostas: number
   numValorApostas: number
   chrSerial: string
   chrCodigoPonto: string
   chrCodigoOperador: string
-  sdtDataHoraTerminal: string // "YYYY-MM-DD HH:mm"
+  sdtDataHoraTerminal: string // "DD/MM/YYYY HH:mm" (formato brasileiro, horário de Brasília)
   vchVersaoTerminal: string
   arrApostas: Array<{
     sntTipoJogo: number
@@ -239,6 +312,24 @@ export class FrkApiClient {
 
     const url = `${this.config.baseUrl}/EfetuaDescarga`
 
+    // Converter datas para formato brasileiro (DD/MM/YYYY HH:mm) no fuso horário de Brasília
+    const sdtDataJogo = formatarDataBrasil(request.sdtDataJogo)
+    const sdtDataHora = formatarDataHoraBrasil(request.sdtDataHora)
+    const sdtDataHoraTerminal = formatarDataHoraBrasil(request.sdtDataHoraTerminal)
+
+    console.log('🕐 Conversão de datas:', {
+      original: {
+        sdtDataJogo: request.sdtDataJogo,
+        sdtDataHora: request.sdtDataHora,
+        sdtDataHoraTerminal: request.sdtDataHoraTerminal,
+      },
+      convertido: {
+        sdtDataJogo,
+        sdtDataHora,
+        sdtDataHoraTerminal,
+      },
+    })
+
     const body: FrkDescargaRequest = {
       accessToken,
       grant: this.config.grant,
@@ -251,6 +342,9 @@ export class FrkApiClient {
       chrCodigoOperador: this.config.chrCodigoOperador || '',
       vchVersaoTerminal: this.config.vchVersaoTerminal || '1.0.0',
       ...request,
+      sdtDataJogo,
+      sdtDataHora,
+      sdtDataHoraTerminal,
     }
 
     try {
