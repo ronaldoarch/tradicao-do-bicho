@@ -94,15 +94,15 @@ export interface FrkDescargaRequest {
   Sistema_ID: number // Sempre 9
   Cliente_ID: number // Igual ao Banca_ID
   Banca_ID: number
-  sdtDataJogo: string // "DD/MM/YYYY" (formato brasileiro)
-  sdtDataHora: string // "DD/MM/YYYY HH:mm" (formato brasileiro, horário de Brasília)
+  sdtDataJogo: string // "YYYY-MM-DD" (formato ISO conforme documentação FRK)
+  sdtDataHora: string // "YYYY-MM-DD HH:mm" (formato ISO conforme documentação FRK)
   tnyExtracao: number
   sntQuantidadeApostas: number
   numValorApostas: number
   chrSerial: string
   chrCodigoPonto: string
   chrCodigoOperador: string
-  sdtDataHoraTerminal: string // "DD/MM/YYYY HH:mm" (formato brasileiro, horário de Brasília)
+  sdtDataHoraTerminal: string // "YYYY-MM-DD HH:mm" (formato ISO conforme documentação FRK)
   vchVersaoTerminal: string
   arrApostas: Array<{
     sntTipoJogo: number
@@ -317,22 +317,54 @@ export class FrkApiClient {
 
     const url = `${this.config.baseUrl}/EfetuaDescarga`
 
-    // Se já está no formato brasileiro (DD/MM/YYYY), usar diretamente
-    // Caso contrário, converter
+    // Converter para formato ISO (YYYY-MM-DD HH:mm) conforme documentação FRK
+    // A documentação especifica: "sdtDataJogo": "2021-07-07", "sdtDataHora": "2021-07-07 11:44"
     let sdtDataJogo: string
     let sdtDataHora: string
     let sdtDataHoraTerminal: string
 
-    if (/^\d{2}\/\d{2}\/\d{4}/.test(request.sdtDataJogo)) {
-      // Já está no formato brasileiro
+    // Converter sdtDataJogo para YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(request.sdtDataJogo)) {
+      // Já está no formato ISO
       sdtDataJogo = request.sdtDataJogo
-      sdtDataHora = request.sdtDataHora
-      sdtDataHoraTerminal = request.sdtDataHoraTerminal
+    } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(request.sdtDataJogo)) {
+      // Converter de DD/MM/YYYY para YYYY-MM-DD
+      const [dia, mes, ano] = request.sdtDataJogo.split('/')
+      sdtDataJogo = `${ano}-${mes}-${dia}`
     } else {
-      // Converter para formato brasileiro
-      sdtDataJogo = formatarDataBrasil(request.sdtDataJogo)
-      sdtDataHora = formatarDataHoraBrasil(request.sdtDataHora)
-      sdtDataHoraTerminal = formatarDataHoraBrasil(request.sdtDataHoraTerminal)
+      // Tentar parse direto
+      const date = new Date(request.sdtDataJogo)
+      sdtDataJogo = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    }
+
+    // Converter sdtDataHora para YYYY-MM-DD HH:mm
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(request.sdtDataHora)) {
+      // Já está no formato ISO
+      sdtDataHora = request.sdtDataHora
+    } else if (/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(request.sdtDataHora)) {
+      // Converter de DD/MM/YYYY HH:mm para YYYY-MM-DD HH:mm
+      const [dataPart, horaPart] = request.sdtDataHora.split(' ')
+      const [dia, mes, ano] = dataPart.split('/')
+      sdtDataHora = `${ano}-${mes}-${dia} ${horaPart}`
+    } else {
+      // Tentar parse direto
+      const date = new Date(request.sdtDataHora.replace(' ', 'T'))
+      sdtDataHora = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+    }
+
+    // Converter sdtDataHoraTerminal para YYYY-MM-DD HH:mm
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(request.sdtDataHoraTerminal)) {
+      // Já está no formato ISO
+      sdtDataHoraTerminal = request.sdtDataHoraTerminal
+    } else if (/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(request.sdtDataHoraTerminal)) {
+      // Converter de DD/MM/YYYY HH:mm para YYYY-MM-DD HH:mm
+      const [dataPart, horaPart] = request.sdtDataHoraTerminal.split(' ')
+      const [dia, mes, ano] = dataPart.split('/')
+      sdtDataHoraTerminal = `${ano}-${mes}-${dia} ${horaPart}`
+    } else {
+      // Tentar parse direto
+      const date = new Date(request.sdtDataHoraTerminal.replace(' ', 'T'))
+      sdtDataHoraTerminal = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
     }
 
     console.log('🕐 Conversão de datas:', {
@@ -434,39 +466,51 @@ export class FrkApiClient {
 
       // Se erro de data/hora inválida, tentar extrair o horário sugerido da mensagem
       if (data.CodResposta === '013' && data.strErrorMessage?.includes('Favor ajustar para') && retryCount === 0) {
-        const match = data.strErrorMessage.match(/(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})/)
-        if (match) {
-          const horarioSugerido = match[1] // Formato: "04/02/2026 17:12"
+        // A API pode retornar horário em formato brasileiro (DD/MM/YYYY HH:mm) ou ISO (YYYY-MM-DD HH:mm)
+        const matchBR = data.strErrorMessage.match(/(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})/)
+        const matchISO = data.strErrorMessage.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/)
+        const horarioSugerido = matchBR ? matchBR[1] : (matchISO ? matchISO[1] : null)
+        
+        if (horarioSugerido) {
           console.log(`⚠️ API sugeriu horário: ${horarioSugerido}. Tentando novamente...`)
           
-          // Extrair data e hora do horário sugerido (já está no formato brasileiro)
-          const [dataPart, horaPart] = horarioSugerido.split(' ')
+          // Converter para formato ISO (YYYY-MM-DD HH:mm) conforme documentação
+          let sdtDataJogoISO: string
+          let sdtDataHoraISO: string
           
-          // Obter horário atual do servidor e converter para formato brasileiro
+          if (matchBR) {
+            // Converter de DD/MM/YYYY HH:mm para YYYY-MM-DD HH:mm
+            const [dataPart, horaPart] = horarioSugerido.split(' ')
+            const [dia, mes, ano] = dataPart.split('/')
+            sdtDataJogoISO = `${ano}-${mes}-${dia}`
+            sdtDataHoraISO = `${ano}-${mes}-${dia} ${horaPart}`
+          } else {
+            // Já está no formato ISO
+            const [dataPart, horaPart] = horarioSugerido.split(' ')
+            sdtDataJogoISO = dataPart
+            sdtDataHoraISO = horarioSugerido
+          }
+          
+          // Obter horário atual do servidor em formato ISO
           const agora = new Date()
-          // Converter para horário de Brasília (UTC-3)
-          const brasiliaOffset = -3 * 60 // UTC-3 em minutos
-          const utc = agora.getTime() + (agora.getTimezoneOffset() * 60000)
-          const brasiliaTime = new Date(utc + (brasiliaOffset * 60000))
+          const anoTerminal = agora.getFullYear()
+          const mesTerminal = String(agora.getMonth() + 1).padStart(2, '0')
+          const diaTerminal = String(agora.getDate()).padStart(2, '0')
+          const horasTerminal = String(agora.getHours()).padStart(2, '0')
+          const minutosTerminal = String(agora.getMinutes()).padStart(2, '0')
+          const horarioTerminalISO = `${anoTerminal}-${mesTerminal}-${diaTerminal} ${horasTerminal}:${minutosTerminal}`
           
-          const diaTerminal = String(brasiliaTime.getUTCDate()).padStart(2, '0')
-          const mesTerminal = String(brasiliaTime.getUTCMonth() + 1).padStart(2, '0')
-          const anoTerminal = brasiliaTime.getUTCFullYear()
-          const horasTerminal = String(brasiliaTime.getUTCHours()).padStart(2, '0')
-          const minutosTerminal = String(brasiliaTime.getUTCMinutes()).padStart(2, '0')
-          const horarioTerminal = `${diaTerminal}/${mesTerminal}/${anoTerminal} ${horasTerminal}:${minutosTerminal}`
-          
-          console.log(`🔄 Tentando novamente com:`)
-          console.log(`   - sdtDataJogo: ${dataPart}`)
-          console.log(`   - sdtDataHora: ${horarioSugerido} (sugerido pela API)`)
-          console.log(`   - sdtDataHoraTerminal: ${horarioTerminal} (horário atual do terminal)`)
+          console.log(`🔄 Tentando novamente com formato ISO:`)
+          console.log(`   - sdtDataJogo: ${sdtDataJogoISO}`)
+          console.log(`   - sdtDataHora: ${sdtDataHoraISO} (sugerido pela API)`)
+          console.log(`   - sdtDataHoraTerminal: ${horarioTerminalISO} (horário atual do terminal)`)
           
           // Usar horário sugerido para sdtDataHora, mas horário atual do terminal para sdtDataHoraTerminal
           return this.efetuarDescarga({
             ...request,
-            sdtDataJogo: dataPart, // "04/02/2026"
-            sdtDataHora: horarioSugerido, // "04/02/2026 17:12" (sugerido pela API)
-            sdtDataHoraTerminal: horarioTerminal, // Horário atual do terminal em Brasília
+            sdtDataJogo: sdtDataJogoISO, // "2026-02-04"
+            sdtDataHora: sdtDataHoraISO, // "2026-02-04 17:12" (sugerido pela API, formato ISO)
+            sdtDataHoraTerminal: horarioTerminalISO, // Horário atual do terminal em formato ISO
           }, retryCount + 1)
         }
       }
