@@ -206,7 +206,7 @@ export class FrkApiClient {
         this.accessToken = accessToken
         this.tokenExpiresAt = Date.now() + (expiraEm * 1000) - 60000
         console.log(`✅ Autenticação FRK bem-sucedida. Token expira em ${expiraEm}s`)
-        return this.accessToken
+        return accessToken
       }
 
       if (codResposta && codResposta !== '000') {
@@ -219,7 +219,7 @@ export class FrkApiClient {
 
       this.accessToken = accessToken
       this.tokenExpiresAt = Date.now() + (expiraEm * 1000) - 60000
-      return this.accessToken
+      return accessToken
     } catch (error: any) {
       console.error('❌ Erro ao autenticar na API FRK:', error)
       // Re-throw com mensagem mais clara
