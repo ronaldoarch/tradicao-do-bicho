@@ -97,6 +97,32 @@ export async function POST(request: NextRequest) {
       arrApostas,
     })
 
+    // Opcional: Buscar extrações disponíveis para validar antes de descarga
+    // Isso pode ajudar a identificar se a extração está disponível
+    try {
+      const dataFormatada = dataJogo.includes('/') ? dataJogo : dataJogo.split('-').reverse().join('/')
+      const extracoes = await client.buscarExtracoes(dataJogo)
+      const extracaoEncontrada = extracoes.find((e: any) => e.tnyExtracao === extracao)
+      
+      if (extracaoEncontrada) {
+        console.log(`✅ Extração ${extracao} encontrada:`, {
+          descricao: extracaoEncontrada.vchDescricao,
+          horario: extracaoEncontrada.chrHorario,
+          situacao: extracaoEncontrada.tnySituacao,
+          horarioBloqueio: extracaoEncontrada.chrHorarioBloqueio,
+        })
+        
+        // Se a extração tiver horário específico, podemos usar esse horário
+        if (extracaoEncontrada.chrHorario && extracaoEncontrada.tnySituacao === 1) {
+          console.log(`ℹ️ Extração ${extracao} está ativa com horário ${extracaoEncontrada.chrHorario}`)
+        }
+      } else {
+        console.warn(`⚠️ Extração ${extracao} não encontrada nas extrações disponíveis para ${dataJogo}`)
+      }
+    } catch (error: any) {
+      console.warn('⚠️ Não foi possível buscar extrações (continuando mesmo assim):', error.message)
+    }
+
     // Efetuar descarga
     const resultado = await client.efetuarDescarga({
       sdtDataJogo: dataJogo,

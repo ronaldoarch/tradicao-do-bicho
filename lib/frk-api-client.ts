@@ -472,8 +472,29 @@ export class FrkApiClient {
       }
 
       if (data.CodResposta !== '000') {
-        const errorMsg = `Erro na descarga: ${data.Mensagem || data.CodResposta}${data.strErrorMessage ? ' - ' + data.strErrorMessage : ''}`
+        let errorMsg = `Erro na descarga: ${data.Mensagem || data.CodResposta}`
+        
+        if (data.strErrorMessage) {
+          errorMsg += ` - ${data.strErrorMessage}`
+        }
+        
+        // Adicionar informações adicionais para erro 013
+        if (data.CodResposta === '013') {
+          errorMsg += '\n\n💡 Possíveis causas:'
+          errorMsg += '\n- Extração pode não estar disponível/ativa no horário especificado'
+          errorMsg += '\n- Horário do terminal pode não estar sincronizado com servidor FRK'
+          errorMsg += '\n- Configuração do terminal (chrSerial, chrCodigoPonto, chrCodigoOperador) pode estar incorreta'
+          errorMsg += '\n- Verifique se a extração existe e está ativa usando a API de extrações'
+        }
+        
         console.error('❌', errorMsg)
+        console.error('📋 Detalhes da resposta:', {
+          CodResposta: data.CodResposta,
+          Mensagem: data.Mensagem,
+          strErrorMessage: data.strErrorMessage,
+          intCodigoRetorno: data.intCodigoRetorno,
+        })
+        
         throw new Error(errorMsg)
       }
 
