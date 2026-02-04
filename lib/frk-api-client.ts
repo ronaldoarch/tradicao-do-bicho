@@ -188,28 +188,37 @@ export class FrkApiClient {
         throw new Error(errorMessage)
       }
 
-      let data: FrkAuthResponse
+      let raw: any
       try {
-        data = JSON.parse(responseText)
+        raw = JSON.parse(responseText)
       } catch (parseError) {
         throw new Error(`Resposta inválida da API: ${responseText.substring(0, 200)}`)
       }
 
-      if (data.codResposta !== '000') {
-        const errorMsg = data.mensagem || `Código de resposta: ${data.codResposta}`
-        throw new Error(`Erro na autenticação: ${errorMsg}`)
+      // Aceitar resposta em camelCase ou PascalCase (API pode variar)
+      const codResposta = raw.codResposta ?? raw.CodResposta ?? raw.cod_resposta
+      const mensagem = raw.mensagem ?? raw.Mensagem ?? ''
+      const accessToken = raw.accessToken ?? raw.AccessToken ?? raw.access_token
+      const expiraEm = raw.expiraEm ?? raw.ExpiraEm ?? raw.expira_em ?? 3600
+
+      if (accessToken && (codResposta === '000' || codResposta === undefined)) {
+        // Sucesso: tem token e código 000 ou API não retornou código
+        this.accessToken = accessToken
+        this.tokenExpiresAt = Date.now() + (expiraEm * 1000) - 60000
+        console.log(`✅ Autenticação FRK bem-sucedida. Token expira em ${expiraEm}s`)
+        return this.accessToken
       }
 
-      if (!data.accessToken) {
-        throw new Error('Token não retornado pela API')
+      if (codResposta && codResposta !== '000') {
+        throw new Error(mensagem || `Código de resposta da API: ${codResposta}`)
       }
 
-      // Armazenar token e calcular expiração
-      this.accessToken = data.accessToken
-      this.tokenExpiresAt = Date.now() + (data.expiraEm * 1000) - 60000 // 1 minuto antes de expirar
+      if (!accessToken) {
+        throw new Error(mensagem || 'Token não retornado pela API. Verifique Grant, Código Integrador e URL.')
+      }
 
-      console.log(`✅ Autenticação FRK bem-sucedida. Token expira em ${data.expiraEm}s`)
-
+      this.accessToken = accessToken
+      this.tokenExpiresAt = Date.now() + (expiraEm * 1000) - 60000
       return this.accessToken
     } catch (error: any) {
       console.error('❌ Erro ao autenticar na API FRK:', error)
