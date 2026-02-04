@@ -100,8 +100,14 @@ export async function POST(request: NextRequest) {
     // Opcional: Buscar extrações disponíveis para validar antes de descarga
     // Isso pode ajudar a identificar se a extração está disponível
     try {
-      const dataFormatada = dataJogo.includes('/') ? dataJogo : dataJogo.split('-').reverse().join('/')
-      const extracoes = await client.buscarExtracoes(dataJogo)
+      // Converter data para formato YYYY-MM-DD se necessário
+      let dataParaBusca = dataJogo
+      if (dataJogo.includes('/')) {
+        const [dia, mes, ano] = dataJogo.split('/')
+        dataParaBusca = `${ano}-${mes}-${dia}`
+      }
+      
+      const extracoes = await client.buscarExtracoes(dataParaBusca)
       const extracaoEncontrada = extracoes.find((e: any) => e.tnyExtracao === extracao)
       
       if (extracaoEncontrada) {
@@ -115,9 +121,17 @@ export async function POST(request: NextRequest) {
         // Se a extração tiver horário específico, podemos usar esse horário
         if (extracaoEncontrada.chrHorario && extracaoEncontrada.tnySituacao === 1) {
           console.log(`ℹ️ Extração ${extracao} está ativa com horário ${extracaoEncontrada.chrHorario}`)
+        } else if (extracaoEncontrada.tnySituacao !== 1) {
+          console.warn(`⚠️ Extração ${extracao} encontrada mas não está ativa (situação: ${extracaoEncontrada.tnySituacao})`)
         }
       } else {
         console.warn(`⚠️ Extração ${extracao} não encontrada nas extrações disponíveis para ${dataJogo}`)
+        console.log(`ℹ️ Extrações disponíveis:`, extracoes.map((e: any) => ({
+          numero: e.tnyExtracao,
+          descricao: e.vchDescricao,
+          horario: e.chrHorario,
+          situacao: e.tnySituacao,
+        })))
       }
     } catch (error: any) {
       console.warn('⚠️ Não foi possível buscar extrações (continuando mesmo assim):', error.message)
