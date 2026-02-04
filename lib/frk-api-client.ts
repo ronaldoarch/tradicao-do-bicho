@@ -254,6 +254,15 @@ export class FrkApiClient {
     }
 
     try {
+      console.log('📤 Enviando descarga para FRK:', {
+        url,
+        body: {
+          ...body,
+          accessToken: accessToken.substring(0, 20) + '...',
+          grant: body.grant ? '***' : undefined,
+        },
+      })
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -264,11 +273,44 @@ export class FrkApiClient {
         body: JSON.stringify(body),
       })
 
+      console.log(`📥 Resposta HTTP: ${response.status} ${response.statusText}`)
+
       if (!response.ok) {
-        throw new Error(`Erro HTTP ${response.status}: ${response.statusText}`)
+        const errorText = await response.text().catch(() => 'Erro ao ler resposta')
+        console.error('❌ Erro HTTP na descarga:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText.substring(0, 500),
+        })
+        throw new Error(`Erro HTTP ${response.status}: ${response.statusText}. Resposta: ${errorText.substring(0, 200)}`)
       }
 
-      const data: FrkDescargaResponse = await response.json()
+      const responseText = await response.text()
+      console.log('📥 Resposta completa:', responseText.substring(0, 500))
+
+      let data: FrkDescargaResponse
+      try {
+        data = JSON.parse(responseText)
+      } catch (parseError) {
+        console.error('❌ Erro ao fazer parse da resposta JSON:', parseError)
+        console.error('Resposta recebida:', responseText)
+        throw new Error(`Resposta inválida da API FRK: ${responseText.substring(0, 200)}`)
+      }
+
+      // Normalizar campos (PascalCase ou camelCase)
+      if (!data.CodResposta && (data as any).codResposta) {
+        data = {
+          ...data,
+          CodResposta: (data as any).codResposta,
+          Mensagem: (data as any).mensagem || (data as any).Mensagem,
+          intCodigoRetorno: (data as any).intCodigoRetorno || (data as any).intCodigoRetorno,
+          intNumeroPule: (data as any).intNumeroPule || (data as any).intNumeroPule,
+          isError: (data as any).isError || false,
+          strErrorMessage: (data as any).strErrorMessage || (data as any).strErrorMessage || '',
+        }
+      }
+
+      console.log('📋 Dados normalizados:', data)
 
       // Se token inválido, tentar reautenticar uma vez
       if (data.CodResposta === '001') {
@@ -279,15 +321,20 @@ export class FrkApiClient {
       }
 
       if (data.CodResposta !== '000') {
-        throw new Error(`Erro na descarga: ${data.Mensagem || data.CodResposta} - ${data.strErrorMessage || ''}`)
+        const errorMsg = `Erro na descarga: ${data.Mensagem || data.CodResposta}${data.strErrorMessage ? ' - ' + data.strErrorMessage : ''}`
+        console.error('❌', errorMsg)
+        throw new Error(errorMsg)
       }
 
       console.log(`✅ Descarga efetuada com sucesso. Pule: ${data.intNumeroPule}`)
 
       return data
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao efetuar descarga:', error)
-      throw error
+      if (error.message) {
+        throw error
+      }
+      throw new Error(`Erro ao efetuar descarga: ${error.toString()}`)
     }
   }
 
