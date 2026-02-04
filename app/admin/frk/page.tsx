@@ -107,6 +107,25 @@ export default function FrkConfigPage() {
     }
   }
 
+  const handleTestAuth = async () => {
+    try {
+      const response = await fetch('/api/admin/frk/test-auth', {
+        method: 'POST',
+        credentials: 'include',
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        alert(`✅ Autenticação bem-sucedida!\n\nCódigo de Resposta: ${data.data.codResposta}\nToken: ${data.data.accessToken.substring(0, 20)}...\nExpira em: ${data.data.expiraEm}s`)
+      } else {
+        throw new Error(data.error || 'Erro ao testar autenticação')
+      }
+    } catch (error: any) {
+      alert(`❌ Erro ao testar autenticação: ${error.message || 'Erro desconhecido'}`)
+    }
+  }
+
   const handleTestConnection = async () => {
     try {
       const response = await fetch('/api/admin/frk/extracoes?data=' + new Date().toISOString().split('T')[0], {
@@ -143,12 +162,20 @@ export default function FrkConfigPage() {
           <h1 className="text-3xl font-bold text-gray-900">Configuração API FRK</h1>
           <p className="text-gray-600 mt-2">Configure as credenciais para integração com a API FRK de descarga</p>
         </div>
-        <button
-          onClick={handleTestConnection}
-          className="rounded-lg bg-green-600 px-4 py-2 font-semibold text-white hover:bg-green-700 transition-colors"
-        >
-          🧪 Testar Conexão
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleTestAuth}
+            className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 transition-colors"
+          >
+            🔐 Testar Autenticação
+          </button>
+          <button
+            onClick={handleTestConnection}
+            className="rounded-lg bg-green-600 px-4 py-2 font-semibold text-white hover:bg-green-700 transition-colors"
+          >
+            🧪 Testar Conexão
+          </button>
+        </div>
       </div>
 
       <section className="bg-white rounded-xl shadow p-6">
