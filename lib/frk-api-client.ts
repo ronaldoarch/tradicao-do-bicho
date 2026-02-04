@@ -303,16 +303,37 @@ export class FrkApiClient {
   /**
    * Efetua descarga (envia apostas)
    */
-  async efetuarDescarga(request: Omit<FrkDescargaRequest, 'accessToken' | 'grant' | 'CodigoIntegrador' | 'Sistema_ID' | 'Cliente_ID' | 'Banca_ID' | 'chrSerial' | 'chrCodigoPonto' | 'chrCodigoOperador' | 'vchVersaoTerminal'>): Promise<FrkDescargaResponse> {
+  async efetuarDescarga(
+    request: Omit<FrkDescargaRequest, 'accessToken' | 'grant' | 'CodigoIntegrador' | 'Sistema_ID' | 'Cliente_ID' | 'Banca_ID' | 'chrSerial' | 'chrCodigoPonto' | 'chrCodigoOperador' | 'vchVersaoTerminal'>,
+    retryCount: number = 0
+  ): Promise<FrkDescargaResponse> {
+    // Limitar tentativas para evitar loop infinito
+    if (retryCount > 1) {
+      throw new Error('Máximo de tentativas de descarga excedido')
+    }
+
     // Garantir que está autenticado
     const accessToken = await this.authenticate()
 
     const url = `${this.config.baseUrl}/EfetuaDescarga`
 
-    // Converter datas para formato brasileiro (DD/MM/YYYY HH:mm) no fuso horário de Brasília
-    const sdtDataJogo = formatarDataBrasil(request.sdtDataJogo)
-    const sdtDataHora = formatarDataHoraBrasil(request.sdtDataHora)
-    const sdtDataHoraTerminal = formatarDataHoraBrasil(request.sdtDataHoraTerminal)
+    // Se já está no formato brasileiro (DD/MM/YYYY), usar diretamente
+    // Caso contrário, converter
+    let sdtDataJogo: string
+    let sdtDataHora: string
+    let sdtDataHoraTerminal: string
+
+    if (/^\d{2}\/\d{2}\/\d{4}/.test(request.sdtDataJogo)) {
+      // Já está no formato brasileiro
+      sdtDataJogo = request.sdtDataJogo
+      sdtDataHora = request.sdtDataHora
+      sdtDataHoraTerminal = request.sdtDataHoraTerminal
+    } else {
+      // Converter para formato brasileiro
+      sdtDataJogo = formatarDataBrasil(request.sdtDataJogo)
+      sdtDataHora = formatarDataHoraBrasil(request.sdtDataHora)
+      sdtDataHoraTerminal = formatarDataHoraBrasil(request.sdtDataHoraTerminal)
+    }
 
     console.log('🕐 Conversão de datas:', {
       original: {
@@ -408,39 +429,28 @@ export class FrkApiClient {
         console.log('⚠️ Token inválido, tentando reautenticar...')
         this.accessToken = null
         this.tokenExpiresAt = 0
-        return this.efetuarDescarga(request)
+        return this.efetuarDescarga(request, retryCount)
       }
 
       // Se erro de data/hora inválida, tentar extrair o horário sugerido da mensagem
-      if (data.CodResposta === '013' && data.strErrorMessage?.includes('Favor ajustar para')) {
+      if (data.CodResposta === '013' && data.strErrorMessage?.includes('Favor ajustar para') && retryCount === 0) {
         const match = data.strErrorMessage.match(/(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})/)
         if (match) {
-          const horarioSugerido = match[1]
+          const horarioSugerido = match[1] // Formato: "04/02/2026 17:09"
           console.log(`⚠️ API sugeriu horário: ${horarioSugerido}. Tentando novamente com este horário...`)
           
-          // Extrair data e hora do horário sugerido
+          // Extrair data e hora do horário sugerido (já está no formato brasileiro)
           const [dataPart, horaPart] = horarioSugerido.split(' ')
-          const [dia, mes, ano] = dataPart.split('/')
-          const [horas, minutos] = horaPart.split(':')
           
-          // Converter para formato que recebemos (YYYY-MM-DD HH:mm em UTC)
-          // O horário sugerido está em Brasília, então precisamos converter para UTC
-          const brasiliaDate = new Date(`${ano}-${mes}-${dia}T${horas}:${minutos}:00`)
-          // Adicionar 3 horas para converter de Brasília para UTC
-          const utcDate = new Date(brasiliaDate.getTime() + (3 * 60 * 60 * 1000))
+          console.log(`🔄 Tentando novamente com horário sugerido: dataJogo=${dataPart}, dataHora=${horarioSugerido}`)
           
-          const novaDataJogo = `${ano}-${mes}-${dia}`
-          const novaDataHora = `${utcDate.getFullYear()}-${String(utcDate.getMonth() + 1).padStart(2, '0')}-${String(utcDate.getDate()).padStart(2, '0')} ${String(utcDate.getHours()).padStart(2, '0')}:${String(utcDate.getMinutes()).padStart(2, '0')}`
-          
-          console.log(`🔄 Tentando novamente com: dataJogo=${novaDataJogo}, dataHora=${novaDataHora}`)
-          
-          // Tentar novamente com o horário sugerido
+          // Tentar novamente com o horário sugerido diretamente (já está no formato brasileiro)
           return this.efetuarDescarga({
             ...request,
-            sdtDataJogo: novaDataJogo,
-            sdtDataHora: novaDataHora,
-            sdtDataHoraTerminal: novaDataHora,
-          })
+            sdtDataJogo: dataPart, // "04/02/2026"
+            sdtDataHora: horarioSugerido, // "04/02/2026 17:09"
+            sdtDataHoraTerminal: horarioSugerido, // "04/02/2026 17:09"
+          }, retryCount + 1)
         }
       }
 
