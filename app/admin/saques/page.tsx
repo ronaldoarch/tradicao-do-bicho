@@ -12,7 +12,8 @@ interface Saque {
 
 export default function SaquesPage() {
   const [saques, setSaques] = useState<Saque[]>([])
-  const [limiteSaque, setLimiteSaque] = useState({ minimo: 10, maximo: 10000 })
+  const [limiteSaque, setLimiteSaque] = useState({ minimo: 30, maximo: 10000 })
+  const [limiteDepositoMinimo, setLimiteDepositoMinimo] = useState(25)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -24,7 +25,8 @@ export default function SaquesPage() {
       const response = await fetch('/api/admin/saques')
       const data = await response.json()
       setSaques(data.saques || [])
-      setLimiteSaque(data.limiteSaque || { minimo: 10, maximo: 10000 })
+      setLimiteSaque(data.limiteSaque || { minimo: 30, maximo: 10000 })
+      setLimiteDepositoMinimo(data.limiteDepositoMinimo ?? 25)
     } catch (error) {
       console.error('Erro ao carregar dados:', error)
     } finally {
@@ -50,12 +52,12 @@ export default function SaquesPage() {
       await fetch('/api/admin/saques', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limiteSaque }),
+        body: JSON.stringify({ limiteSaque, limiteDepositoMinimo }),
       })
-      alert('Limite de saque atualizado com sucesso!')
+      alert('Limites atualizados com sucesso!')
     } catch (error) {
-      console.error('Erro ao atualizar limite:', error)
-      alert('Erro ao atualizar limite')
+      console.error('Erro ao atualizar limites:', error)
+      alert('Erro ao atualizar limites')
     }
   }
 
@@ -67,25 +69,40 @@ export default function SaquesPage() {
     <div>
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Gerenciar Saques</h1>
 
-      {/* Limite de Saque */}
+      {/* Limites de Saque e Depósito */}
       <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Limite de Saque</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Limites de Saque e Depósito</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Mínimo (R$)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Saque mínimo (R$)</label>
             <input
               type="number"
+              step="0.01"
+              min="0"
               value={limiteSaque.minimo}
-              onChange={(e) => setLimiteSaque({ ...limiteSaque, minimo: parseFloat(e.target.value) })}
+              onChange={(e) => setLimiteSaque({ ...limiteSaque, minimo: parseFloat(e.target.value) || 0 })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Máximo (R$)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Saque máximo (R$)</label>
             <input
               type="number"
+              step="0.01"
+              min="0"
               value={limiteSaque.maximo}
-              onChange={(e) => setLimiteSaque({ ...limiteSaque, maximo: parseFloat(e.target.value) })}
+              onChange={(e) => setLimiteSaque({ ...limiteSaque, maximo: parseFloat(e.target.value) || 0 })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Depósito mínimo (R$)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={limiteDepositoMinimo}
+              onChange={(e) => setLimiteDepositoMinimo(parseFloat(e.target.value) || 0)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg"
             />
           </div>

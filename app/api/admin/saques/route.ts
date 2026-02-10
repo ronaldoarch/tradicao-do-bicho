@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getConfiguracoes, updateConfiguracoes } from '@/lib/configuracoes-store'
 
 export const dynamic = 'force-dynamic'
-
-// Limites de saque (sem tabela no schema; pode ser movido para config/DB depois)
-let limiteSaque = { minimo: 10, maximo: 10000 }
 
 function formatSaqueForAdmin(saque: {
   id: number
@@ -30,15 +28,28 @@ function formatSaqueForAdmin(saque: {
  */
 export async function GET() {
   try {
-    const saquesDb = await prisma.saque.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: {
-        usuario: { select: { nome: true, email: true } },
-      },
-      take: 500, // Limitar para evitar sobrecarga
-    })
+    const [saquesDb, config] = await Promise.all([
+      prisma.saque.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: {
+          usuario: { select: { nome: true, email: true } },
+        },
+        take: 500,
+      }),
+      getConfiguracoes(),
+    ])
     const saques = saquesDb.map(formatSaqueForAdmin)
-    return NextResponse.json({ saques, total: saques.length, limiteSaque })
+    const limiteSaque = {
+      minimo: config.limiteSaqueMinimo ?? 30,
+      maximo: config.limiteSaqueMaximo ?? 10000,
+    }
+    const limiteDepositoMinimo = config.limiteDepositoMinimo ?? 25
+    return NextResponse.json({
+      saques,
+      total: saques.length,
+      limiteSaque,
+      limiteDepositoMinimo,
+    })
   } catch (error) {
     console.error('Erro ao listar saques (admin):', error)
     return NextResponse.json(
@@ -56,12 +67,23 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
 
-    if (body.limiteSaque) {
-      limiteSaque = { ...limiteSaque, ...body.limiteSaque }
-      return NextResponse.json({
-        limiteSaque,
-        message: 'Limite de saque atualizado com sucesso',
-      })
+    if (body.limiteSaque || body.limiteDepositoMinimo !== undefined) {
+      const updates: Record<string, number> = {}
+      if (body.limiteSaque?.minimo !== undefined) updates.limiteSaqueMinimo = body.limiteSaque.minimo
+      if (body.limiteSaque?.maximo !== undefined) updates.limiteSaqueMaximo = body.limiteSaque.maximo
+      if (body.limiteDepositoMinimo !== undefined) updates.limiteDepositoMinimo = body.limiteDepositoMinimo
+      if (Object.keys(updates).length > 0) {
+        await updateConfiguracoes(updates)
+        const config = await getConfiguracoes()
+        return NextResponse.json({
+          limiteSaque: {
+            minimo: config.limiteSaqueMinimo ?? 30,
+            maximo: config.limiteSaqueMaximo ?? 10000,
+          },
+          limiteDepositoMinimo: config.limiteDepositoMinimo ?? 25,
+          message: 'Limites atualizados com sucesso',
+        })
+      }
     }
 
     const { id, status, motivo } = body

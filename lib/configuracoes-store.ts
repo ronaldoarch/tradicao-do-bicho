@@ -26,6 +26,9 @@ function normalizeConfiguracoes(updates: any) {
   if (updates.emailSuporte !== undefined) data.emailSuporte = updates.emailSuporte
   if (updates.whatsappSuporte !== undefined) data.whatsappSuporte = updates.whatsappSuporte
   if (updates.logoSite !== undefined) data.logoSite = updates.logoSite
+  if (updates.limiteSaqueMinimo !== undefined) data.limiteSaqueMinimo = updates.limiteSaqueMinimo
+  if (updates.limiteSaqueMaximo !== undefined) data.limiteSaqueMaximo = updates.limiteSaqueMaximo
+  if (updates.limiteDepositoMinimo !== undefined) data.limiteDepositoMinimo = updates.limiteDepositoMinimo
   return data
 }
 

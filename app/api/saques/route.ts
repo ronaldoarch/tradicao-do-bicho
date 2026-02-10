@@ -4,6 +4,7 @@ import { parseSessionToken } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getActiveGateway } from '@/lib/gateways-store'
 import { getGateboxConfig, gateboxWithdraw } from '@/lib/gatebox-client'
+import { getConfiguracoes } from '@/lib/configuracoes-store'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,22 @@ export async function POST(request: NextRequest) {
 
     if (!valor || valor <= 0) {
       return NextResponse.json({ error: 'Valor inválido' }, { status: 400 })
+    }
+
+    const config = await getConfiguracoes()
+    const minSaque = config.limiteSaqueMinimo ?? 30
+    const maxSaque = config.limiteSaqueMaximo ?? 10000
+    if (valor < minSaque) {
+      return NextResponse.json(
+        { error: `Valor mínimo para saque é R$ ${minSaque.toFixed(2).replace('.', ',')}.` },
+        { status: 400 }
+      )
+    }
+    if (valor > maxSaque) {
+      return NextResponse.json(
+        { error: `Valor máximo para saque é R$ ${maxSaque.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.` },
+        { status: 400 }
+      )
     }
 
     const gateway = await getActiveGateway()

@@ -29,16 +29,41 @@ export default function CarteiraPage() {
   const [user, setUser] = useState<UserInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [showDepositModal, setShowDepositModal] = useState(false)
-  const [depositValue, setDepositValue] = useState('25,00')
-  const [withdrawValue, setWithdrawValue] = useState('30,00')
+  const [depositValue, setDepositValue] = useState('')
+  const [withdrawValue, setWithdrawValue] = useState('')
   const [withdrawChavePix, setWithdrawChavePix] = useState('')
   const [withdrawLoading, setWithdrawLoading] = useState(false)
   const [withdrawError, setWithdrawError] = useState<string | null>(null)
   const [withdrawSuccess, setWithdrawSuccess] = useState<string | null>(null)
+  const [depositError, setDepositError] = useState<string | null>(null)
 
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [transactionsLoading, setTransactionsLoading] = useState(true)
   const [filtroTransacoes, setFiltroTransacoes] = useState<'todas' | 'depositos' | 'saques'>('todas')
+  const [limites, setLimites] = useState({ saqueMinimo: 30, saqueMaximo: 10000, depositoMinimo: 25 })
+
+  const loadLimites = async () => {
+    try {
+      const res = await fetch('/api/configuracoes')
+      if (res.ok) {
+        const data = await res.json()
+        const c = data.configuracoes || {}
+        const minSaque = c.limiteSaqueMinimo ?? 30
+        const minDep = c.limiteDepositoMinimo ?? 25
+        setLimites({
+          saqueMinimo: minSaque,
+          saqueMaximo: c.limiteSaqueMaximo ?? 10000,
+          depositoMinimo: minDep,
+        })
+        setWithdrawValue(minSaque.toFixed(2).replace('.', ','))
+        setDepositValue(minDep.toFixed(2).replace('.', ','))
+      }
+    } catch (e) {
+      console.error('Erro ao carregar limites', e)
+      setWithdrawValue('30,00')
+      setDepositValue('25,00')
+    }
+  }
 
   const loadUser = async () => {
     try {
@@ -78,7 +103,7 @@ export default function CarteiraPage() {
 
   useEffect(() => {
     const load = async () => {
-      await loadUser()
+      await Promise.all([loadUser(), loadLimites()])
       setLoading(false)
     }
     load()
@@ -153,10 +178,6 @@ export default function CarteiraPage() {
                 </p>
               </div>
 
-              <div>
-                <p className="text-base font-semibold text-blue">Bilhetes do Jackpot semanal:</p>
-                <p className="text-sm text-gray-800">0 bilhetes</p>
-              </div>
             </div>
           </section>
 
@@ -164,7 +185,7 @@ export default function CarteiraPage() {
           <section className="grid gap-6 md:grid-cols-2">
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <h2 className="text-xl font-bold text-gray-900">Saque</h2>
-              <p className="text-sm text-gray-700">Valor mínimo: R$ 30,00. Informe a chave PIX para receber.</p>
+              <p className="text-sm text-gray-700">Valor mínimo: R$ {limites.saqueMinimo.toFixed(2).replace('.', ',')}. Máximo: R$ {limites.saqueMaximo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Informe a chave PIX para receber.</p>
 
               {withdrawError && (
                 <p className="mt-2 text-sm text-red-600" role="alert">{withdrawError}</p>
@@ -206,8 +227,12 @@ export default function CarteiraPage() {
                     setWithdrawError(null)
                     setWithdrawSuccess(null)
                     const valor = parseFloat(withdrawValue.replace(',', '.'))
-                    if (valor < 30) {
-                      setWithdrawError('Valor mínimo para saque é R$ 30,00.')
+                    if (valor < limites.saqueMinimo) {
+                      setWithdrawError(`Valor mínimo para saque é R$ ${limites.saqueMinimo.toFixed(2).replace('.', ',')}.`)
+                      return
+                    }
+                    if (valor > limites.saqueMaximo) {
+                      setWithdrawError(`Valor máximo para saque é R$ ${limites.saqueMaximo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`)
                       return
                     }
                     if (!withdrawChavePix.trim()) {
@@ -227,7 +252,7 @@ export default function CarteiraPage() {
                         return
                       }
                       setWithdrawSuccess(data.message || 'Saque enviado! O PIX será processado em instantes.')
-                      setWithdrawValue('30,00')
+                      setWithdrawValue(limites.saqueMinimo.toFixed(2).replace('.', ','))
                       setWithdrawChavePix('')
                       loadUser()
                       loadTransactions()
@@ -248,7 +273,7 @@ export default function CarteiraPage() {
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <h2 className="text-xl font-bold text-gray-900">Depósito</h2>
               <p className="text-sm text-gray-700">
-                O depósito deve ser feito usando uma conta onde o CPF deve ser o mesmo da conta registrada na plataforma.
+                Valor mínimo: R$ {limites.depositoMinimo.toFixed(2).replace('.', ',')}. O depósito deve ser feito usando uma conta onde o CPF deve ser o mesmo da conta registrada na plataforma.
               </p>
 
               <div className="mt-4 space-y-3">
@@ -273,12 +298,17 @@ export default function CarteiraPage() {
                   />
                 </div>
 
+                {depositError && <p className="text-sm text-red-600">{depositError}</p>}
                 <button
                   onClick={() => {
+                    setDepositError(null)
                     const valor = parseFloat(depositValue.replace(',', '.'))
-                    if (valor > 0) {
-                      setShowDepositModal(true)
+                    if (valor <= 0) return
+                    if (valor < limites.depositoMinimo) {
+                      setDepositError(`Valor mínimo para depósito é R$ ${limites.depositoMinimo.toFixed(2).replace('.', ',')}.`)
+                      return
                     }
+                    setShowDepositModal(true)
                   }}
                   disabled={parseFloat(depositValue.replace(',', '.')) <= 0}
                   className="w-full rounded-lg bg-yellow px-4 py-3 text-center font-bold text-blue-950 hover:bg-yellow/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

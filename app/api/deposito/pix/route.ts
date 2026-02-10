@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { suitpayCreatePix, buscarCodigoIBGEPorCEP, type SuitPayCreatePixPayload } from '@/lib/suitpay-client'
 import { gateboxCreatePix, type GateboxCreatePixPayload } from '@/lib/gatebox-client'
 import { getActiveGateway, getGatewayConfig } from '@/lib/gateways-store'
+import { getConfiguracoes } from '@/lib/configuracoes-store'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,6 +35,15 @@ export async function POST(req: NextRequest) {
 
     if (!valor || valor <= 0) {
       return NextResponse.json({ error: 'Valor inválido' }, { status: 400 })
+    }
+
+    const config = await getConfiguracoes()
+    const minDeposito = config.limiteDepositoMinimo ?? 25
+    if (valor < minDeposito) {
+      return NextResponse.json(
+        { error: `Valor mínimo para depósito é R$ ${minDeposito.toFixed(2).replace('.', ',')}.` },
+        { status: 400 }
+      )
     }
 
     // CPF é obrigatório
