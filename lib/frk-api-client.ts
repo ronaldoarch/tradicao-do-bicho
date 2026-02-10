@@ -241,6 +241,7 @@ export class FrkApiClient {
           CodigoIntegrador: this.config.CodigoIntegrador,
         },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30000), // Timeout de 30 segundos
       })
 
       const responseText = await response.text()
@@ -415,6 +416,7 @@ export class FrkApiClient {
           CodigoIntegrador: this.config.CodigoIntegrador,
         },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30000), // Timeout de 30 segundos
       })
 
       console.log(`📥 Resposta HTTP: ${response.status} ${response.statusText}`)
@@ -574,8 +576,7 @@ export class FrkApiClient {
           'Content-Type': 'application/json',
           CodigoIntegrador: this.config.CodigoIntegrador,
         },
-        // Para GET, enviar body como query params ou no body dependendo da API
-        // Vou tentar como query params primeiro
+        signal: AbortSignal.timeout(30000), // Timeout de 30 segundos
       })
 
       // Se GET não funcionar, tentar POST
@@ -637,6 +638,7 @@ export class FrkApiClient {
           'Content-Type': 'application/json',
           CodigoIntegrador: this.config.CodigoIntegrador,
         },
+        signal: AbortSignal.timeout(30000), // Timeout de 30 segundos
       })
 
       // Se GET não funcionar, tentar POST
@@ -648,6 +650,7 @@ export class FrkApiClient {
             CodigoIntegrador: this.config.CodigoIntegrador,
           },
           body: JSON.stringify(body),
+          signal: AbortSignal.timeout(30000), // Timeout de 30 segundos
         })
 
         if (!postResponse.ok) {

@@ -35,6 +35,7 @@ export async function GET() {
       include: {
         usuario: { select: { nome: true, email: true } },
       },
+      take: 500, // Limitar para evitar sobrecarga
     })
     const saques = saquesDb.map(formatSaqueForAdmin)
     return NextResponse.json({ saques, total: saques.length, limiteSaque })

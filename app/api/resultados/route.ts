@@ -240,6 +240,29 @@ const LOTERIAS_POR_LOCACAO: Record<string, string[]> = {
 // Cache em memória: key = date|uf, value = { results, expires }
 const cache = new Map<string, { results: ResultadoItem[]; expires: number }>()
 const CACHE_TTL_MS = 60_000 // 1 minuto
+const MAX_CACHE_SIZE = 1000 // Limitar tamanho do cache para evitar memory leak
+
+// Limpar cache expirado periodicamente
+function limparCacheExpirado() {
+  const now = Date.now()
+  let removidos = 0
+  for (const [key, value] of cache.entries()) {
+    if (now > value.expires) {
+      cache.delete(key)
+      removidos++
+    }
+  }
+  // Se cache ainda estiver muito grande, remover entradas mais antigas
+  if (cache.size > MAX_CACHE_SIZE) {
+    const entries = Array.from(cache.entries())
+    entries.sort((a, b) => a[1].expires - b[1].expires)
+    const remover = entries.slice(0, cache.size - MAX_CACHE_SIZE)
+    remover.forEach(([key]) => cache.delete(key))
+  }
+  if (removidos > 0) {
+    console.log(`🧹 Cache limpo: ${removidos} entradas expiradas removidas`)
+  }
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -262,6 +285,9 @@ export async function GET(req: NextRequest) {
     const cacheKey = loteriasPorLocacao
       ? `${dataHoje}|${locNorm}`
       : `${dataHoje}|${uf || 'all'}`
+
+    // Limpar cache expirado antes de buscar
+    limparCacheExpirado()
 
     // Retorno instantâneo do cache se válido (dados já filtrados por cacheKey)
     const cached = cache.get(cacheKey)

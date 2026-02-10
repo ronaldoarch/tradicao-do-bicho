@@ -357,6 +357,7 @@ export async function buscarResultadosAgenciaMidas(
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
       cache: 'no-store',
+      signal: AbortSignal.timeout(30000), // Timeout de 30 segundos
     })
     
     if (!response.ok) {

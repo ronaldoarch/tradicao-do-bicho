@@ -180,6 +180,7 @@ export async function POST(request: NextRequest) {
     if (dataConcurso) whereClause.dataConcurso = new Date(dataConcurso)
     if (horario) whereClause.horario = horario
 
+    // Limitar quantidade para evitar sobrecarga (processar em lotes)
     const apostasPendentes = await prisma.aposta.findMany({
       where: whereClause,
       include: {
@@ -191,6 +192,8 @@ export async function POST(request: NextRequest) {
           },
         },
       },
+      take: 1000, // Processar no máximo 1000 apostas por vez
+      orderBy: { createdAt: 'asc' }, // Processar mais antigas primeiro
     })
 
     if (apostasPendentes.length === 0) {
@@ -329,10 +332,6 @@ export async function POST(request: NextRequest) {
       'Passe vai e vem': 'PASSE_VAI_E_VEM',
     }
 
-    let processadas = 0
-    let liquidadas = 0
-    let premioTotalGeral = 0
-
     // Criar índice de resultados para acesso rápido (evitar filtros repetidos)
     // Chave: "loteria|horario|data" -> Array de resultados
     const indiceResultados = new Map<string, ResultadoItem[]>()
@@ -352,8 +351,17 @@ export async function POST(request: NextRequest) {
     
     console.log(`📊 Índice de resultados criado: ${indiceResultados.size} chaves únicas`)
 
-    // Processar cada aposta
-    for (const aposta of apostasPendentes) {
+    // Processar apostas em lotes paralelos para melhor performance
+    const BATCH_SIZE = 50 // Processar 50 apostas por vez em paralelo
+    let processadas = 0
+    let liquidadas = 0
+    let premioTotalGeral = 0
+
+    const processarAposta = async (aposta: typeof apostasPendentes[0]): Promise<{ processadas: number; liquidadas: number; premioTotal: number }> => {
+      let processadasLocal = 0
+      let liquidadasLocal = 0
+      let premioTotalLocal = 0
+
       try {
         // Verificar se já passou o horário de apuração antes de liquidar
         if (aposta.loteria && aposta.dataConcurso) {
@@ -368,7 +376,7 @@ export async function POST(request: NextRequest) {
           
           if (!podeLiquidar) {
             console.log(`⏸️  Pulando aposta ${aposta.id} - data futura ou sem sorteio no dia`)
-            continue
+            return // Retornar da função ao invés de continue
           }
         }
 
@@ -495,7 +503,7 @@ export async function POST(request: NextRequest) {
 
         if (resultadosFiltrados.length === 0) {
           console.log(`Nenhum resultado encontrado para aposta ${aposta.id}`)
-          continue
+          return // Retornar da função ao invés de continue
         }
 
         // Converter resultados para formato do motor de regras
@@ -515,7 +523,7 @@ export async function POST(request: NextRequest) {
 
         if (resultadosOrdenados.length === 0) {
           console.log(`Nenhum resultado válido encontrado para aposta ${aposta.id}`)
-          continue
+          return // Retornar da função ao invés de continue
         }
 
         // Converter para lista de milhares (formato esperado pelo motor)
@@ -539,7 +547,7 @@ export async function POST(request: NextRequest) {
         const detalhes = aposta.detalhes as any
         if (!detalhes || !detalhes.betData) {
           console.log(`Aposta ${aposta.id} não tem betData`)
-          continue
+          return // Retornar da função ao invés de continue
         }
 
         const betData = detalhes.betData as {
@@ -593,7 +601,7 @@ export async function POST(request: NextRequest) {
         
         if (qtdPalpites === 0) {
           console.log(`Aposta ${aposta.id} não tem palpites válidos`)
-          continue
+          return // Retornar da função ao invés de continue
         }
         
         const valorPorPalpite = calcularValorPorPalpite(
@@ -609,7 +617,7 @@ export async function POST(request: NextRequest) {
           // Modalidades numéricas (Milhar, Centena, Dezena)
           if (!betData.numberBets || betData.numberBets.length === 0) {
             console.log(`Aposta ${aposta.id} é modalidade numérica mas não tem numberBets`)
-            continue
+            return // Retornar da função ao invés de continue
           }
 
           for (const numeroApostado of betData.numberBets) {
@@ -617,7 +625,7 @@ export async function POST(request: NextRequest) {
             
             if (!numeroLimpo) {
               console.log(`Número apostado inválido: ${numeroApostado}`)
-              continue
+              continue // Continuar para próximo número no loop
             }
 
             let palpiteData: { grupos?: number[]; numero?: string } = {}
@@ -745,11 +753,36 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        processadas++
+        processadasLocal++
+        if (premioTotalAposta > 0) {
+          liquidadasLocal++
+          premioTotalLocal += premioTotalAposta
+        }
       } catch (error) {
         console.error(`Erro ao processar aposta ${aposta.id}:`, error)
         // Continua processando outras apostas
       }
+
+      return {
+        processadas: processadasLocal,
+        liquidadas: liquidadasLocal,
+        premioTotal: premioTotalLocal,
+      }
+    }
+
+    // Processar em lotes paralelos para melhor performance
+    for (let i = 0; i < apostasPendentes.length; i += BATCH_SIZE) {
+      const batch = apostasPendentes.slice(i, i + BATCH_SIZE)
+      const resultados = await Promise.all(batch.map(aposta => processarAposta(aposta)))
+      
+      // Agregar resultados
+      resultados.forEach(result => {
+        processadas += result.processadas
+        liquidadas += result.liquidadas
+        premioTotalGeral += result.premioTotal
+      })
+      
+      console.log(`✅ Processado lote ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(apostasPendentes.length / BATCH_SIZE)}`)
     }
 
     return NextResponse.json({

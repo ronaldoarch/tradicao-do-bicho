@@ -413,8 +413,12 @@ export async function POST(request: Request) {
           console.log(`✅ Rollover cumprido para usuário ${user.id}. Bônus liberado: R$ ${bonusLiberado.toFixed(2)}`)
         }
         
-        await tx.usuario.update({
-          where: { id: user.id },
+        // Usar updateMany com condição para evitar race condition
+        const updateResult = await tx.usuario.updateMany({
+          where: { 
+            id: user.id,
+            saldo: { gte: debitarSaldo }, // Garante que tem saldo suficiente
+          },
           data: {
             saldo: saldoFinal,
             saldoSacavel: saldoSacavelFinal,
@@ -427,6 +431,10 @@ export async function POST(request: Request) {
             } : {}),
           },
         })
+
+        if (updateResult.count === 0) {
+          throw new Error('Saldo insuficiente ou usuário não encontrado')
+        }
       } else {
         // Aposta normal (não instantânea)
         // Calcular retorno previsto para apostas normais
@@ -546,10 +554,15 @@ export async function POST(request: Request) {
         const saldoSacavelAtual = usuario.saldoSacavel || 0
         const saldoSacavelFinal = saldoSacavelAtual - debitarSaldo
         
-        await tx.usuario.update({
-          where: { id: user.id },
+        // Usar updateMany com condição para evitar race condition
+        // Verifica saldo antes de debitar
+        const updateResult = await tx.usuario.updateMany({
+          where: { 
+            id: user.id,
+            saldo: { gte: debitarSaldo }, // Garante que tem saldo suficiente
+          },
           data: {
-            saldo: usuario.saldo - debitarSaldo,
+            saldo: { decrement: debitarSaldo },
             saldoSacavel: saldoSacavelFinal,
             bonus: novoBonus,
             bonusBloqueado: novoBonusBloqueado,
@@ -560,6 +573,10 @@ export async function POST(request: Request) {
             } : {}),
           },
         })
+
+        if (updateResult.count === 0) {
+          throw new Error('Saldo insuficiente ou usuário não encontrado')
+        }
       }
 
       const created = await tx.aposta.create({
