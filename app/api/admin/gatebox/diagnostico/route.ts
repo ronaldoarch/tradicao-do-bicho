@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAPI } from '@/lib/admin-auth'
-import { getGateboxConfig, gateboxAuthenticate, gateboxClearTokenCache } from '@/lib/gatebox-client'
+import {
+  getGateboxConfig,
+  gateboxAuthenticate,
+  gateboxClearTokenCache,
+  gateboxWithdraw,
+} from '@/lib/gatebox-client'
+import { normalizePixKey, sanitizeDocumentNumber } from '@/lib/pix-helpers'
+import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/admin/gatebox/diagnostico
  * Compara o IP do servidor (ipify) com o resultado de uma chamada à Gatebox.
- * Útil quando "IP não autorizado" aparece mesmo com o IP correto na whitelist.
+ *
+ * POST /api/admin/gatebox/diagnostico
+ * Testa o endpoint de withdraw (saque) com R$ 1,00.
+ * Body: { key: string, name?: string } - chave PIX de destino (sua própria para receber o valor de volta).
  */
 export async function GET(request: NextRequest) {
   const adminCheck = await requireAdminAPI(request)
@@ -85,4 +95,69 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(result)
+}
+
+export async function POST(request: NextRequest) {
+  const adminCheck = await requireAdminAPI(request)
+  if (adminCheck instanceof NextResponse) {
+    return adminCheck
+  }
+
+  let body: { key?: string; name?: string }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json(
+      { error: 'Body inválido. Envie { "key": "sua_chave_pix", "name": "Seu Nome" }' },
+      { status: 400 }
+    )
+  }
+
+  const key = typeof body.key === 'string' ? body.key.trim() : ''
+  if (!key) {
+    return NextResponse.json(
+      { error: 'Informe a chave PIX (key) para receber o valor de teste. Será enviado R$ 1,00.' },
+      { status: 400 }
+    )
+  }
+
+  const config = await getGateboxConfig()
+  if (!config) {
+    return NextResponse.json({ error: 'Gatebox não configurado' }, { status: 503 })
+  }
+
+  const adminUser = await prisma.usuario.findFirst({
+    where: { isAdmin: true },
+    select: { nome: true, cpf: true },
+  })
+
+  const name = typeof body.name === 'string' ? body.name.trim() : adminUser?.nome ?? 'Teste Admin'
+  const keyNormalizada = normalizePixKey(key)
+  const documentNumber = sanitizeDocumentNumber(adminUser?.cpf)
+
+  gateboxClearTokenCache()
+
+  try {
+    const result = await gateboxWithdraw(config, {
+      externalId: `teste-ip-${Date.now()}`,
+      key: keyNormalizada,
+      name,
+      amount: 1,
+      description: 'Teste diagnóstico IP (Admin)',
+      documentNumber,
+    })
+    return NextResponse.json({
+      ok: true,
+      mensagem: 'Withdraw (saque) OK! O IP está autorizado para o endpoint de saque. R$ 1,00 foi enviado para a chave informada.',
+      result,
+    })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({
+      ok: false,
+      error: msg,
+      mensagem:
+        'Withdraw falhou. Se o erro for "IP não autorizado", a Gatebox valida o IP separadamente no endpoint de saque. Consulte os logs do servidor para ver a resposta completa da Gatebox.',
+    })
+  }
 }

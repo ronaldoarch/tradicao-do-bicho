@@ -506,14 +506,17 @@ export async function gateboxWithdraw(
   if (!response.ok) {
     const errorText = await response.text()
     let errorMessage = `Gatebox API error (${response.status}): ${errorText}`
-    
+
     try {
       const errorJson = JSON.parse(errorText)
       errorMessage = errorJson.message || errorJson.error || errorMessage
+      if (errorMessage.toLowerCase().includes('ip') || errorMessage.toLowerCase().includes('autorizado')) {
+        console.error('[Gatebox withdraw] Erro completo:', JSON.stringify(errorJson))
+      }
     } catch {
       // Se não conseguir parsear, usa o texto original
     }
-    
+
     throw new Error(errorMessage)
   }
 

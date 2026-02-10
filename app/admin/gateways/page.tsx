@@ -46,6 +46,9 @@ export default function GatewaysPage() {
     error?: string
   } | null>(null)
   const [diagnosticoLoading, setDiagnosticoLoading] = useState(false)
+  const [testeChavePix, setTesteChavePix] = useState('')
+  const [testeWithdraw, setTesteWithdraw] = useState<{ ok?: boolean; error?: string; mensagem?: string } | null>(null)
+  const [testeWithdrawLoading, setTesteWithdrawLoading] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -279,6 +282,54 @@ export default function GatewaysPage() {
                 {(diagnostico.mensagem || diagnostico.error) && (
                   <p className="text-gray-700 mt-1">{diagnostico.mensagem ?? diagnostico.error}</p>
                 )}
+              </div>
+            )}
+          </div>
+          <div className="mt-4 p-3 bg-amber-100/50 rounded-lg border border-amber-300">
+            <p className="text-sm font-semibold text-amber-900 mb-2">Testar endpoint de saque (withdraw)</p>
+            <p className="text-xs text-amber-800 mb-2">
+              Se o auth passa mas o saque falha com &quot;IP não autorizado&quot;, teste aqui. Será enviado R$ 1,00 para sua chave PIX.
+            </p>
+            <div className="flex gap-2 flex-wrap items-end">
+              <div className="flex-1 min-w-[180px]">
+                <input
+                  type="text"
+                  value={testeChavePix}
+                  onChange={(e) => setTesteChavePix(e.target.value)}
+                  placeholder="Sua chave PIX (telefone, CPF, email)"
+                  className="w-full rounded border border-amber-300 px-2 py-1.5 text-sm"
+                />
+              </div>
+              <button
+                type="button"
+                disabled={testeWithdrawLoading || !testeChavePix.trim()}
+                onClick={async () => {
+                  setTesteWithdrawLoading(true)
+                  setTesteWithdraw(null)
+                  try {
+                    const res = await fetch('/api/admin/gatebox/diagnostico', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({ key: testeChavePix.trim() }),
+                    })
+                    const data = await res.json()
+                    setTesteWithdraw(data)
+                  } catch {
+                    setTesteWithdraw({ ok: false, error: 'Falha na requisição' })
+                  } finally {
+                    setTesteWithdrawLoading(false)
+                  }
+                }}
+                className="rounded bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                {testeWithdrawLoading ? 'Enviando...' : 'Testar saque (R$ 1,00)'}
+              </button>
+            </div>
+            {testeWithdraw && (
+              <div className={`mt-2 p-2 rounded text-sm ${testeWithdraw.ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                {testeWithdraw.ok ? '✅ ' : '❌ '}
+                {testeWithdraw.mensagem ?? testeWithdraw.error}
               </div>
             )}
           </div>
