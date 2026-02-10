@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     }
   }
   result.ipServidor = ipsEncontrados[0] ?? null
-  result.ipsUnicos = [...new Set(ipsEncontrados)]
+  result.ipsUnicos = Array.from(new Set(ipsEncontrados))
 
   // 2. Tentar autenticar na Gatebox (usa o mesmo IP que o saque)
   const config = await getGateboxConfig()
