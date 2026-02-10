@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
     ipsUnicos: string[]
     ipServidorErro?: string
     gateboxConfig: boolean
+    baseUrl?: string
     authOk: boolean
     authErro?: string
     mensagem?: string
@@ -66,6 +67,9 @@ export async function GET(request: NextRequest) {
   // 2. Tentar autenticar na Gatebox (usa o mesmo IP que o saque)
   const config = await getGateboxConfig()
   result.gateboxConfig = !!config
+  if (config) {
+    result.baseUrl = config.baseUrl || 'https://api.gatebox.com.br'
+  }
 
   if (!config) {
     result.mensagem = 'Gatebox não configurado. Configure em Admin → Gateways.'

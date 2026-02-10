@@ -39,6 +39,7 @@ export default function GatewaysPage() {
   const [diagnostico, setDiagnostico] = useState<{
     ipServidor?: string
     ipsUnicos?: string[]
+    baseUrl?: string
     authOk?: boolean
     authErro?: string
     mensagem?: string
@@ -283,6 +284,11 @@ export default function GatewaysPage() {
                     >
                       Copiar
                     </button>
+                  </p>
+                )}
+                {diagnostico.baseUrl && (
+                  <p className="text-gray-600 mb-1">
+                    Base URL: <code className="bg-gray-100 px-1 rounded">{diagnostico.baseUrl}</code>
                   </p>
                 )}
                 {diagnostico.authOk ? (

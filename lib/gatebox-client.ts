@@ -59,19 +59,33 @@ export async function getGateboxConfigFromDB(): Promise<GateboxClientOptions | n
 }
 
 /**
- * Busca configurações do Gatebox (primeiro do banco, depois de env vars)
+ * Busca configurações do Gatebox (Gateway ativo > ConfiguracaoGatebox > env vars)
  */
 export async function getGateboxConfig(): Promise<GateboxClientOptions | null> {
-  // Tentar buscar do banco primeiro
+  // 1. Preferir Gateway ativo (Admin → Gateways) quando for tipo Gatebox
+  const { getActiveGateway, getGatewayConfig } = await import('./gateways-store')
+  const gateway = await getActiveGateway()
+  if (gateway?.type === 'gatebox' && gateway.username && gateway.password) {
+    const gwConfig = getGatewayConfig(gateway)
+    if (gwConfig && gwConfig.type === 'gatebox' && gwConfig.password) {
+      return {
+        username: gwConfig.username!,
+        password: gwConfig.password,
+        baseUrl: (gwConfig.baseUrl || 'https://api.gatebox.com.br').replace(/\/$/, ''),
+      }
+    }
+  }
+
+  // 2. ConfiguracaoGatebox (modelo legado)
   const dbConfig = await getGateboxConfigFromDB()
   if (dbConfig) {
     return dbConfig
   }
 
-  // Fallback para variáveis de ambiente
+  // 3. Variáveis de ambiente
   const username = process.env.GATEBOX_USERNAME
   const password = process.env.GATEBOX_PASSWORD
-  const baseUrl = process.env.GATEBOX_BASE_URL || 'https://api.gatebox.com.br'
+  const baseUrl = (process.env.GATEBOX_BASE_URL || 'https://api.gatebox.com.br').replace(/\/$/, '')
 
   if (!username || !password) {
     return null
