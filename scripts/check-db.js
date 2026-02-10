@@ -40,6 +40,27 @@ function checkAndCreateTables() {
     const errorMessage = error.message || '';
     const errorOutput = (error.stdout?.toString() || error.stderr?.toString() || '');
     
+    if (errorMessage.includes('P3009') || errorOutput.includes('failed migrations')) {
+      console.warn('⚠️  Migração anterior falhou. Tentando resolver...');
+      try {
+        execSync('npx prisma migrate resolve --applied 20250124000000_add_configuracao_gatebox', {
+          stdio: 'inherit',
+          env: { ...process.env },
+          timeout: 15000
+        });
+        console.log('🔄 Tentando migrate deploy novamente...');
+        execSync('npx prisma migrate deploy', {
+          stdio: 'inherit',
+          env: { ...process.env },
+          timeout: 60000
+        });
+        console.log('✅ Migrações aplicadas!');
+        return;
+      } catch (resolveError) {
+        console.warn('⚠️  Resolve falhou:', resolveError.message);
+      }
+    }
+    
     if (errorMessage.includes('timeout')) {
       console.error('⏱️  Timeout ao verificar banco de dados. Tentando db push...');
     } else {

@@ -43,6 +43,7 @@ export default function CarteiraPage() {
   const [limites, setLimites] = useState({ saqueMinimo: 30, saqueMaximo: 10000, depositoMinimo: 25 })
   const [depositoConfirmadoToast, setDepositoConfirmadoToast] = useState<{ valor: number } | null>(null)
   const prevTransactionsRef = useRef<Transaction[]>([])
+  const notifiedDepositIdsRef = useRef<Set<string>>(new Set())
 
   const loadLimites = async () => {
     try {
@@ -95,12 +96,19 @@ export default function CarteiraPage() {
       if (res.ok) {
         const data = await res.json()
         const novas = data.transacoes || []
-        // Detectar depósito que passou de Pendente para Pago (webhook confirmou)
         const prev = prevTransactionsRef.current
+        const now = Date.now()
+        const DOIS_MINUTOS = 2 * 60 * 1000
+
         for (const t of novas) {
-          if (t.tipo === 'Depósito') {
+          if (t.tipo === 'Depósito' && t.status === 'Pago') {
+            if (notifiedDepositIdsRef.current.has(t.id)) continue
+
             const eraPendente = prev.find((p) => p.id === t.id)?.status === 'Pendente'
-            if (eraPendente && t.status === 'Pago') {
+            const pagoRecente = t.pagoEm && now - new Date(t.pagoEm).getTime() < DOIS_MINUTOS
+
+            if (eraPendente || pagoRecente) {
+              notifiedDepositIdsRef.current.add(t.id)
               setDepositoConfirmadoToast({ valor: t.valor })
               setTimeout(() => setDepositoConfirmadoToast(null), 6000)
             }
@@ -128,14 +136,14 @@ export default function CarteiraPage() {
     loadTransactions()
   }, [filtroTransacoes])
 
-  // Polling para detectar depósito confirmado pelo webhook (a cada 10s)
+  // Polling para detectar depósito confirmado pelo webhook (a cada 5s)
   useEffect(() => {
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         loadTransactions(true)
         loadUser()
       }
-    }, 10000)
+    }, 5000)
     return () => clearInterval(interval)
   }, [filtroTransacoes])
 
