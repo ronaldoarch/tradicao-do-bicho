@@ -19,6 +19,7 @@ export async function GET() {
         email: true,
         telefone: true,
         saldo: true,
+        saldoSacavel: true,
         bonus: true,
         bonusBloqueado: true,
         bonusSemanal: true,

@@ -10,6 +10,7 @@ interface UserInfo {
   nome: string
   email: string
   saldo: number
+  saldoSacavel: number
   bonus: number
   bonusBloqueado: number
 }
@@ -48,6 +49,7 @@ export default function CarteiraPage() {
               nome: data.user.nome,
               email: data.user.email,
               saldo: data.user.saldo ?? 0,
+              saldoSacavel: data.user.saldoSacavel ?? 0,
               bonus: data.user.bonus ?? 0,
               bonusBloqueado: data.user.bonusBloqueado ?? 0,
             })
@@ -85,6 +87,12 @@ export default function CarteiraPage() {
               <div>
                 <p className="text-lg font-bold text-gray-900">Saldo:</p>
                 <p className="text-xl font-extrabold text-blue">{loading ? '--' : formatCurrency(user?.saldo || 0)}</p>
+              </div>
+
+              <div>
+                <p className="text-lg font-bold text-gray-900">Disponível para saque:</p>
+                <p className="text-xl font-extrabold text-green-600">{loading ? '--' : formatCurrency(user?.saldoSacavel ?? 0)}</p>
+                <p className="mt-1 text-sm text-gray-600">Prêmios de apostas e bônus de indicação podem ser sacados via PIX.</p>
               </div>
 
               <div>

@@ -81,7 +81,16 @@ export async function creditarPromotorPrimeiroDeposito(
       where: { id: indicacao.promotorId },
       data: {
         saldo: { increment: bonusPago },
-        saldoSacavel: { increment: bonusPago },
+        saldoSacavel: { increment: bonusPago }, // Saldo real disponível para saque
+      },
+    })
+    await tx.transacao.create({
+      data: {
+        usuarioId: indicacao.promotorId,
+        tipo: 'bonus_promotor',
+        status: 'pago',
+        valor: bonusPago,
+        descricao: `Bônus de indicação (primeiro depósito do indicado R$ ${valorDeposito.toFixed(2)})`,
       },
     })
   })
