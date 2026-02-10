@@ -1,11 +1,12 @@
-# Corrigir erro P3009 (Migração falhou)
+# Corrigir erros P3009 / P3018 (Migração falhou)
 
 Quando aparece:
 
 ```
-Error: P3009
-migrate found failed migrations in the target database
-The `20250124000000_add_configuracao_gatebox` migration started at ... failed
+Error: P3009 - migrate found failed migrations
+Error: P3018 - A migration failed to apply. New migrations cannot be applied...
+Migration name: 20260129000000_add_configuracao_frk
+Database error: relation "ConfiguracaoFrk" already exists
 ```
 
 ## Solução rápida (no servidor / Coolify)
@@ -14,6 +15,8 @@ Execute no console do Coolify ou via SSH no container:
 
 ```bash
 npx prisma migrate resolve --applied "20250124000000_add_configuracao_gatebox"
+npx prisma migrate resolve --applied "20250124000001_update_gateway_model"
+npx prisma migrate resolve --applied "20260129000000_add_configuracao_frk"
 npx prisma migrate deploy
 ```
 

@@ -40,11 +40,14 @@ function checkAndCreateTables() {
     const errorMessage = error.message || '';
     const errorOutput = (error.stdout?.toString() || error.stderr?.toString() || '');
     
-    if (errorMessage.includes('P3009') || errorOutput.includes('failed migrations')) {
-      console.warn('⚠️  Migração anterior falhou (P3009). Tentando resolver...');
+    const isMigrationError = errorMessage.includes('P3009') || errorMessage.includes('P3018') ||
+      errorOutput.includes('failed migrations') || errorOutput.includes('failed to apply')
+    if (isMigrationError) {
+      console.warn('⚠️  Migração falhou (P3009/P3018). Tentando resolver...');
       const migrationsToResolve = [
         '20250124000000_add_configuracao_gatebox',
         '20250124000001_update_gateway_model',
+        '20260129000000_add_configuracao_frk',
       ];
       for (const migrationName of migrationsToResolve) {
         try {

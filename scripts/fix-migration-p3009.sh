@@ -8,6 +8,7 @@ echo "🔧 Resolvendo migração falhada (P3009)..."
 
 npx prisma migrate resolve --applied "20250124000000_add_configuracao_gatebox" 2>/dev/null || true
 npx prisma migrate resolve --applied "20250124000001_update_gateway_model" 2>/dev/null || true
+npx prisma migrate resolve --applied "20260129000000_add_configuracao_frk" 2>/dev/null || true
 
 echo "🔄 Aplicando migrações pendentes..."
 npx prisma migrate deploy
