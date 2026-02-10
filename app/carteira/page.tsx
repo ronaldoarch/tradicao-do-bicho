@@ -179,8 +179,11 @@ export default function CarteiraPage() {
 
               <div>
                 <p className="text-lg font-bold text-gray-900">Disponível para saque:</p>
-                <p className="text-xl font-extrabold text-green-600">{loading ? '--' : formatCurrency(user?.saldoSacavel ?? 0)}</p>
+                <p className="text-xl font-extrabold text-green-600">{loading ? '--' : formatCurrency(Math.max(0, user?.saldoSacavel ?? 0))}</p>
                 <p className="mt-1 text-sm text-gray-600">Prêmios de apostas e bônus de indicação podem ser sacados via PIX.</p>
+                {(user?.saldoSacavel ?? 0) < 0 && (
+                  <p className="mt-1 text-sm text-amber-700 font-medium">Complete o rollover do bônus ou faça depósitos para liberar saques.</p>
+                )}
               </div>
 
               <div>
@@ -225,7 +228,7 @@ export default function CarteiraPage() {
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <h2 className="text-xl font-bold text-gray-900">Saque</h2>
               <p className="text-sm text-gray-700">Valor mínimo: R$ {limites.saqueMinimo.toFixed(2).replace('.', ',')}. Máximo: R$ {limites.saqueMaximo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Informe a chave PIX para receber.</p>
-              <p className="mt-1 text-sm font-semibold text-green-700">Você pode sacar até R$ {(user?.saldoSacavel ?? 0).toFixed(2).replace('.', ',')}</p>
+              <p className="mt-1 text-sm font-semibold text-green-700">Você pode sacar até R$ {Math.max(0, user?.saldoSacavel ?? 0).toFixed(2).replace('.', ',')}</p>
 
               {withdrawError && (
                 <p className="mt-2 text-sm text-red-600" role="alert">{withdrawError}</p>
@@ -279,7 +282,7 @@ export default function CarteiraPage() {
                       setWithdrawError('Informe a chave PIX para receber o saque.')
                       return
                     }
-                    const saldoDisponivel = user?.saldoSacavel ?? 0
+                    const saldoDisponivel = Math.max(0, user?.saldoSacavel ?? 0)
                     if (valor > saldoDisponivel) {
                       setWithdrawError(saldoDisponivel <= 0
                         ? 'Saldo insuficiente para saque. Bônus não pode ser sacado, apenas prêmios de apostas e depósitos.'

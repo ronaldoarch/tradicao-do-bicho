@@ -392,9 +392,10 @@ export async function POST(request: Request) {
         const saldoFinal = usuario.saldo - debitarSaldo + premioTotal
         const bonusFinal = usuario.bonus - debitarBonus
         // IMPORTANTE: Prêmios de apostas instantâneas vão para saldoSacavel (podem ser sacados)
-        // Debitar do saldoSacavel também quando usa saldo real
+        // Debitar do saldoSacavel apenas o que veio de dinheiro real (evitar saldoSacavel negativo)
         const saldoSacavelAtual = usuario.saldoSacavel || 0
-        const saldoSacavelFinal = saldoSacavelAtual - debitarSaldo + premioTotal
+        const debitarSaldoSacavel = Math.min(debitarSaldo, Math.max(0, saldoSacavelAtual))
+        const saldoSacavelFinal = saldoSacavelAtual - debitarSaldoSacavel + premioTotal
 
         // Calcular novo rolloverAtual: incrementa apenas o valor apostado com dinheiro REAL
         const novoRolloverAtual = usuario.rolloverAtual + debitarSaldo
@@ -550,9 +551,10 @@ export async function POST(request: Request) {
           console.log(`✅ Rollover cumprido para usuário ${user.id}. Bônus liberado: R$ ${bonusLiberado.toFixed(2)}`)
         }
         
-        // Para apostas normais, debitar do saldoSacavel também quando usa saldo real
+        // Para apostas normais: debitar do saldoSacavel apenas o que veio de dinheiro real (evitar saldoSacavel negativo)
         const saldoSacavelAtual = usuario.saldoSacavel || 0
-        const saldoSacavelFinal = saldoSacavelAtual - debitarSaldo
+        const debitarSaldoSacavel = Math.min(debitarSaldo, Math.max(0, saldoSacavelAtual))
+        const saldoSacavelFinal = saldoSacavelAtual - debitarSaldoSacavel
         
         // Usar updateMany com condição para evitar race condition
         // Verifica saldo antes de debitar

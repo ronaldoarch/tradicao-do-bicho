@@ -58,11 +58,16 @@ export async function POST(request: NextRequest) {
 
     // Criar cartela e debitar saldo
     const result = await prisma.$transaction(async (tx) => {
-      // Debitar saldo
+      const debitarSaldoSacavel = Math.min(
+        sala.valorCartela,
+        Math.max(0, usuario.saldoSacavel ?? 0)
+      )
+      // Debitar saldo e saldoSacavel (proporcional ao dinheiro real)
       await tx.usuario.update({
         where: { id: user.id },
         data: {
           saldo: { decrement: sala.valorCartela },
+          saldoSacavel: { decrement: debitarSaldoSacavel },
         },
       })
 
