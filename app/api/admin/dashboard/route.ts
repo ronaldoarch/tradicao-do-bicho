@@ -35,10 +35,11 @@ export async function GET(request: NextRequest) {
     const [
       totalUsuarios,
       totalSaquesPendentes,
+      totalSaquesAprovados,
       totalPromocoesAtivas,
-      totalBanners,
-      totalGateways,
       saldoTotal,
+      premiosPagar,
+      configDescarga,
       apostasNoPeriodo,
       depositosNoPeriodo,
       saquesNoPeriodo,
@@ -51,22 +52,33 @@ export async function GET(request: NextRequest) {
         where: { status: 'pendente' },
       }),
 
+      // Saques aprovados (total geral)
+      prisma.saque.count({
+        where: { status: 'aprovado' },
+      }),
+
       // Promoções ativas
       prisma.promocao.count({
         where: { active: true },
       }),
-
-      // Banners
-      prisma.banner.count(),
-
-      // Gateways
-      prisma.gateway.count(),
 
       // Saldo total da plataforma (soma de todos os saldos)
       prisma.usuario.aggregate({
         _sum: {
           saldo: true,
         },
+      }),
+
+      // Premiações a pagar: soma de retornoPrevisto de apostas pendentes (estimativa)
+      prisma.aposta.aggregate({
+        where: { status: 'pendente' },
+        _sum: { retornoPrevisto: true },
+      }),
+
+      // Config descarga (para último envio de relatório)
+      prisma.configuracaoDescarga.findFirst({
+        where: { ativo: true },
+        select: { ultimoEnvio: true },
       }),
 
       // Apostas no período
@@ -134,10 +146,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       usuarios: totalUsuarios,
       saquesPendentes: totalSaquesPendentes,
+      saquesAprovados: totalSaquesAprovados,
       promocoesAtivas: totalPromocoesAtivas,
-      banners: totalBanners,
-      gateways: totalGateways,
       saldoTotal: saldoTotal._sum.saldo || 0,
+      premiosPagar: premiosPagar._sum.retornoPrevisto || 0,
+      ultimoRelatorioDescarga: configDescarga?.ultimoEnvio || null,
       periodo: {
         dataInicio: dataInicio || null,
         dataFim: dataFim || null,

@@ -26,17 +26,17 @@ function createUploadDirectories() {
 
 function checkAndCreateTables() {
   try {
-    console.log('🔄 Verificando e criando tabelas no banco de dados...');
+    console.log('🔄 Aplicando migrações do banco de dados...');
     
-    // Executa db push (é idempotente, não vai recriar se já existir)
+    // Executa migrate deploy para aplicar migrações pendentes automaticamente
     // Usa --skip-generate para não regenerar o client (já foi gerado no build)
-    execSync('npx prisma db push --accept-data-loss --skip-generate', { 
+    execSync('npx prisma migrate deploy --skip-generate', { 
       stdio: 'inherit',
       env: { ...process.env },
-      timeout: 30000 // Timeout de 30 segundos
+      timeout: 60000 // Timeout de 60 segundos
     });
     
-    console.log('✅ Banco de dados verificado e pronto!');
+    console.log('✅ Migrações aplicadas! Banco de dados pronto.');
   } catch (error) {
     // Se der erro, verifica se é porque as tabelas já existem ou outro erro
     const errorMessage = error.message || '';

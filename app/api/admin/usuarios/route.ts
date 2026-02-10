@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
+    await requireAdmin()
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = parseInt(searchParams.get('limit') || '50', 10)
@@ -23,6 +25,8 @@ export async function GET(request: NextRequest) {
         bonus: true,
         bonusBloqueado: true,
         ativo: true,
+        isPromotor: true,
+        codigoPromotor: true,
         createdAt: true,
       },
     })

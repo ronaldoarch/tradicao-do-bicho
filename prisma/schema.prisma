@@ -194,13 +194,45 @@ model Usuario {
   rolloverAtual      Float          @default(0) // quanto já apostou que conta para o rollover
   bonusSemanal       Int            @default(0)
   isAdmin            Boolean        @default(false)
+  isPromotor         Boolean        @default(false) // Se pode indicar amigos e ganhar bônus
+  codigoPromotor     String?        @unique // Código único para link de indicação (ex: ABC123)
   ativo              Boolean        @default(true)
   saques             Saque[]
   apostas            Aposta[]
   transacoes         Transacao[]
+  indicacoesComoPromotor Indicacao[] @relation("PromotorIndicacoes")
+  indicadoPor       Indicacao?      @relation("UsuarioIndicado")
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   CartelaBingo       CartelaBingo[]
+
+  @@index([codigoPromotor])
+  @@index([isPromotor])
+}
+
+model ConfiguracaoPromotor {
+  id                   Int      @id @default(autoincrement())
+  percentualPrimeiroDep Float   @default(10) // % do primeiro depósito do indicado que vai para o promotor
+  ativo                 Boolean @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Indicacao {
+  id                    Int      @id @default(autoincrement())
+  promotorId             Int // Usuário que indicou
+  indicadoId             Int @unique // Usuário indicado (um indicado só pode ser indicado por um promotor)
+  primeiroDepositoValor  Float? // Valor do primeiro depósito (quando ocorrer)
+  bonusPago              Float   @default(0) // Bônus já creditado ao promotor
+  dataPrimeiroDeposito   DateTime? // Quando o indicado fez o primeiro depósito
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  promotor Usuario @relation("PromotorIndicacoes", fields: [promotorId], references: [id], onDelete: Cascade)
+  indicado Usuario @relation("UsuarioIndicado", fields: [indicadoId], references: [id], onDelete: Cascade)
+
+  @@index([promotorId])
+  @@index([indicadoId])
 }
 
 model Aposta {

@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { createSessionToken, hashPassword, cleanCPF, isValidCPFFormat } from '@/lib/auth'
+import { buscarPromotorPorCodigo } from '@/lib/promotor-helpers'
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { nome, email, password, telefone, cpf } = body || {}
+    const { nome, email, password, telefone, cpf, ref: refBody } = body || {}
+
+    // Ref pode vir do body ou do cookie (definido quando usuário acessou com ?ref=)
+    const refCookie = (await cookies()).get('lotbicho_ref')?.value
+    const refCodigo = refBody || refCookie
 
     if (!nome || !email || !password) {
       return NextResponse.json({ error: 'Nome, email e senha são obrigatórios' }, { status: 400 })
@@ -50,6 +56,12 @@ export async function POST(req: NextRequest) {
 
     const passwordHash = hashPassword(password)
 
+    let promotorId: number | null = null
+    if (refCodigo) {
+      const promotor = await buscarPromotorPorCodigo(refCodigo)
+      if (promotor) promotorId = promotor.id
+    }
+
     const user = await prisma.usuario.create({
       data: {
         nome,
@@ -70,6 +82,20 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // Criar indicação se veio de promotor
+    if (promotorId && promotorId !== user.id) {
+      try {
+        await prisma.indicacao.create({
+          data: {
+            promotorId,
+            indicadoId: user.id,
+          },
+        })
+      } catch (indError) {
+        console.error('Erro ao criar indicação:', indError)
+      }
+    }
+
     const token = createSessionToken({ id: user.id, email: user.email, nome: user.nome })
     const res = NextResponse.json({ user, message: 'Cadastro realizado com sucesso' })
     res.cookies.set('lotbicho_session', token, {
@@ -78,6 +104,9 @@ export async function POST(req: NextRequest) {
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 dias
     })
+    if (promotorId) {
+      res.cookies.set('lotbicho_ref', '', { maxAge: 0, path: '/' })
+    }
     return res
   } catch (error) {
     console.error('Erro ao cadastrar:', error)

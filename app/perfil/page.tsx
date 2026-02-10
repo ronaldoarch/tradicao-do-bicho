@@ -15,19 +15,33 @@ export default function PerfilPage() {
     bonusSemanal: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [isPromotor, setIsPromotor] = useState(false)
 
   useEffect(() => {
-    // Carregar dados do usuário
     loadUserData()
   }, [])
 
   const loadUserData = async () => {
     try {
-      // Simular carregamento de dados do usuário
-      // Em produção, buscar da API
-      setLoading(false)
+      const [meRes, promotorRes] = await Promise.all([
+        fetch('/api/auth/me', { credentials: 'include' }),
+        fetch('/api/promotor/me', { credentials: 'include' }),
+      ])
+      const meData = await meRes.json()
+      const promotorData = await promotorRes.json()
+      if (meData.user) {
+        setUser({
+          name: meData.user.nome,
+          saldo: meData.user.saldo ?? 0,
+          bonus: meData.user.bonus ?? 0,
+          bonusBloqueado: meData.user.bonusBloqueado ?? 0,
+          bonusSemanal: meData.user.bonusSemanal ?? 0,
+        })
+      }
+      setIsPromotor(promotorData.isPromotor === true)
     } catch (error) {
       console.error('Erro ao carregar dados do usuário:', error)
+    } finally {
       setLoading(false)
     }
   }
@@ -158,6 +172,16 @@ export default function PerfilPage() {
                 <span className="iconify i-material-symbols:account-balance-wallet text-2xl"></span>
                 <span className="font-semibold">Carteira</span>
               </Link>
+
+              {isPromotor && (
+                <Link
+                  href="/indique-e-ganhe"
+                  className="flex items-center gap-3 rounded-lg border-2 border-yellow/50 bg-yellow/10 p-3 text-yellow hover:bg-yellow/20 transition-colors"
+                >
+                  <span className="iconify i-material-symbols:share text-2xl"></span>
+                  <span className="font-semibold">Indique e Ganhe</span>
+                </Link>
+              )}
             </div>
 
             {/* Botão Depositar */}

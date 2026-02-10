@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { calcularBonus } from '@/lib/promocoes-calculator'
+import { creditarPromotorPrimeiroDeposito } from '@/lib/promotor-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -183,6 +184,15 @@ export async function POST(req: NextRequest) {
         },
       })
     })
+
+    // Bônus promotor: primeiro depósito de indicado
+    if (depositosPagos === 0) {
+      try {
+        await creditarPromotorPrimeiroDeposito(user.id, transacao.valor)
+      } catch (promError) {
+        console.error('Erro ao creditar promotor:', promError)
+      }
+    }
 
     // Atualizar status do webhook para processado
     if (webhookEventId) {
