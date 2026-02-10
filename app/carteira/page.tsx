@@ -225,6 +225,7 @@ export default function CarteiraPage() {
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <h2 className="text-xl font-bold text-gray-900">Saque</h2>
               <p className="text-sm text-gray-700">Valor mínimo: R$ {limites.saqueMinimo.toFixed(2).replace('.', ',')}. Máximo: R$ {limites.saqueMaximo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Informe a chave PIX para receber.</p>
+              <p className="mt-1 text-sm font-semibold text-green-700">Você pode sacar até R$ {(user?.saldoSacavel ?? 0).toFixed(2).replace('.', ',')}</p>
 
               {withdrawError && (
                 <p className="mt-2 text-sm text-red-600" role="alert">{withdrawError}</p>
@@ -278,6 +279,13 @@ export default function CarteiraPage() {
                       setWithdrawError('Informe a chave PIX para receber o saque.')
                       return
                     }
+                    const saldoDisponivel = user?.saldoSacavel ?? 0
+                    if (valor > saldoDisponivel) {
+                      setWithdrawError(saldoDisponivel <= 0
+                        ? 'Saldo insuficiente para saque. Bônus não pode ser sacado, apenas prêmios de apostas e depósitos.'
+                        : `Você pode sacar apenas R$ ${saldoDisponivel.toFixed(2).replace('.', ',')}.`)
+                      return
+                    }
                     setWithdrawLoading(true)
                     try {
                       const res = await fetch('/api/saques', {
@@ -287,7 +295,8 @@ export default function CarteiraPage() {
                       })
                       const data = await res.json()
                       if (!res.ok) {
-                        setWithdrawError(data.error || 'Erro ao solicitar saque.')
+                        const msg = data.detalhes?.mensagem || data.error || 'Erro ao solicitar saque.'
+                        setWithdrawError(msg)
                         return
                       }
                       setWithdrawSuccess(data.message || 'Saque enviado! O PIX será processado em instantes.')

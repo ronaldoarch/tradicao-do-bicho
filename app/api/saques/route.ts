@@ -89,11 +89,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const saldoDisponivelParaSaque = usuario.saldoSacavel ?? 0
+    const saldoSacavelBruto = usuario.saldoSacavel ?? 0
+    const saldoDisponivelParaSaque = Math.max(0, saldoSacavelBruto)
     if (valor > saldoDisponivelParaSaque) {
       const saldoTotal = usuario.saldo
       const bonusTotal = (usuario.bonus ?? 0) + (usuario.bonusBloqueado ?? 0)
-      const saldoNaoSacavel = saldoTotal - saldoDisponivelParaSaque
+      const saldoNaoSacavel = saldoTotal - saldoSacavelBruto
+      const mensagem = saldoDisponivelParaSaque <= 0
+        ? 'Saldo insuficiente para saque. Bônus não pode ser sacado, apenas prêmios de apostas e depósitos.'
+        : `Você pode sacar apenas R$ ${saldoDisponivelParaSaque.toFixed(2).replace('.', ',')}. Bônus não pode ser sacado, apenas prêmios de apostas e depósitos.`
       return NextResponse.json(
         {
           error: 'Saldo insuficiente para saque',
@@ -102,7 +106,7 @@ export async function POST(request: NextRequest) {
             saldoTotal,
             bonusTotal,
             saldoNaoSacavel,
-            mensagem: `Você pode sacar apenas R$ ${saldoDisponivelParaSaque.toFixed(2)}. Bônus não pode ser sacado, apenas prêmios de apostas.`,
+            mensagem,
           },
         },
         { status: 400 }
