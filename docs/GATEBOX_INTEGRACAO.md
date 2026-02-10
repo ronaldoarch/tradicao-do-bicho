@@ -16,6 +16,15 @@ GATEBOX_BASE_URL=https://api.gatebox.com.br  # URL da API (padrão)
 NEXT_PUBLIC_APP_URL=https://seu-dominio.com
 ```
 
+## Whitelist de IP (obrigatório para saques)
+
+A Gatebox valida o **IP do servidor** que faz as requisições (saques, depósitos), **não** o IP do navegador do usuário. Você precisa adicionar o IP de saída do seu servidor (Coolify/VPS) na whitelist do painel Gatebox.
+
+**Como obter o IP do servidor:**
+- Acesse Admin → Gateways e veja a seção "Gatebox: IP para Whitelist"
+- Ou chame `GET /api/admin/gatebox/ip` (requer autenticação admin)
+- Ou no servidor: `curl https://api.ipify.org`
+
 ## Como Obter as Credenciais
 
 1. Entre em contato com a Gatebox para obter suas credenciais de acesso

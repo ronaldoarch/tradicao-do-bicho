@@ -34,6 +34,8 @@ export default function GatewaysPage() {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<Omit<Gateway, 'id' | 'passwordSet'>>(emptyForm)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [serverIp, setServerIp] = useState<string | null>(null)
+  const [ipLoading, setIpLoading] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -51,7 +53,11 @@ export default function GatewaysPage() {
         throw new Error(`Erro ${res.status}: ${res.statusText}`)
       }
       const data = await res.json()
-      setGateways(data.gateways || [])
+      const gws = data.gateways || []
+      setGateways(gws)
+      if (gws.some((g: Gateway) => g.type === 'gatebox')) {
+        loadServerIp()
+      }
     } catch (error) {
       console.error('Erro ao carregar gateways', error)
     } finally {
@@ -62,6 +68,19 @@ export default function GatewaysPage() {
   useEffect(() => {
     load()
   }, [])
+
+  const loadServerIp = async () => {
+    setIpLoading(true)
+    try {
+      const res = await fetch('/api/admin/gatebox/ip', { cache: 'no-store', credentials: 'include' })
+      const data = await res.json()
+      setServerIp(data.ip || null)
+    } catch {
+      setServerIp(null)
+    } finally {
+      setIpLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -182,6 +201,40 @@ export default function GatewaysPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Gateways</h1>
       </div>
+
+      {gateways.some((g) => g.type === 'gatebox') && (
+        <section className="bg-amber-50 border border-amber-200 rounded-xl shadow p-6">
+          <h2 className="text-xl font-semibold text-amber-900 mb-2">Gatebox: IP para Whitelist</h2>
+          <p className="text-sm text-amber-800 mb-3">
+            A Gatebox valida o IP do <strong>servidor</strong> que faz as requisições (saques, depósitos), não o IP do seu navegador. Adicione o IP abaixo na whitelist do painel Gatebox.
+          </p>
+          <div className="flex items-center gap-3">
+            {serverIp ? (
+              <>
+                <code className="px-3 py-2 bg-white rounded-lg border border-amber-300 font-mono text-lg font-bold">
+                  {serverIp}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(serverIp)}
+                  className="text-sm text-amber-800 underline hover:no-underline"
+                >
+                  Copiar
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={loadServerIp}
+                disabled={ipLoading}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+              >
+                {ipLoading ? 'Obtendo...' : 'Ver IP do servidor'}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="bg-white rounded-xl shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
