@@ -16,12 +16,13 @@ interface UserInfo {
 }
 
 interface Transaction {
-  id: number
-  tipo: 'Depósito' | 'Saque'
+  id: string
+  tipo: string
   data: string
   valor: number
-  estado: string
+  status: string
   pagoEm?: string
+  descricao?: string
 }
 
 export default function CarteiraPage() {
@@ -35,34 +36,57 @@ export default function CarteiraPage() {
   const [withdrawError, setWithdrawError] = useState<string | null>(null)
   const [withdrawSuccess, setWithdrawSuccess] = useState<string | null>(null)
 
-  // Placeholder de transações (ajuste quando houver endpoint de transações)
-  const [transactions] = useState<Transaction[]>([])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [transactionsLoading, setTransactionsLoading] = useState(true)
+  const [filtroTransacoes, setFiltroTransacoes] = useState<'todas' | 'depositos' | 'saques'>('todas')
+
+  const loadUser = async () => {
+    try {
+      const res = await fetch('/api/auth/me', { cache: 'no-store' })
+      if (res.ok) {
+        const data = await res.json()
+        if (data?.user) {
+          setUser({
+            nome: data.user.nome,
+            email: data.user.email,
+            saldo: data.user.saldo ?? 0,
+            saldoSacavel: data.user.saldoSacavel ?? 0,
+            bonus: data.user.bonus ?? 0,
+            bonusBloqueado: data.user.bonusBloqueado ?? 0,
+          })
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao carregar usuário', e)
+    }
+  }
+
+  const loadTransactions = async () => {
+    setTransactionsLoading(true)
+    try {
+      const res = await fetch(`/api/transacoes?filtro=${filtroTransacoes}`)
+      if (res.ok) {
+        const data = await res.json()
+        setTransactions(data.transacoes || [])
+      }
+    } catch (e) {
+      console.error('Erro ao carregar transações', e)
+    } finally {
+      setTransactionsLoading(false)
+    }
+  }
 
   useEffect(() => {
     const load = async () => {
-      try {
-        const res = await fetch('/api/auth/me', { cache: 'no-store' })
-        if (res.ok) {
-          const data = await res.json()
-          if (data?.user) {
-            setUser({
-              nome: data.user.nome,
-              email: data.user.email,
-              saldo: data.user.saldo ?? 0,
-              saldoSacavel: data.user.saldoSacavel ?? 0,
-              bonus: data.user.bonus ?? 0,
-              bonusBloqueado: data.user.bonusBloqueado ?? 0,
-            })
-          }
-        }
-      } catch (e) {
-        console.error('Erro ao carregar usuário', e)
-      } finally {
-        setLoading(false)
-      }
+      await loadUser()
+      setLoading(false)
     }
     load()
   }, [])
+
+  useEffect(() => {
+    loadTransactions()
+  }, [filtroTransacoes])
 
   const formatCurrency = (value: number) =>
     value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -205,6 +229,8 @@ export default function CarteiraPage() {
                       setWithdrawSuccess(data.message || 'Saque enviado! O PIX será processado em instantes.')
                       setWithdrawValue('30,00')
                       setWithdrawChavePix('')
+                      loadUser()
+                      loadTransactions()
                     } catch {
                       setWithdrawError('Erro de conexão. Tente novamente.')
                     } finally {
@@ -265,20 +291,45 @@ export default function CarteiraPage() {
 
           {/* Transações */}
           <section className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-gray-900">Minhas transações</h2>
-            <p className="text-sm text-gray-700">Acompanhe o seu histórico de depósitos e saques.</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Minhas transações</h2>
+                <p className="text-sm text-gray-700">Acompanhe o seu histórico de depósitos e saques.</p>
+              </div>
+              <button
+                onClick={() => loadTransactions()}
+                disabled={transactionsLoading}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Atualizar
+              </button>
+            </div>
 
             <div className="mt-4 flex items-center gap-4 text-blue font-semibold">
-              <span className="border-b-2 border-blue pb-1">Todas</span>
-              <span className="pb-1">Depósitos</span>
-              <span className="pb-1">Saques</span>
+              <button
+                onClick={() => setFiltroTransacoes('todas')}
+                className={`pb-1 ${filtroTransacoes === 'todas' ? 'border-b-2 border-blue' : 'hover:text-blue/80'}`}
+              >
+                Todas
+              </button>
+              <button
+                onClick={() => setFiltroTransacoes('depositos')}
+                className={`pb-1 ${filtroTransacoes === 'depositos' ? 'border-b-2 border-blue' : 'hover:text-blue/80'}`}
+              >
+                Depósitos
+              </button>
+              <button
+                onClick={() => setFiltroTransacoes('saques')}
+                className={`pb-1 ${filtroTransacoes === 'saques' ? 'border-b-2 border-blue' : 'hover:text-blue/80'}`}
+              >
+                Saques
+              </button>
             </div>
 
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Visualizar</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Transação</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Data</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Valor</th>
@@ -287,37 +338,52 @@ export default function CarteiraPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {transactions.length === 0 && (
+                  {transactionsLoading && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-4 text-sm text-gray-500 text-center">
+                      <td colSpan={5} className="px-4 py-8 text-center">
+                        <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-blue border-t-transparent" />
+                        <p className="mt-2 text-sm text-gray-500">Carregando transações...</p>
+                      </td>
+                    </tr>
+                  )}
+                  {!transactionsLoading && transactions.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-sm text-gray-500 text-center">
                         Nenhuma transação encontrada.
                       </td>
                     </tr>
                   )}
 
-                  {transactions.map((t) => (
-                    <tr key={t.id}>
-                      <td className="px-4 py-3 text-sm text-blue">👁️</td>
+                  {!transactionsLoading && transactions.map((t) => (
+                    <tr key={t.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-900">{t.tipo}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{t.data}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(t.valor)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{t.estado}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{t.pagoEm || '--'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {new Date(t.data).toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </td>
+                      <td className={`px-4 py-3 text-sm font-medium ${t.valor >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {t.valor >= 0 ? '+' : ''}{formatCurrency(t.valor)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{t.status}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {t.pagoEm
+                          ? new Date(t.pagoEm).toLocaleDateString('pt-BR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '--'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-
-            {/* Paginação placeholder */}
-            <div className="mt-4 flex items-center justify-center gap-3 text-blue">
-              <button className="px-2">≪</button>
-              <button className="px-2">‹</button>
-              <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-blue text-blue font-bold">
-                1
-              </span>
-              <button className="px-2">›</button>
-              <button className="px-2">≫</button>
             </div>
           </section>
         </div>

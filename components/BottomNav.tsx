@@ -63,10 +63,10 @@ export default function BottomNav() {
       </a>
 
       {/* Carteira */}
-      <div className="flex cursor-pointer flex-col items-center justify-center gap-1 p-2 text-xs">
+      <a href="/carteira" className="flex cursor-pointer flex-col items-center justify-center gap-1 p-2 text-xs">
         <span className="iconify i-fluent:wallet-16-regular" style={{ fontSize: '20px' }}></span>
         Carteira
-      </div>
+      </a>
     </div>
   )
 }

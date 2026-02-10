@@ -7,6 +7,8 @@ interface DashboardStats {
   usuarios: number
   saquesPendentes: number
   saquesAprovados: number
+  depositosAprovados: number
+  valorDepositosAprovados: number
   promocoesAtivas: number
   saldoTotal: number
   premiosPagar: number
@@ -30,6 +32,8 @@ export default function AdminDashboard() {
     usuarios: 0,
     saquesPendentes: 0,
     saquesAprovados: 0,
+    depositosAprovados: 0,
+    valorDepositosAprovados: 0,
     promocoesAtivas: 0,
     saldoTotal: 0,
     premiosPagar: 0,
@@ -131,6 +135,15 @@ export default function AdminDashboard() {
       icon: '✅',
       color: 'from-emerald-600 to-emerald-700',
       bgLight: 'bg-emerald-50',
+    },
+    {
+      label: 'Depósitos Aprovados',
+      value: stats.depositosAprovados.toLocaleString('pt-BR'),
+      sublabel: `R$ ${stats.valorDepositosAprovados.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} total`,
+      href: '/admin/usuarios',
+      icon: '💳',
+      color: 'from-cyan-600 to-cyan-700',
+      bgLight: 'bg-cyan-50',
     },
     {
       label: 'Promoções Ativas',

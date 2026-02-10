@@ -36,6 +36,8 @@ export async function GET(request: NextRequest) {
       totalUsuarios,
       totalSaquesPendentes,
       totalSaquesAprovados,
+      totalDepositosAprovados,
+      valorDepositosAprovados,
       totalPromocoesAtivas,
       saldoTotal,
       premiosPagar,
@@ -55,6 +57,17 @@ export async function GET(request: NextRequest) {
       // Saques aprovados (total geral)
       prisma.saque.count({
         where: { status: 'aprovado' },
+      }),
+
+      // Depósitos aprovados (quantidade)
+      prisma.transacao.count({
+        where: { tipo: 'deposito', status: 'pago' },
+      }),
+
+      // Depósitos aprovados (valor total)
+      prisma.transacao.aggregate({
+        where: { tipo: 'deposito', status: 'pago' },
+        _sum: { valor: true },
       }),
 
       // Promoções ativas
@@ -147,6 +160,8 @@ export async function GET(request: NextRequest) {
       usuarios: totalUsuarios,
       saquesPendentes: totalSaquesPendentes,
       saquesAprovados: totalSaquesAprovados,
+      depositosAprovados: totalDepositosAprovados,
+      valorDepositosAprovados: valorDepositosAprovados._sum.valor || 0,
       promocoesAtivas: totalPromocoesAtivas,
       saldoTotal: saldoTotal._sum.saldo || 0,
       premiosPagar: premiosPagar._sum.retornoPrevisto || 0,

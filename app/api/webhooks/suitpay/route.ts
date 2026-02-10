@@ -135,11 +135,12 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      // Atualizar saldo e bônus/rollover
+      // Atualizar saldo, saldoSacavel (dinheiro real para saque) e bônus/rollover
       await tx.usuario.update({
         where: { id: user.id },
         data: {
           saldo: { increment: transacao.valor },
+          saldoSacavel: { increment: transacao.valor }, // Depósito é dinheiro real, pode sacar
           bonusBloqueado: bonusAplicado > 0 ? { increment: bonusAplicado } : undefined,
           rolloverNecessario: bonusAplicado > 0 ? { increment: bonusAplicado * rolloverMult } : undefined,
         },

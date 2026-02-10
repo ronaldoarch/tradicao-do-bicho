@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       const webhookEvent = await prisma.webhookEvent.create({
         data: {
           source: 'gatebox',
-          eventType: body.status || body.eventType || 'unknown',
+          eventType: body.type || body.eventType || body.status || 'unknown',
           payload: body,
           headers: relevantHeaders,
           status: 'received',
@@ -48,18 +48,144 @@ export async function POST(req: NextRequest) {
     const transactionId = body.transactionId || body.id || body.idTransaction
     const externalId = body.externalId || body.external_id
     const status = body.status || body.statusTransaction
-    const amount = body.amount || body.value
+    const amount = (body.amount ?? body.value ?? 0) as number
     const endToEnd = body.endToEnd || body.end_to_end
-
-    if (!transactionId && !externalId && !endToEnd) {
-      console.log('Webhook sem identificador de transação:', body)
-      return NextResponse.json({ error: 'Payload inválido - sem identificador de transação' }, { status: 400 })
-    }
 
     const eventType = (body.type || body.eventType || '').toUpperCase()
     const statusLower = (status || '').toLowerCase()
 
-    // Saque (PIX enviado): apenas eventos explícitos de payout
+    // Responder 200 para eventos sem identificador (evita retry da Gatebox)
+    if (!transactionId && !externalId && !endToEnd) {
+      console.log('Webhook sem identificador de transação:', body)
+      return NextResponse.json({ message: 'Payload sem identificador, ignorando' }, { status: 200 })
+    }
+
+    const refs = [transactionId, externalId, endToEnd].filter(Boolean) as string[]
+
+    // --- PIX_REVERSAL_OUT: Saque FALHOU - devolver dinheiro ao usuário ---
+    // Só devolve se o saque ainda estava 'processando' (não chegou a ser confirmado)
+    // Se já está 'aprovado', o dinheiro foi enviado - não devolver
+    const isReversalOut =
+      eventType === 'PIX_REVERSAL_OUT' ||
+      eventType === 'PAY_OUT_REVERSAL' ||
+      (eventType === 'PIX_PAY_OUT' && (statusLower === 'failed' || statusLower === 'reversed' || statusLower === 'rejeitado'))
+
+    if (isReversalOut) {
+      const saque = await prisma.saque.findFirst({
+        where: {
+          referenciaExterna: { in: refs },
+          status: 'processando', // Só devolve se falhou antes de confirmar
+        },
+      })
+      if (saque) {
+        await prisma.$transaction(async (tx) => {
+          await tx.saque.update({
+            where: { id: saque.id },
+            data: { status: 'rejeitado', motivo: body.reason || body.motivo || 'Saque falhou' },
+          })
+          // Devolver saldo e saldoSacavel (foi debitado ao solicitar, mas o PIX não saiu)
+          await tx.usuario.update({
+            where: { id: saque.usuarioId },
+            data: {
+              saldo: { increment: saque.valor },
+              saldoSacavel: { increment: saque.valor },
+            },
+          })
+        })
+        if (webhookEventId) {
+          try {
+            await prisma.webhookEvent.update({
+              where: { id: webhookEventId },
+              data: { status: 'processed', statusCode: 200, response: { message: 'Saque revertido, saldo devolvido' }, processedAt: new Date() },
+            })
+          } catch (_) {}
+        }
+        return NextResponse.json({ message: 'Saque revertido, saldo devolvido' })
+      }
+    }
+
+    // --- PIX_REVERSAL, PIX_REFUND: Depósito revertido/reembolsado - reverter crédito ---
+    const isReversalOrRefund =
+      eventType === 'PIX_REVERSAL' ||
+      eventType === 'PIX_REFUND' ||
+      eventType === 'REFUND' ||
+      statusLower === 'refunded'
+
+    if (isReversalOrRefund) {
+      const transacao = await prisma.transacao.findFirst({
+        where: {
+          OR: refs.map((r) => ({ referenciaExterna: r })),
+          tipo: 'deposito',
+          status: 'pago',
+        },
+        include: { usuario: true },
+      })
+      if (transacao) {
+        const usuario = transacao.usuario
+        const bonusAplicado = transacao.bonusAplicado ?? 0
+        const rolloverMult = Number(process.env.BONUS_ROLLOVER_MULTIPLIER ?? 3)
+        const rolloverReverter = bonusAplicado * rolloverMult
+
+        await prisma.$transaction(async (tx) => {
+          await tx.transacao.update({
+            where: { id: transacao.id },
+            data: { status: 'falhou' },
+          })
+          await tx.usuario.update({
+            where: { id: usuario.id },
+            data: {
+              saldo: { decrement: transacao.valor },
+              saldoSacavel: { decrement: transacao.valor },
+              bonusBloqueado: bonusAplicado > 0 ? { decrement: bonusAplicado } : undefined,
+              rolloverNecessario: rolloverReverter > 0 ? { decrement: rolloverReverter } : undefined,
+            },
+          })
+        })
+        if (webhookEventId) {
+          try {
+            await prisma.webhookEvent.update({
+              where: { id: webhookEventId },
+              data: { status: 'processed', statusCode: 200, response: { message: 'Depósito revertido' }, processedAt: new Date() },
+            })
+          } catch (_) {}
+        }
+        return NextResponse.json({ message: 'Depósito revertido' })
+      }
+    }
+
+    // --- Depósito expirado/falhou (sem ter sido pago): apenas marcar transação ---
+    const isFailedOrExpired =
+      statusLower === 'expired' ||
+      statusLower === 'cancelled' ||
+      statusLower === 'failed' ||
+      statusLower === 'rejected'
+
+    if (isFailedOrExpired) {
+      const transacaoPendente = await prisma.transacao.findFirst({
+        where: {
+          OR: refs.map((r) => ({ referenciaExterna: r })),
+          tipo: 'deposito',
+          status: 'pendente',
+        },
+      })
+      if (transacaoPendente) {
+        await prisma.transacao.update({
+          where: { id: transacaoPendente.id },
+          data: { status: 'falhou' },
+        })
+        if (webhookEventId) {
+          try {
+            await prisma.webhookEvent.update({
+              where: { id: webhookEventId },
+              data: { status: 'processed', statusCode: 200, response: { message: 'Transação marcada como falha' }, processedAt: new Date() },
+            })
+          } catch (_) {}
+        }
+        return NextResponse.json({ message: 'Transação marcada como falha' })
+      }
+    }
+
+    // --- PIX_PAY_OUT: Saque confirmado ---
     const isPayoutEvent =
       eventType === 'PIX_PAY_OUT' ||
       eventType === 'PAY_OUT' ||
@@ -68,7 +194,6 @@ export async function POST(req: NextRequest) {
       statusLower === 'paid_out'
 
     if (isPayoutEvent) {
-      const refs = [transactionId, externalId, endToEnd].filter(Boolean) as string[]
       const saque = await prisma.saque.findFirst({
         where: {
           referenciaExterna: { in: refs },
@@ -174,11 +299,12 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      // Atualizar saldo e bônus/rollover
+      // Atualizar saldo, saldoSacavel (dinheiro real para saque) e bônus/rollover
       await tx.usuario.update({
         where: { id: user.id },
         data: {
           saldo: { increment: transacao.valor },
+          saldoSacavel: { increment: transacao.valor }, // Depósito é dinheiro real, pode sacar
           bonusBloqueado: bonusAplicado > 0 ? { increment: bonusAplicado } : undefined,
           rolloverNecessario: bonusAplicado > 0 ? { increment: bonusAplicado * rolloverMult } : undefined,
         },
