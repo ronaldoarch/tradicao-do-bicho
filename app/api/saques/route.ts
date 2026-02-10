@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { getActiveGateway } from '@/lib/gateways-store'
 import { getGateboxConfig, gateboxWithdraw } from '@/lib/gatebox-client'
 import { getConfiguracoes } from '@/lib/configuracoes-store'
+import { normalizePixKey } from '@/lib/pix-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -114,6 +115,7 @@ export async function POST(request: NextRequest) {
     }
 
     const chavePixTrim = typeof chavePix === 'string' ? chavePix.trim() : null
+    const chavePixNormalizada = chavePixTrim ? normalizePixKey(chavePixTrim) : null
 
     const saque = await prisma.saque.create({
       data: {
@@ -132,7 +134,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    if (isGatebox && chavePixTrim) {
+    if (isGatebox && chavePixNormalizada) {
       const gateboxConfig = await getGateboxConfig()
       if (!gateboxConfig) {
         await refundAndReject(usuario.id, saque.id, valor, 'Gateway Gatebox não configurado.')
@@ -145,7 +147,7 @@ export async function POST(request: NextRequest) {
       try {
         const withdrawPayload = {
           externalId: `saque-${saque.id}`,
-          key: chavePixTrim,
+          key: chavePixNormalizada,
           name: usuario.nome,
           amount: valor,
           description: `Saque #${saque.id}`,
