@@ -29,7 +29,7 @@ function checkAndCreateTables() {
     console.log('🔄 Aplicando migrações do banco de dados...');
     
     // Executa migrate deploy para aplicar migrações pendentes automaticamente
-    execSync('npx prisma migrate deploy --skip-generate', { 
+    execSync('npx prisma migrate deploy', { 
       stdio: 'inherit',
       env: { ...process.env },
       timeout: 60000 // Timeout de 60 segundos
@@ -49,7 +49,7 @@ function checkAndCreateTables() {
     
     // Fallback: db push sincroniza o schema mesmo sem histórico de migrações
     try {
-      execSync('npx prisma db push --skip-generate --accept-data-loss', {
+      execSync('npx prisma db push --accept-data-loss', {
         stdio: 'inherit',
         env: { ...process.env },
         timeout: 60000

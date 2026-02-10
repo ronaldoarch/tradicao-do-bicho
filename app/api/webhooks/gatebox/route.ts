@@ -45,11 +45,23 @@ export async function POST(req: NextRequest) {
       // Continua processando mesmo se falhar o tracking
     }
 
-    const transactionId = body.transactionId || body.id || body.idTransaction
-    const externalId = body.externalId || body.external_id
-    const status = body.status || body.statusTransaction
-    const amount = (body.amount ?? body.value ?? 0) as number
-    const endToEnd = body.endToEnd || body.end_to_end
+    // Gatebox envia payload aninhado: body.transaction, body.invoice, body.bankData
+    const transactionId =
+      body.transactionId ||
+      body.transaction?.transactionId ||
+      body.id ||
+      body.idTransaction
+    const externalId =
+      body.externalId ||
+      body.external_id ||
+      body.invoice?.externalId ||
+      body.transaction?.externalId
+    const endToEnd =
+      body.endToEnd ||
+      body.end_to_end ||
+      body.bankData?.endtoendId
+    const status = body.status || body.transaction?.status || body.statusTransaction
+    const amount = (body.amount ?? body.transaction?.amount ?? body.value ?? 0) as number
 
     const eventType = (body.type || body.eventType || '').toUpperCase()
     const statusLower = (status || '').toLowerCase()
@@ -236,11 +248,7 @@ export async function POST(req: NextRequest) {
 
     const transacao = await prisma.transacao.findFirst({
       where: {
-        OR: [
-          externalId ? { referenciaExterna: externalId } : undefined,
-          transactionId ? { referenciaExterna: transactionId } : undefined,
-          endToEnd ? { referenciaExterna: endToEnd } : undefined,
-        ].filter(Boolean) as any[],
+        OR: refs.map((r) => ({ referenciaExterna: r })),
         tipo: 'deposito',
       },
       include: {

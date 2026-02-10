@@ -167,8 +167,8 @@ export async function POST(req: NextRequest) {
         }
 
         // Criar registro da transação pendente
-        // Usar transactionId do Gatebox para o webhook encontrar (Gatebox envia esse ID no callback)
-        const refExterna = pixResponse.transactionId || pixResponse.endToEnd || externalId
+        // Usar externalId: o webhook Gatebox envia invoice.externalId e transaction.externalId no callback
+        const refExterna = externalId
         await prisma.transacao.create({
           data: {
             usuarioId: user.id,

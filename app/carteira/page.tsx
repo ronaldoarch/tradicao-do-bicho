@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import BottomNav from '@/components/BottomNav'
@@ -41,6 +41,8 @@ export default function CarteiraPage() {
   const [transactionsLoading, setTransactionsLoading] = useState(true)
   const [filtroTransacoes, setFiltroTransacoes] = useState<'todas' | 'depositos' | 'saques'>('todas')
   const [limites, setLimites] = useState({ saqueMinimo: 30, saqueMaximo: 10000, depositoMinimo: 25 })
+  const [depositoConfirmadoToast, setDepositoConfirmadoToast] = useState<{ valor: number } | null>(null)
+  const prevTransactionsRef = useRef<Transaction[]>([])
 
   const loadLimites = async () => {
     try {
@@ -86,18 +88,31 @@ export default function CarteiraPage() {
     }
   }
 
-  const loadTransactions = async () => {
-    setTransactionsLoading(true)
+  const loadTransactions = async (silent = false) => {
+    if (!silent) setTransactionsLoading(true)
     try {
-      const res = await fetch(`/api/transacoes?filtro=${filtroTransacoes}`)
+      const res = await fetch(`/api/transacoes?filtro=${filtroTransacoes}`, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
-        setTransactions(data.transacoes || [])
+        const novas = data.transacoes || []
+        // Detectar depósito que passou de Pendente para Pago (webhook confirmou)
+        const prev = prevTransactionsRef.current
+        for (const t of novas) {
+          if (t.tipo === 'Depósito') {
+            const eraPendente = prev.find((p) => p.id === t.id)?.status === 'Pendente'
+            if (eraPendente && t.status === 'Pago') {
+              setDepositoConfirmadoToast({ valor: t.valor })
+              setTimeout(() => setDepositoConfirmadoToast(null), 6000)
+            }
+          }
+        }
+        prevTransactionsRef.current = novas
+        setTransactions(novas)
       }
     } catch (e) {
-      console.error('Erro ao carregar transações', e)
+      if (!silent) console.error('Erro ao carregar transações', e)
     } finally {
-      setTransactionsLoading(false)
+      if (!silent) setTransactionsLoading(false)
     }
   }
 
@@ -113,11 +128,27 @@ export default function CarteiraPage() {
     loadTransactions()
   }, [filtroTransacoes])
 
+  // Polling para detectar depósito confirmado pelo webhook (a cada 10s)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadTransactions(true)
+        loadUser()
+      }
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [filtroTransacoes])
+
   const formatCurrency = (value: number) =>
     value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-scale-100 text-[#1C1C1C]">
+      {depositoConfirmadoToast && (
+        <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-green-600 px-6 py-3 text-center font-semibold text-white shadow-lg">
+          Depósito confirmado! R$ {depositoConfirmadoToast.valor.toFixed(2).replace('.', ',')} foi creditado na sua carteira.
+        </div>
+      )}
       <Header />
 
       <main className="flex-1">
