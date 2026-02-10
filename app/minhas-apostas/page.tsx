@@ -169,7 +169,6 @@ export default function MinhasApostasPage() {
                     <th className="px-4 py-3">Aposta</th>
                     <th className="px-4 py-3">Data</th>
                     <th className="px-4 py-3">Valor</th>
-                    <th className="px-4 py-3">Retorno</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3"></th>
                   </tr>
@@ -205,13 +204,6 @@ export default function MinhasApostasPage() {
                           : '—'}
                       </td>
                       <td className="px-4 py-3">R$ {Number(a.valor || 0).toFixed(2)}</td>
-                      <td className="px-4 py-3">
-                        {a.tipo === 'bingo' && a.detalhes?.emAndamento ? (
-                          <span className="text-xs text-gray-500">Aguardando resultado</span>
-                        ) : (
-                          `R$ ${Number(a.retornoPrevisto || 0).toFixed(2)}`
-                        )}
-                      </td>
                       <td className="px-4 py-3">
                         <span
                           className={`rounded-full px-2 py-1 text-xs font-semibold ${
@@ -277,20 +269,6 @@ export default function MinhasApostasPage() {
               <Detail
                 label="Valor apostado"
                 value={`R$ ${Number(selecionada.valor || 0).toFixed(2)}`}
-              />
-              <Detail 
-                label="Retorno previsto"
-                value={
-                  selecionada.status === 'perdeu'
-                    ? 'R$ 0,00'
-                    : selecionada.status === 'pendente'
-                    ? 'Aguardando resultado'
-                    : selecionada.retornoPrevisto !== null && selecionada.retornoPrevisto !== undefined && selecionada.retornoPrevisto > 0
-                    ? `R$ ${Number(selecionada.retornoPrevisto).toFixed(2)}`
-                    : selecionada.status === 'ganhou'
-                    ? 'R$ 0,00'
-                    : '—'
-                }
               />
               <Detail 
                 label="Horário" 
