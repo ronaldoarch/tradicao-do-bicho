@@ -44,7 +44,7 @@ export default function CarteiraPage() {
 
   const loadLimites = async () => {
     try {
-      const res = await fetch('/api/configuracoes')
+      const res = await fetch(`/api/configuracoes?t=${Date.now()}`, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         const c = data.configuracoes || {}
