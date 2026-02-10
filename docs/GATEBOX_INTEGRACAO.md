@@ -16,6 +16,24 @@ GATEBOX_BASE_URL=https://api.gatebox.com.br  # URL da API (padrão)
 NEXT_PUBLIC_APP_URL=https://seu-dominio.com
 ```
 
+## Webhook (obrigatório para depósitos)
+
+A Gatebox envia um webhook quando o PIX é pago. **Configure a URL do webhook no painel da Gatebox:**
+
+```
+https://seu-dominio.com/api/webhooks/gatebox
+```
+
+Exemplo: `https://tradicaodobicho.site/api/webhooks/gatebox`
+
+Se o webhook não estiver configurado ou não alcançar seu servidor, os depósitos não serão creditados automaticamente. Nesse caso, use o **fallback**: configure um cron para chamar a cada 1-2 minutos:
+
+```
+*/2 * * * * curl -s "https://seu-dominio.com/api/cron/verificar-depositos-pendentes?secret=SEU_CRON_SECRET"
+```
+
+Defina `CRON_SECRET` no ambiente e use o mesmo valor na URL.
+
 ## Whitelist de IP (obrigatório para saques)
 
 A Gatebox valida o **IP do servidor** que faz as requisições (saques, depósitos), **não** o IP do navegador do usuário. Você precisa adicionar o IP de saída do seu servidor (Coolify/VPS) na whitelist do painel Gatebox.
