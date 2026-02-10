@@ -38,8 +38,7 @@ export default function GatewaysPage() {
   const [ipLoading, setIpLoading] = useState(false)
   const [diagnostico, setDiagnostico] = useState<{
     ipServidor?: string
-    ipServidor2?: string
-    ipsDiferentes?: boolean
+    ipsUnicos?: string[]
     authOk?: boolean
     authErro?: string
     mensagem?: string
@@ -269,9 +268,21 @@ export default function GatewaysPage() {
             </button>
             {diagnostico && (
               <div className="mt-2 p-3 bg-white rounded-lg border border-amber-200 text-sm">
-                {diagnostico.ipsDiferentes && (
+                {Array.isArray(diagnostico.ipsUnicos) && diagnostico.ipsUnicos.length > 1 && (
                   <p className="text-amber-800 font-semibold mb-1">
-                    ⚠️ Servidor usa IPs diferentes (ipify: {diagnostico.ipServidor ?? ''}, icanhazip: {diagnostico.ipServidor2 ?? ''}). Adicione ambos na whitelist da Gatebox.
+                    ⚠️ Servidor tem múltiplos IPs de saída. Adicione todos na whitelist: {diagnostico.ipsUnicos.join(', ')}
+                  </p>
+                )}
+                {Array.isArray(diagnostico.ipsUnicos) && diagnostico.ipsUnicos.length > 0 && (
+                  <p className="text-gray-700 mb-1">
+                    IPs detectados: <strong>{diagnostico.ipsUnicos.join(', ')}</strong>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText((diagnostico.ipsUnicos ?? []).join('\n'))}
+                      className="ml-2 text-amber-700 underline"
+                    >
+                      Copiar
+                    </button>
                   </p>
                 )}
                 {diagnostico.authOk ? (
@@ -281,6 +292,12 @@ export default function GatewaysPage() {
                 ) : null}
                 {(diagnostico.mensagem || diagnostico.error) && (
                   <p className="text-gray-700 mt-1">{diagnostico.mensagem ?? diagnostico.error}</p>
+                )}
+                {diagnostico.authErro?.toLowerCase().includes('ip') && (
+                  <p className="text-amber-800 mt-2 text-xs">
+                    Se o IP está na whitelist e ainda falha: a Gatebox pode estar vendo outro IP (ex. IPv6 ou rota diferente). 
+                    Peça ao suporte da Gatebox qual IP eles registram quando a requisição é bloqueada.
+                  </p>
                 )}
               </div>
             )}
@@ -330,6 +347,11 @@ export default function GatewaysPage() {
               <div className={`mt-2 p-2 rounded text-sm ${testeWithdraw.ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                 {testeWithdraw.ok ? '✅ ' : '❌ '}
                 {testeWithdraw.mensagem ?? testeWithdraw.error}
+                {!testeWithdraw.ok && (testeWithdraw.error ?? '').toLowerCase().includes('ip') && (
+                  <p className="mt-2 text-xs">
+                    Peça ao suporte da Gatebox qual IP eles registram quando bloqueiam. O servidor pode usar IPv6 ou rota diferente para a API.
+                  </p>
+                )}
               </div>
             )}
           </div>

@@ -27,8 +27,7 @@ export async function GET(request: NextRequest) {
 
   const result: {
     ipServidor: string | null
-    ipServidor2?: string
-    ipsDiferentes?: boolean
+    ipsUnicos: string[]
     ipServidorErro?: string
     gateboxConfig: boolean
     authOk: boolean
@@ -36,40 +35,33 @@ export async function GET(request: NextRequest) {
     mensagem?: string
   } = {
     ipServidor: null,
+    ipsUnicos: [],
     gateboxConfig: false,
     authOk: false,
   }
 
-  // 1. Obter IP do servidor (ipify = mesmo que a página Admin)
-  try {
-    const ipRes = await fetch('https://api.ipify.org?format=json', {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(5000),
-    })
-    if (ipRes.ok) {
-      const ipData = await ipRes.json()
-      result.ipServidor = ipData.ip as string
-    }
-  } catch (e) {
-    result.ipServidorErro = e instanceof Error ? e.message : String(e)
-  }
-
-  // 1b. Segundo serviço para verificar se o servidor tem múltiplos IPs de saída
-  try {
-    const ip2Res = await fetch('https://icanhazip.com', {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(5000),
-    })
-    if (ip2Res.ok) {
-      const ip2 = (await ip2Res.text()).trim()
-      result.ipServidor2 = ip2
-      if (result.ipServidor && ip2 !== result.ipServidor) {
-        result.ipsDiferentes = true
+  // 1. Obter IP de múltiplos serviços (servidor pode ter IPs diferentes por destino/rota)
+  const ipServices = [
+    { url: 'https://api.ipify.org?format=json', parse: (r: Response) => r.json().then((d: { ip?: string }) => d.ip) },
+    { url: 'https://icanhazip.com', parse: (r: Response) => r.text().then((t) => t.trim()) },
+    { url: 'https://ifconfig.me/ip', parse: (r: Response) => r.text().then((t) => t.trim()) },
+    { url: 'https://checkip.amazonaws.com', parse: (r: Response) => r.text().then((t) => t.trim()) },
+    { url: 'https://api64.ipify.org', parse: (r: Response) => r.text().then((t) => t.trim()) },
+  ]
+  const ipsEncontrados: string[] = []
+  for (const svc of ipServices) {
+    try {
+      const res = await fetch(svc.url, { cache: 'no-store', signal: AbortSignal.timeout(5000) })
+      if (res.ok) {
+        const ip = (await svc.parse(res)) as string
+        if (ip && /^[\d.:a-fA-F]+$/.test(ip)) ipsEncontrados.push(ip)
       }
+    } catch {
+      // ignorar
     }
-  } catch {
-    // Ignorar falha do segundo serviço
   }
+  result.ipServidor = ipsEncontrados[0] ?? null
+  result.ipsUnicos = [...new Set(ipsEncontrados)]
 
   // 2. Tentar autenticar na Gatebox (usa o mesmo IP que o saque)
   const config = await getGateboxConfig()

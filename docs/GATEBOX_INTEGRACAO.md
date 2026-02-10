@@ -44,10 +44,9 @@ A Gatebox valida o **IP do servidor** que faz as requisições (saques, depósit
 - Ou no servidor: `curl https://api.ipify.org`
 
 **Se o IP está na whitelist mas ainda dá "IP não autorizado":**
-- A Gatebox pode validar IP separadamente no endpoint de saque (withdraw). O auth pode passar mas o withdraw falhar.
-- Use Admin → Gateways → "Testar saque (R$ 1,00)" para confirmar se o problema é no endpoint de withdraw.
-- Verifique os logs do servidor: quando o erro é de IP, o payload completo da Gatebox é logado.
-- **Contate o suporte da Gatebox** e informe: IP do servidor, que o auth passa mas o withdraw falha, e peça para confirmar se o IP está liberado para o endpoint `POST /v1/customers/pix/withdraw`.
+- O servidor pode ter **múltiplos IPs de saída** (IPv4, IPv6, ou rotas diferentes por destino). Use "Diagnosticar IP + Gatebox" para ver todos os IPs detectados e **adicione todos** na whitelist.
+- A Gatebox pode estar vendo **IPv6** enquanto você liberou só IPv4 (ou vice-versa).
+- **Contate o suporte da Gatebox** e pergunte: *"Qual IP de origem vocês registram quando a requisição ao endpoint POST /v1/customers/pix/withdraw retorna 403?"* — com essa informação você saberá exatamente qual IP liberar.
 
 ## Como Obter as Credenciais
 
