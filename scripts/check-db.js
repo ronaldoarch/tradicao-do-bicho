@@ -41,13 +41,24 @@ function checkAndCreateTables() {
     const errorOutput = (error.stdout?.toString() || error.stderr?.toString() || '');
     
     if (errorMessage.includes('P3009') || errorOutput.includes('failed migrations')) {
-      console.warn('⚠️  Migração anterior falhou. Tentando resolver...');
+      console.warn('⚠️  Migração anterior falhou (P3009). Tentando resolver...');
+      const migrationsToResolve = [
+        '20250124000000_add_configuracao_gatebox',
+        '20250124000001_update_gateway_model',
+      ];
+      for (const migrationName of migrationsToResolve) {
+        try {
+          execSync(`npx prisma migrate resolve --applied "${migrationName}"`, {
+            stdio: 'inherit',
+            env: { ...process.env },
+            timeout: 15000
+          });
+          console.log(`✅ Migração ${migrationName} marcada como aplicada.`);
+        } catch (e) {
+          // Ignorar - migração pode já estar ok
+        }
+      }
       try {
-        execSync('npx prisma migrate resolve --applied 20250124000000_add_configuracao_gatebox', {
-          stdio: 'inherit',
-          env: { ...process.env },
-          timeout: 15000
-        });
         console.log('🔄 Tentando migrate deploy novamente...');
         execSync('npx prisma migrate deploy', {
           stdio: 'inherit',
@@ -56,8 +67,8 @@ function checkAndCreateTables() {
         });
         console.log('✅ Migrações aplicadas!');
         return;
-      } catch (resolveError) {
-        console.warn('⚠️  Resolve falhou:', resolveError.message);
+      } catch (retryError) {
+        console.warn('⚠️  Retry migrate deploy falhou:', retryError.message);
       }
     }
     
