@@ -376,7 +376,7 @@ export async function POST(request: NextRequest) {
           
           if (!podeLiquidar) {
             console.log(`⏸️  Pulando aposta ${aposta.id} - data futura ou sem sorteio no dia`)
-            return // Retornar da função ao invés de continue
+            return { processadas: processadasLocal, liquidadas: liquidadasLocal, premioTotal: premioTotalLocal }
           }
         }
 
@@ -503,7 +503,7 @@ export async function POST(request: NextRequest) {
 
         if (resultadosFiltrados.length === 0) {
           console.log(`Nenhum resultado encontrado para aposta ${aposta.id}`)
-          return // Retornar da função ao invés de continue
+          return { processadas: processadasLocal, liquidadas: liquidadasLocal, premioTotal: premioTotalLocal }
         }
 
         // Converter resultados para formato do motor de regras
@@ -523,7 +523,7 @@ export async function POST(request: NextRequest) {
 
         if (resultadosOrdenados.length === 0) {
           console.log(`Nenhum resultado válido encontrado para aposta ${aposta.id}`)
-          return // Retornar da função ao invés de continue
+          return { processadas: processadasLocal, liquidadas: liquidadasLocal, premioTotal: premioTotalLocal }
         }
 
         // Converter para lista de milhares (formato esperado pelo motor)
@@ -547,7 +547,7 @@ export async function POST(request: NextRequest) {
         const detalhes = aposta.detalhes as any
         if (!detalhes || !detalhes.betData) {
           console.log(`Aposta ${aposta.id} não tem betData`)
-          return // Retornar da função ao invés de continue
+          return { processadas: processadasLocal, liquidadas: liquidadasLocal, premioTotal: premioTotalLocal }
         }
 
         const betData = detalhes.betData as {
@@ -601,7 +601,7 @@ export async function POST(request: NextRequest) {
         
         if (qtdPalpites === 0) {
           console.log(`Aposta ${aposta.id} não tem palpites válidos`)
-          return // Retornar da função ao invés de continue
+          return { processadas: processadasLocal, liquidadas: liquidadasLocal, premioTotal: premioTotalLocal }
         }
         
         const valorPorPalpite = calcularValorPorPalpite(
@@ -617,7 +617,7 @@ export async function POST(request: NextRequest) {
           // Modalidades numéricas (Milhar, Centena, Dezena)
           if (!betData.numberBets || betData.numberBets.length === 0) {
             console.log(`Aposta ${aposta.id} é modalidade numérica mas não tem numberBets`)
-            return // Retornar da função ao invés de continue
+            return { processadas: processadasLocal, liquidadas: liquidadasLocal, premioTotal: premioTotalLocal }
           }
 
           for (const numeroApostado of betData.numberBets) {
@@ -673,7 +673,7 @@ export async function POST(request: NextRequest) {
           // Modalidades de grupo
           if (!betData.animalBets || betData.animalBets.length === 0) {
             console.log(`Aposta ${aposta.id} é modalidade de grupo mas não tem animalBets`)
-            continue
+            return { processadas: processadasLocal, liquidadas: liquidadasLocal, premioTotal: premioTotalLocal }
           }
 
           for (const animalBet of betData.animalBets) {

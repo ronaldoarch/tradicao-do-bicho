@@ -246,7 +246,8 @@ const MAX_CACHE_SIZE = 1000 // Limitar tamanho do cache para evitar memory leak
 function limparCacheExpirado() {
   const now = Date.now()
   let removidos = 0
-  for (const [key, value] of cache.entries()) {
+  const entries = Array.from(cache.entries())
+  for (const [key, value] of entries) {
     if (now > value.expires) {
       cache.delete(key)
       removidos++
@@ -254,9 +255,9 @@ function limparCacheExpirado() {
   }
   // Se cache ainda estiver muito grande, remover entradas mais antigas
   if (cache.size > MAX_CACHE_SIZE) {
-    const entries = Array.from(cache.entries())
-    entries.sort((a, b) => a[1].expires - b[1].expires)
-    const remover = entries.slice(0, cache.size - MAX_CACHE_SIZE)
+    const remainingEntries = Array.from(cache.entries())
+    remainingEntries.sort((a, b) => a[1].expires - b[1].expires)
+    const remover = remainingEntries.slice(0, cache.size - MAX_CACHE_SIZE)
     remover.forEach(([key]) => cache.delete(key))
   }
   if (removidos > 0) {
