@@ -14,10 +14,16 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(req: NextRequest) {
   let webhookEventId: number | null = null
-  
+
   try {
     const body = await req.json()
     const headersList = req.headers
+
+    console.log('📥 Webhook Gatebox recebido:', {
+      tipo: body.type || body.eventType || body.status,
+      externalId: body.externalId || body.invoice?.externalId || body.transaction?.externalId,
+      status: body.status || body.transaction?.status,
+    })
     
     // Registrar o webhook recebido
     try {
@@ -242,7 +248,7 @@ export async function POST(req: NextRequest) {
     const isPaid = isPaidByEvent || isPaidByStatus
 
     if (!isPaid) {
-      console.log(`Transação não paga (eventType: ${eventType}, status: ${status}), ignorando`)
+      console.log(`Webhook Gatebox: transação não paga (eventType: ${eventType}, status: ${status}), ignorando`)
       return NextResponse.json({ message: 'Transação não paga, ignorando' }, { status: 200 })
     }
 
@@ -257,7 +263,10 @@ export async function POST(req: NextRequest) {
     })
 
     if (!transacao) {
-      console.log(`Transação não encontrada: ${transactionId || externalId || endToEnd}`)
+      console.warn('⚠️ Webhook Gatebox: transação não encontrada', {
+        refs: [transactionId, externalId, endToEnd],
+        payloadKeys: Object.keys(body),
+      })
       return NextResponse.json({ message: 'Transação não encontrada' }, { status: 200 })
     }
 
