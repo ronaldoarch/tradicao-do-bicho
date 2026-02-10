@@ -36,6 +36,16 @@ export default function GatewaysPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [serverIp, setServerIp] = useState<string | null>(null)
   const [ipLoading, setIpLoading] = useState(false)
+  const [diagnostico, setDiagnostico] = useState<{
+    ipServidor?: string
+    ipServidor2?: string
+    ipsDiferentes?: boolean
+    authOk?: boolean
+    authErro?: string
+    mensagem?: string
+    error?: string
+  } | null>(null)
+  const [diagnosticoLoading, setDiagnosticoLoading] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -231,6 +241,45 @@ export default function GatewaysPage() {
               >
                 {ipLoading ? 'Obtendo...' : 'Ver IP do servidor'}
               </button>
+            )}
+          </div>
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={async () => {
+                setDiagnosticoLoading(true)
+                setDiagnostico(null)
+                try {
+                  const res = await fetch('/api/admin/gatebox/diagnostico', { cache: 'no-store', credentials: 'include' })
+                  const data = await res.json()
+                  setDiagnostico(data)
+                } catch {
+                  setDiagnostico({ authErro: 'Falha ao chamar diagnóstico' })
+                } finally {
+                  setDiagnosticoLoading(false)
+                }
+              }}
+              disabled={diagnosticoLoading}
+              className="text-sm text-amber-800 underline hover:no-underline disabled:opacity-60"
+            >
+              {diagnosticoLoading ? 'Diagnosticando...' : 'Diagnosticar IP + Gatebox'}
+            </button>
+            {diagnostico && (
+              <div className="mt-2 p-3 bg-white rounded-lg border border-amber-200 text-sm">
+                {diagnostico.ipsDiferentes && (
+                  <p className="text-amber-800 font-semibold mb-1">
+                    ⚠️ Servidor usa IPs diferentes (ipify: {diagnostico.ipServidor ?? ''}, icanhazip: {diagnostico.ipServidor2 ?? ''}). Adicione ambos na whitelist da Gatebox.
+                  </p>
+                )}
+                {diagnostico.authOk ? (
+                  <p className="text-green-700">✅ Autenticação OK. IP autorizado.</p>
+                ) : diagnostico.authErro ? (
+                  <p className="text-red-700">❌ {diagnostico.authErro}</p>
+                ) : null}
+                {(diagnostico.mensagem || diagnostico.error) && (
+                  <p className="text-gray-700 mt-1">{diagnostico.mensagem ?? diagnostico.error}</p>
+                )}
+              </div>
             )}
           </div>
         </section>
