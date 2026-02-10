@@ -1,5 +1,6 @@
--- Corrigir saldoSacavel negativo (bug em apostas: debitava mais do que o disponível)
--- Usuários com saldoSacavel negativo não podem sacar; zerar para estado consistente
+-- Corrigir saldoSacavel negativo ou menor que saldo (bug em apostas)
+-- Quando saldoSacavel < saldo: tratar todo o saldo como sacável (depósitos e prêmios)
+-- Assim depósitos feitos pelo usuário ficam disponíveis para saque
 UPDATE "Usuario"
-SET "saldoSacavel" = 0
-WHERE "saldoSacavel" < 0;
+SET "saldoSacavel" = "saldo"
+WHERE "saldoSacavel" < "saldo" AND "saldo" > 0;
