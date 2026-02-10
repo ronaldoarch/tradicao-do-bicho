@@ -31,6 +31,26 @@ export function normalizePixKey(key: string): string {
     return `+55${digitsOnly}`
   }
 
-  // CPF, CNPJ ou outro: não alterar
+  // CPF como chave: 11 dígitos, enviar sem pontuação (doc Gatebox: "sem pontuação")
+  if (digitsOnly.length === 11 && digitsOnly[2] !== '9') {
+    return digitsOnly
+  }
+
+  // CNPJ como chave: 14 dígitos
+  if (digitsOnly.length === 14) {
+    return digitsOnly
+  }
+
   return trimmed
+}
+
+/**
+ * Sanitiza CPF/CNPJ para envio à Gatebox (apenas dígitos).
+ * A documentação exige "sem pontuação".
+ */
+export function sanitizeDocumentNumber(doc: string | null | undefined): string | undefined {
+  if (!doc || typeof doc !== 'string') return undefined
+  const digits = doc.replace(/\D/g, '')
+  if (digits.length === 11 || digits.length === 14) return digits
+  return undefined
 }

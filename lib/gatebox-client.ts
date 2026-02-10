@@ -483,20 +483,24 @@ export async function gateboxWithdraw(
   // Autenticar primeiro
   const token = await gateboxAuthenticate(options)
 
+  const body: Record<string, unknown> = {
+    externalId: payload.externalId,
+    key: payload.key,
+    name: payload.name,
+    description: payload.description ?? `Saque ${payload.externalId}`,
+    amount: payload.amount,
+  }
+  if (payload.documentNumber) {
+    body.documentNumber = payload.documentNumber
+  }
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({
-      externalId: payload.externalId,
-      key: payload.key,
-      name: payload.name,
-      description: payload.description,
-      amount: payload.amount,
-      documentNumber: payload.documentNumber,
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {

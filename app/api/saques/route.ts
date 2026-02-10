@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { getActiveGateway } from '@/lib/gateways-store'
 import { getGateboxConfig, gateboxWithdraw } from '@/lib/gatebox-client'
 import { getConfiguracoes } from '@/lib/configuracoes-store'
-import { normalizePixKey } from '@/lib/pix-helpers'
+import { normalizePixKey, sanitizeDocumentNumber } from '@/lib/pix-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
           name: usuario.nome,
           amount: valor,
           description: `Saque #${saque.id}`,
-          documentNumber: usuario.cpf ?? undefined,
+          documentNumber: sanitizeDocumentNumber(usuario.cpf),
         }
         const result = await gateboxWithdraw(gateboxConfig, withdrawPayload)
         const refExterna = result.transactionId ?? result.endToEnd ?? null
