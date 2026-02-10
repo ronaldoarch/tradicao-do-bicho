@@ -22,6 +22,8 @@ export async function GET() {
         bonus: true,
         bonusBloqueado: true,
         bonusSemanal: true,
+        isPromotor: true,
+        codigoPromotor: true,
       },
     })
 

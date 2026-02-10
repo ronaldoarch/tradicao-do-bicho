@@ -15,6 +15,8 @@ interface ProfileModalProps {
     bonus: number
     bonusBloqueado: number
     bonusSemanal: number
+    isPromotor?: boolean
+    codigoPromotor?: string | null
   } | null
   onLogout: () => Promise<void> | void
 }
@@ -180,6 +182,15 @@ export default function ProfileModal({ isOpen, onClose, user, onLogout }: Profil
             {/* Links de Ação */}
             <div className="mb-6 space-y-3">
               <Link
+                href="/perfil"
+                onClick={onClose}
+                className="flex items-center gap-3 rounded-lg p-3 text-white hover:bg-white/10 transition-colors"
+              >
+                <span className="iconify i-material-symbols:person-outline text-xl"></span>
+                <span className="font-semibold">Meu Perfil</span>
+              </Link>
+
+              <Link
                 href="/minhas-apostas"
                 onClick={onClose}
                 className="flex items-center gap-3 rounded-lg p-3 text-yellow hover:bg-white/10 transition-colors"
@@ -196,6 +207,17 @@ export default function ProfileModal({ isOpen, onClose, user, onLogout }: Profil
                 <span className="iconify i-material-symbols:account-balance-wallet text-xl"></span>
                 <span className="font-semibold">Carteira</span>
               </Link>
+
+              {user.isPromotor && (
+                <Link
+                  href="/indique-e-ganhe"
+                  onClick={onClose}
+                  className="flex items-center gap-3 rounded-lg border-2 border-yellow/50 bg-yellow/10 p-3 text-yellow hover:bg-yellow/20 transition-colors"
+                >
+                  <span className="iconify i-material-symbols:share text-xl"></span>
+                  <span className="font-semibold">Indique e Ganhe</span>
+                </Link>
+              )}
             </div>
 
             {/* Botão Depositar */}

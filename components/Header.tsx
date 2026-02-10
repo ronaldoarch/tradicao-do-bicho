@@ -16,6 +16,8 @@ export default function Header() {
     bonus: number
     bonusBloqueado: number
     bonusSemanal: number
+    isPromotor?: boolean
+    codigoPromotor?: string | null
   } | null>(null)
   const [loadingUser, setLoadingUser] = useState(true)
 

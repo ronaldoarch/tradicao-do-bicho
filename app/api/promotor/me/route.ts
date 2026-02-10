@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { parseSessionToken } from '@/lib/auth'
+import { gerarCodigoPromotorUnico } from '@/lib/promotor-helpers'
 
 /** GET - Dados do promotor logado (link, estatísticas) */
 export async function GET() {
@@ -12,7 +13,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
     }
 
-    const usuario = await prisma.usuario.findUnique({
+    let usuario = await prisma.usuario.findUnique({
       where: { id: payload.id },
       select: {
         isPromotor: true,
@@ -20,6 +21,16 @@ export async function GET() {
         nome: true,
       },
     })
+
+    // Se é promotor mas não tem código, gera e salva
+    if (usuario?.isPromotor && !usuario.codigoPromotor) {
+      const codigo = await gerarCodigoPromotorUnico()
+      await prisma.usuario.update({
+        where: { id: payload.id },
+        data: { codigoPromotor: codigo },
+      })
+      usuario = { ...usuario, codigoPromotor: codigo }
+    }
 
     if (!usuario || !usuario.isPromotor || !usuario.codigoPromotor) {
       return NextResponse.json({
