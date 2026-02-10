@@ -58,8 +58,12 @@ export async function POST(req: NextRequest) {
 
     let promotorId: number | null = null
     if (refCodigo) {
-      const promotor = await buscarPromotorPorCodigo(refCodigo)
-      if (promotor) promotorId = promotor.id
+      try {
+        const promotor = await buscarPromotorPorCodigo(refCodigo)
+        if (promotor) promotorId = promotor.id
+      } catch (promError) {
+        console.warn('Promotor ref ignorado (tabelas podem não existir ainda):', promError)
+      }
     }
 
     const user = await prisma.usuario.create({

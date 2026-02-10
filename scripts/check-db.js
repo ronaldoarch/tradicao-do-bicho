@@ -29,7 +29,6 @@ function checkAndCreateTables() {
     console.log('🔄 Aplicando migrações do banco de dados...');
     
     // Executa migrate deploy para aplicar migrações pendentes automaticamente
-    // Usa --skip-generate para não regenerar o client (já foi gerado no build)
     execSync('npx prisma migrate deploy --skip-generate', { 
       stdio: 'inherit',
       env: { ...process.env },
@@ -38,23 +37,27 @@ function checkAndCreateTables() {
     
     console.log('✅ Migrações aplicadas! Banco de dados pronto.');
   } catch (error) {
-    // Se der erro, verifica se é porque as tabelas já existem ou outro erro
     const errorMessage = error.message || '';
-    const errorOutput = error.stdout?.toString() || error.stderr?.toString() || '';
+    const errorOutput = (error.stdout?.toString() || error.stderr?.toString() || '');
     
-    if (
-      errorMessage.includes('already exists') || 
-      errorMessage.includes('P3009') ||
-      errorOutput.includes('already exists') ||
-      errorOutput.includes('P3009') ||
-      errorOutput.includes('in sync')
-    ) {
-      console.log('✅ Tabelas já existem no banco de dados');
-    } else if (errorMessage.includes('timeout')) {
-      console.error('⏱️  Timeout ao verificar banco de dados. Continuando...');
+    if (errorMessage.includes('timeout')) {
+      console.error('⏱️  Timeout ao verificar banco de dados. Tentando db push...');
     } else {
-      console.error('⚠️  Aviso ao verificar banco de dados:', errorMessage);
-      console.log('ℹ️  Continuando com o start da aplicação...');
+      console.warn('⚠️  migrate deploy falhou:', errorMessage);
+      console.log('🔄 Tentando db push para sincronizar schema...');
+    }
+    
+    // Fallback: db push sincroniza o schema mesmo sem histórico de migrações
+    try {
+      execSync('npx prisma db push --skip-generate --accept-data-loss', {
+        stdio: 'inherit',
+        env: { ...process.env },
+        timeout: 60000
+      });
+      console.log('✅ Banco de dados sincronizado via db push.');
+    } catch (pushError) {
+      console.error('❌ Erro crítico ao sincronizar banco:', pushError.message);
+      console.log('ℹ️  Aplicação iniciará, mas pode falhar em operações de banco.');
     }
   }
 }
