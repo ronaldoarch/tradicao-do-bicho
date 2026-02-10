@@ -66,7 +66,7 @@ export async function getGateboxConfig(): Promise<GateboxClientOptions | null> {
   const { getActiveGateway, getGatewayConfig } = await import('./gateways-store')
   const gateway = await getActiveGateway()
   if (gateway?.type === 'gatebox' && gateway.username && gateway.password) {
-    const gwConfig = getGatewayConfig(gateway)
+    const gwConfig = await getGatewayConfig(gateway)
     if (gwConfig && gwConfig.type === 'gatebox' && gwConfig.password) {
       return {
         username: gwConfig.username!,

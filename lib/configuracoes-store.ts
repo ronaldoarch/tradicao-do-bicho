@@ -12,6 +12,9 @@ export async function getConfiguracoes() {
         emailSuporte: 'suporte@tradicaodobicho.com',
         whatsappSuporte: '5500000000000',
         logoSite: '',
+        limiteSaqueMinimo: 30,
+        limiteSaqueMaximo: 10000,
+        limiteDepositoMinimo: 25,
       },
     })
   }
