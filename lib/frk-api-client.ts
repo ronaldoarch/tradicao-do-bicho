@@ -681,17 +681,23 @@ export class FrkApiClient {
  * Mapeia tipo de jogo interno para código FRK
  */
 export function mapearTipoJogoFRK(modalidade: string, tipo: string): number {
-  // Mapeamento baseado na documentação FRK
-  // 1 = Milhar, 2 = Grupo, etc.
+  // Mapeamento baseado na planilha "730 - Integração Externa"
+  // ID Jogo conforme planilha fornecida
   const map: Record<string, number> = {
-    'MILHAR': 1,
-    'GRUPO': 2,
-    'CENTENA': 3,
-    'DEZENA': 4,
-    'DUQUE_GRUPO': 5,
-    'DUQUE_DEZENA': 6,
-    'TERNO_GRUPO': 7,
-    'TERNO_DEZENA': 8,
+    'MILHAR': 1,        // ID Jogo: 1, Sigla: M
+    'CENTENA': 2,       // ID Jogo: 2, Sigla: C
+    'DEZENA': 3,        // ID Jogo: 3, Sigla: D
+    'GRUPO': 4,         // ID Jogo: 4, Sigla: G
+    'TERNO_DEZENA': 5,  // ID Jogo: 5, Sigla: TD
+    'TERNO_GRUPO': 6,   // ID Jogo: 6, Sigla: TG
+    'DUQUE_DEZENA': 7,  // ID Jogo: 7, Sigla: DD
+    'DUQUE_GRUPO': 8,   // ID Jogo: 8, Sigla: DG
+    'GRUPO_COMBINADO': 49, // ID Jogo: 49, Sigla: GC
+    'QUINA': 555,       // ID Jogo: 555, Sigla: Q
+    'SENA': 666,        // ID Jogo: 666, Sigla: S
+    'LOTINHA': 1515,    // ID Jogo: 1515, Sigla: LT
+    'PASSE_SECO_VAI': 813, // ID Jogo: 813, Sigla: PV
+    'PASSE_VOLTA_VAI_VEM': 83, // ID Jogo: 83, Sigla: PVV
   }
 
   return map[modalidade] || 1 // Default: milhar

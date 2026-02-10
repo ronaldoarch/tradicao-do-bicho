@@ -97,8 +97,11 @@ export async function POST(request: NextRequest) {
       arrApostas,
     })
 
-    // Opcional: Buscar extrações disponíveis para validar antes de descarga
-    // Isso pode ajudar a identificar se a extração está disponível
+    // IMPORTANTE: Buscar extrações para obter horário de bloqueio
+    // Conforme orientação: "Horário Bloqueio (aconselho enviar 3min antes desse horário)"
+    let horarioBloqueio: string | null = null
+    let usarHorarioBloqueio = false
+    
     try {
       // Converter data para formato YYYY-MM-DD se necessário
       let dataParaBusca = dataJogo
@@ -118,9 +121,10 @@ export async function POST(request: NextRequest) {
           horarioBloqueio: extracaoEncontrada.chrHorarioBloqueio,
         })
         
-        // Se a extração tiver horário específico, podemos usar esse horário
-        if (extracaoEncontrada.chrHorario && extracaoEncontrada.tnySituacao === 1) {
-          console.log(`ℹ️ Extração ${extracao} está ativa com horário ${extracaoEncontrada.chrHorario}`)
+        if (extracaoEncontrada.chrHorarioBloqueio && extracaoEncontrada.tnySituacao === 1) {
+          horarioBloqueio = extracaoEncontrada.chrHorarioBloqueio
+          console.log(`ℹ️ Usando horário de bloqueio: ${horarioBloqueio} (enviar 3min antes)`)
+          usarHorarioBloqueio = true
         } else if (extracaoEncontrada.tnySituacao !== 1) {
           console.warn(`⚠️ Extração ${extracao} encontrada mas não está ativa (situação: ${extracaoEncontrada.tnySituacao})`)
         }
@@ -130,6 +134,7 @@ export async function POST(request: NextRequest) {
           numero: e.tnyExtracao,
           descricao: e.vchDescricao,
           horario: e.chrHorario,
+          horarioBloqueio: e.chrHorarioBloqueio,
           situacao: e.tnySituacao,
         })))
       }
@@ -137,14 +142,49 @@ export async function POST(request: NextRequest) {
       console.warn('⚠️ Não foi possível buscar extrações (continuando mesmo assim):', error.message)
     }
 
+    // Se encontrou horário de bloqueio, calcular horário para envio (3 minutos antes)
+    let dataHoraParaEnvio = dataHora
+    if (usarHorarioBloqueio && horarioBloqueio) {
+      try {
+        // Parse do horário de bloqueio (formato HH:mm)
+        const [horaBloqueio, minutoBloqueio] = horarioBloqueio.split(':').map(Number)
+        
+        // Criar data com horário de bloqueio
+        const [ano, mes, dia] = dataJogo.includes('/') 
+          ? dataJogo.split('/').reverse() 
+          : dataJogo.split('-')
+        const dataBloqueio = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia), horaBloqueio, minutoBloqueio)
+        
+        // Subtrair 3 minutos
+        dataBloqueio.setMinutes(dataBloqueio.getMinutes() - 3)
+        
+        // Formatar para YYYY-MM-DD HH:mm
+        const anoFormatado = String(dataBloqueio.getFullYear())
+        const mesFormatado = String(dataBloqueio.getMonth() + 1).padStart(2, '0')
+        const diaFormatado = String(dataBloqueio.getDate()).padStart(2, '0')
+        const horaFormatada = String(dataBloqueio.getHours()).padStart(2, '0')
+        const minutoFormatado = String(dataBloqueio.getMinutes()).padStart(2, '0')
+        
+        dataHoraParaEnvio = `${anoFormatado}-${mesFormatado}-${diaFormatado} ${horaFormatada}:${minutoFormatado}`
+        
+        console.log(`⏰ Ajustando horário conforme orientação:`)
+        console.log(`   - Horário de bloqueio: ${horarioBloqueio}`)
+        console.log(`   - Horário para envio (3min antes): ${dataHoraParaEnvio}`)
+      } catch (error: any) {
+        console.warn(`⚠️ Erro ao calcular horário de bloqueio menos 3min: ${error.message}`)
+        console.log(`   Usando horário original: ${dataHora}`)
+      }
+    }
+
     // Efetuar descarga
+    // Usar horário ajustado (bloqueio - 3min) se disponível, senão usar o original
     const resultado = await client.efetuarDescarga({
       sdtDataJogo: dataJogo,
-      sdtDataHora: dataHora,
+      sdtDataHora: dataHoraParaEnvio,
       tnyExtracao: extracao,
       sntQuantidadeApostas: quantidadeApostas,
       numValorApostas: valorTotal,
-      sdtDataHoraTerminal: dataHora,
+      sdtDataHoraTerminal: dataHoraParaEnvio, // Usar mesmo horário ajustado
       arrApostas,
       arrExtracaoData: [],
     })
