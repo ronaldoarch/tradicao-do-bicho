@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeFile, mkdir } from 'fs/promises'
+import { open } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
 
@@ -59,6 +60,15 @@ export async function POST(request: NextRequest) {
       const bytes = await file.arrayBuffer()
       const buffer = Buffer.from(bytes)
       await writeFile(filePath, buffer)
+      
+      // Garantir que o arquivo foi escrito no disco (fsync) - importante para volumes persistentes
+      try {
+        const fd = await open(filePath, 'r')
+        await fd.sync()
+        await fd.close()
+      } catch (syncErr) {
+        console.warn('Aviso: fsync não disponível, continuando:', syncErr)
+      }
       
       // Verificar se o arquivo foi realmente salvo
       if (!existsSync(filePath)) {

@@ -21,7 +21,7 @@ cmds = [
 ]
 
 [start]
-cmd = "bash -c 'if command -v crond &> /dev/null; then crond -f -d 8 & fi; if command -v cron &> /dev/null; then cron & fi; sleep 2; exec npm start'"
+cmd = "bash -c 'mkdir -p /app/public/uploads/banners /app/public/uploads/logos /app/public/uploads/stories && chmod -R 755 /app/public/uploads 2>/dev/null || true; if command -v crond &> /dev/null; then crond -f -d 8 & fi; if command -v cron &> /dev/null; then cron & fi; sleep 2; exec npm start'"
 
 [staticAssets]
 "public" = "./public"

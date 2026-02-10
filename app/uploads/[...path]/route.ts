@@ -17,6 +17,8 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Length': stat.size.toString(),
+        // Evitar cache de 404 - se o arquivo não existir, não cachear o erro
+        'Cache-Control': 'public, max-age=86400, immutable',
       },
     })
 
@@ -33,6 +35,10 @@ export async function GET(
 
     return response
   } catch (error) {
-    return NextResponse.json({ error: 'Arquivo não encontrado' }, { status: 404 })
+    // NÃO cachear 404 - evita que browser cache erro quando arquivo ainda não existe
+    return NextResponse.json({ error: 'Arquivo não encontrado' }, {
+      status: 404,
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    })
   }
 }

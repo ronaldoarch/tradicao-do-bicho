@@ -80,10 +80,11 @@ Se quiser migrar para S3/R2 no futuro, será necessário:
 ### Arquivos ainda são perdidos após configurar volume?
 
 1. **Verifique o Destination Path**: Deve ser exatamente `/app/public/uploads` (não `/tmp/root` ou outro caminho)
-2. **Verifique o Source Path**: Pode ficar vazio ou ser um caminho no host (ex: `/uploads-storage`)
+2. **⚠️ Source Path NÃO deve ficar vazio**: Se vazio, o Coolify pode criar um volume novo a cada deploy. Use um caminho no host, ex: `/data/tradicaodobicho-uploads`
 3. **Verifique se o volume foi criado**: No Coolify, veja se aparece na lista de volumes
 4. **Verifique permissões**: O container precisa ter permissão de escrita no diretório
 5. **Reinicie após configurar**: O volume só é montado quando o container inicia
+6. **Cache de 404**: Se a imagem não carregou antes, o navegador pode ter cacheado o erro. Faça um hard refresh (Ctrl+Shift+R) ou use aba anônima para testar
 
 ### Como verificar se o volume está funcionando?
 
