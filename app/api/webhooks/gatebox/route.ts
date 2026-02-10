@@ -89,12 +89,28 @@ export async function POST(req: NextRequest) {
       (eventType === 'PIX_PAY_OUT' && (statusLower === 'failed' || statusLower === 'reversed' || statusLower === 'rejeitado'))
 
     if (isReversalOut) {
-      const saque = await prisma.saque.findFirst({
+      // Buscar saque por referenciaExterna (transactionId/endToEnd)
+      let saque = await prisma.saque.findFirst({
         where: {
           referenciaExterna: { in: refs },
           status: 'processando', // Só devolve se falhou antes de confirmar
         },
       })
+
+      // Se não encontrou e externalId começa com "saque-", buscar pelo ID do saque
+      if (!saque && externalId && externalId.startsWith('saque-')) {
+        const saqueIdMatch = externalId.match(/^saque-(\d+)$/)
+        if (saqueIdMatch) {
+          const saqueId = parseInt(saqueIdMatch[1], 10)
+          saque = await prisma.saque.findFirst({
+            where: {
+              id: saqueId,
+              status: 'processando',
+            },
+          })
+        }
+      }
+
       if (saque) {
         await prisma.$transaction(async (tx) => {
           await tx.saque.update({
@@ -211,13 +227,32 @@ export async function POST(req: NextRequest) {
       eventType === 'PIX_EFFECTIVE' ||
       statusLower === 'paid_out'
 
-    if (isPayoutEvent) {
-      const saque = await prisma.saque.findFirst({
+    // --- COMPLETED: Status genérico de conclusão (pode ser saque ou depósito) ---
+    const isCompletedStatus = statusLower === 'completed' || statusLower === 'completed'
+
+    if (isPayoutEvent || isCompletedStatus) {
+      // Buscar saque por referenciaExterna (transactionId/endToEnd)
+      let saque = await prisma.saque.findFirst({
         where: {
           referenciaExterna: { in: refs },
           status: 'processando',
         },
       })
+
+      // Se não encontrou e externalId começa com "saque-", buscar pelo ID do saque
+      if (!saque && externalId && externalId.startsWith('saque-')) {
+        const saqueIdMatch = externalId.match(/^saque-(\d+)$/)
+        if (saqueIdMatch) {
+          const saqueId = parseInt(saqueIdMatch[1], 10)
+          saque = await prisma.saque.findFirst({
+            where: {
+              id: saqueId,
+              status: 'processando',
+            },
+          })
+        }
+      }
+
       if (saque) {
         await prisma.saque.update({
           where: { id: saque.id },
@@ -234,6 +269,35 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ message: 'Saque confirmado' })
       }
       return NextResponse.json({ message: 'Saque não encontrado ou já processado' })
+    }
+
+    // Se externalId começa com "saque-" e status é COMPLETED, tratar como saque
+    if (externalId && externalId.startsWith('saque-') && (statusLower === 'completed' || eventType === 'COMPLETED')) {
+      const saqueIdMatch = externalId.match(/^saque-(\d+)$/)
+      if (saqueIdMatch) {
+        const saqueId = parseInt(saqueIdMatch[1], 10)
+        const saque = await prisma.saque.findFirst({
+          where: {
+            id: saqueId,
+            status: 'processando',
+          },
+        })
+        if (saque) {
+          await prisma.saque.update({
+            where: { id: saque.id },
+            data: { status: 'aprovado' },
+          })
+          if (webhookEventId) {
+            try {
+              await prisma.webhookEvent.update({
+                where: { id: webhookEventId },
+                data: { status: 'processed', statusCode: 200, response: { message: 'Saque confirmado' }, processedAt: new Date() },
+              })
+            } catch (_) {}
+          }
+          return NextResponse.json({ message: 'Saque confirmado' })
+        }
+      }
     }
 
     // Depósito (PIX recebido): PIX_PAY_IN
