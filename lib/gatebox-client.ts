@@ -472,17 +472,19 @@ export async function gateboxValidatePixKey(
 
 /**
  * Realiza saque PIX (Cash-Out)
+ * Payload conforme Postman: externalId, key, name, description, amount, documentNumber
  */
 export async function gateboxWithdraw(
   options: GateboxClientOptions,
   payload: GateboxWithdrawPayload
 ): Promise<GateboxWithdrawResponse> {
-  const baseUrl = options.baseUrl || 'https://api.gatebox.com.br'
+  const baseUrl = (options.baseUrl || 'https://api.gatebox.com.br').replace(/\/$/, '')
   const url = `${baseUrl}/v1/customers/pix/withdraw`
 
   // Autenticar primeiro
   const token = await gateboxAuthenticate(options)
 
+  // Body exatamente como Postman: externalId, key, name, description, amount, documentNumber
   const body: Record<string, unknown> = {
     externalId: payload.externalId,
     key: payload.key,
@@ -494,13 +496,17 @@ export async function gateboxWithdraw(
     body.documentNumber = payload.documentNumber
   }
 
+  const bodyStr = JSON.stringify(body)
+  console.log('[Gatebox withdraw] POST', url, 'body:', bodyStr)
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Accept: 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(body),
+    body: bodyStr,
   })
 
   if (!response.ok) {

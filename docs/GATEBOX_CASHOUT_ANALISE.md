@@ -6,8 +6,11 @@ Comparação entre a documentação Postman da Gatebox e nossa implementação.
 
 - **URL:** `POST {{API_URL}}/v1/customers/pix/withdraw`
 - **Auth:** Bearer token (obtido via sign-in)
+- **Headers:** Content-Type: application/json, Authorization: Bearer {token}
 
-## Payload esperado (Postman)
+## Payload (Postman – NÃO inclui IP)
+
+O Postman **não envia** nenhum campo de IP. A Gatebox obtém o IP da conexão TCP, não do body.
 
 ```json
 {
@@ -45,9 +48,8 @@ Endpoint "Validar chave Pix" (`GET /v1/customers/pix/pix-search?dict=...`) exige
 - `name`: `usuario.nome` ✅
 - `description`: `Saque #${saque.id}` ✅
 - `amount`: `valor` (em reais) ✅
-- `documentNumber`: `usuario.cpf ?? undefined` ⚠️ Deve ser sanitizado (apenas dígitos)
+- `documentNumber`: sanitizado (apenas dígitos) ✅
 
-## Correções aplicadas
+## Log para debug
 
-1. **documentNumber:** Enviar apenas dígitos (CPF/CNPJ sem pontuação)
-2. **key:** Já normalizada para E.164 em telefones via `normalizePixKey()`
+Em caso de erro, o servidor registra: `[Gatebox withdraw] POST {url} body: {json}` — compare com o que o Postman envia.
