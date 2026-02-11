@@ -69,10 +69,12 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('Erro ao gerar PDF relatório FRK:', error)
+    console.error('Stack trace:', error.stack)
     return NextResponse.json(
       {
         error: 'Erro ao gerar PDF',
         message: error.message || 'Erro desconhecido',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       },
       { status: 500 }
     )

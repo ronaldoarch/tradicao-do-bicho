@@ -84,7 +84,7 @@ export function gerarPDFRelatorioFRK(data: FrkRelatorioData): Promise<Buffer> {
         doc.fontSize(11)
         doc.font('Helvetica')
         doc.text(`Base URL: ${data.config.baseUrl}`, { indent: 20 })
-        doc.text(`Código Integrador: ${data.config.codigoIntegrador.substring(0, 10)}...`, { indent: 20 })
+        doc.text(`Código Integrador: ${data.config.codigoIntegrador ? data.config.codigoIntegrador.substring(0, 10) + '...' : 'N/A'}`, { indent: 20 })
         doc.text(`Cliente ID: ${data.config.clienteId}`, { indent: 20 })
         doc.text(`Banca ID: ${data.config.bancaId}`, { indent: 20 })
         if (data.config.chrSerial) doc.text(`Serial: ${data.config.chrSerial}`, { indent: 20 })
@@ -147,14 +147,23 @@ export function gerarPDFRelatorioFRK(data: FrkRelatorioData): Promise<Buffer> {
           doc.fontSize(9)
         }
 
-        const tipoJogoFRK = mapearTipoJogoFRK(aposta.modalidade || 'GRUPO', aposta.tipo || '')
-        const premioFRK = mapearPremioFRK(aposta.premio || 1)
+        try {
+          const tipoJogoFRK = mapearTipoJogoFRK(aposta.modalidade || 'GRUPO', aposta.tipo || '')
+          const premioFRK = mapearPremioFRK(aposta.premio || 1)
 
-        doc.text(aposta.modalidade || 'GRUPO', 50, doc.y, { width: 80 })
-        doc.text(aposta.numero || '', 130, doc.y, { width: 100 })
-        doc.text(`${aposta.premio}º (${premioFRK})`, 230, doc.y, { width: 60 })
-        doc.text(aposta.valor.toFixed(2).replace('.', ','), 290, doc.y, { width: 100 })
-        doc.text(tipoJogoFRK.toString(), 390, doc.y, { width: 60 })
+          doc.text(aposta.modalidade || 'GRUPO', 50, doc.y, { width: 80 })
+          doc.text(aposta.numero || '', 130, doc.y, { width: 100 })
+          doc.text(`${aposta.premio || 1}º (${premioFRK})`, 230, doc.y, { width: 60 })
+          doc.text((aposta.valor || 0).toFixed(2).replace('.', ','), 290, doc.y, { width: 100 })
+          doc.text(String(tipoJogoFRK), 390, doc.y, { width: 60 })
+        } catch (mapError) {
+          console.error('Erro ao mapear aposta:', mapError, aposta)
+          doc.text(aposta.modalidade || 'GRUPO', 50, doc.y, { width: 80 })
+          doc.text(aposta.numero || '', 130, doc.y, { width: 100 })
+          doc.text(`${aposta.premio || 1}º`, 230, doc.y, { width: 60 })
+          doc.text((aposta.valor || 0).toFixed(2).replace('.', ','), 290, doc.y, { width: 100 })
+          doc.text('N/A', 390, doc.y, { width: 60 })
+        }
 
         doc.moveDown(0.3)
 
@@ -206,17 +215,23 @@ export function gerarPDFRelatorioFRK(data: FrkRelatorioData): Promise<Buffer> {
       })
 
       // Rodapé
-      const totalPages = doc.bufferedPageRange().count
-      for (let i = 0; i < totalPages; i++) {
-        doc.switchToPage(i)
-        doc.fontSize(8)
-        doc.font('Helvetica')
-        doc.text(
-          `Página ${i + 1} de ${totalPages} - Relatório de Descarga FRK`,
-          50,
-          doc.page.height - 30,
-          { align: 'center' }
-        )
+      try {
+        const pageRange = doc.bufferedPageRange()
+        const totalPages = pageRange ? pageRange.count : 1
+        for (let i = 0; i < totalPages; i++) {
+          doc.switchToPage(i)
+          doc.fontSize(8)
+          doc.font('Helvetica')
+          doc.text(
+            `Página ${i + 1} de ${totalPages} - Relatório de Descarga FRK`,
+            50,
+            doc.page.height - 30,
+            { align: 'center' }
+          )
+        }
+      } catch (pageError) {
+        // Se não conseguir adicionar rodapé, continuar mesmo assim
+        console.warn('Erro ao adicionar rodapé:', pageError)
       }
 
       doc.end()
