@@ -62,19 +62,6 @@ export default function FacebookPixel() {
 
         console.log('✅ FacebookPixel: Inicializando pixel:', pixelId)
 
-        // Inicializar fbq se ainda não existe
-        if (typeof window !== 'undefined' && !window.fbq) {
-          const fbqQueue: any[] = []
-          const fbqFn = function(...args: any[]) {
-            fbqQueue.push(args)
-          } as any
-          fbqFn.q = fbqQueue
-          fbqFn.l = Date.now()
-          fbqFn.o = []
-          fbqFn.p = []
-          window.fbq = fbqFn
-        }
-
         // Verificar se script já existe
         const existingScript = document.getElementById('facebook-pixel-script')
         if (existingScript) {
@@ -83,8 +70,8 @@ export default function FacebookPixel() {
         }
 
         // Verificar se já existe fbq global (pode ter sido carregado por outro script)
-        if (window.fbq && typeof window.fbq === 'function') {
-          console.log('✅ FacebookPixel: fbq já existe globalmente, usando...')
+        if (window.fbq && typeof window.fbq === 'function' && (window.fbq as any).loaded) {
+          console.log('✅ FacebookPixel: fbq já existe e está carregado, usando...')
           try {
             window.fbq('init', pixelId)
             console.log('✅ FacebookPixel: Pixel inicializado com ID:', pixelId)
@@ -103,22 +90,40 @@ export default function FacebookPixel() {
           }
         }
 
-        // Carregar script do Facebook Pixel
-        const script = document.createElement('script')
-        script.id = 'facebook-pixel-script'
-        script.async = true
-        script.src = `https://connect.facebook.net/en_US/fbevents.js`
-        
-        // Adicionar crossorigin para evitar problemas CORS
-        script.crossOrigin = 'anonymous'
+        // Usar código padrão do Facebook para carregar o pixel
+        // Isso garante compatibilidade com Pixel Helper
+        if (typeof window !== 'undefined' && !window.fbq) {
+          // Código padrão do Facebook Pixel
+          ;(function(f: any, b: any, e: string, v: string, n?: any, t?: any, s?: any) {
+            if (f.fbq) return
+            n = f.fbq = function(...args: any[]) {
+              n.callMethod ? n.callMethod.apply(n, args) : n.queue.push(args)
+            }
+            if (!f._fbq) f._fbq = n
+            n.push = n
+            n.loaded = false
+            n.version = '2.0'
+            n.queue = []
+            t = b.createElement(e)
+            t.async = true
+            t.defer = true
+            t.src = v
+            t.onload = function() {
+              n.loaded = true
+              console.log('✅ FacebookPixel: Script fbevents.js carregado')
+            }
+            s = b.getElementsByTagName(e)[0]
+            s.parentNode?.insertBefore(t, s)
+          })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js')
+          
+          console.log('📥 FacebookPixel: fbq queue inicializado, aguardando script carregar...')
+        }
 
-        document.head.appendChild(script)
-        console.log('📥 FacebookPixel: Script adicionado ao head')
-
-        // Inicializar pixel após script carregar
-        script.onload = () => {
-          console.log('✅ FacebookPixel: Script carregado, inicializando...')
-          if (typeof window !== 'undefined' && window.fbq) {
+        // Aguardar script carregar e então inicializar
+        const checkFbqLoaded = setInterval(() => {
+          if (window.fbq && (window.fbq as any).loaded === true) {
+            clearInterval(checkFbqLoaded)
+            console.log('✅ FacebookPixel: Script carregado, inicializando pixel...')
             try {
               window.fbq('init', pixelId)
               console.log('✅ FacebookPixel: Pixel inicializado com ID:', pixelId)
@@ -135,16 +140,32 @@ export default function FacebookPixel() {
               console.error('❌ FacebookPixel: Erro ao inicializar:', initError)
               setPixelStatus('error')
             }
-          } else {
-            console.error('❌ FacebookPixel: window.fbq não está disponível')
-            setPixelStatus('error')
           }
-        }
+        }, 100)
 
-        script.onerror = (error) => {
-          console.error('❌ FacebookPixel: Erro ao carregar script:', error)
-          setPixelStatus('error')
-        }
+        // Timeout de segurança (10 segundos)
+        setTimeout(() => {
+          clearInterval(checkFbqLoaded)
+          if (pixelStatus === 'loading') {
+            console.warn('⚠️ FacebookPixel: Timeout ao carregar script (10s)')
+            // Tentar inicializar mesmo assim se fbq existe
+            if (window.fbq) {
+              try {
+                window.fbq('init', pixelId)
+                window.fbq('track', 'PageView')
+                trackFacebookEvent('PageView', {
+                  source_url: window.location.href,
+                }, pixelId)
+                setPixelStatus('loaded')
+                console.log('✅ FacebookPixel: Inicializado após timeout')
+              } catch (e) {
+                setPixelStatus('error')
+              }
+            } else {
+              setPixelStatus('error')
+            }
+          }
+        }, 10000)
       } catch (error) {
         console.error('❌ Erro ao carregar Facebook Pixel:', error)
         setPixelStatus('error')

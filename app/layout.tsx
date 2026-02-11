@@ -3,6 +3,7 @@ import './globals.css'
 import TemaProvider from '@/components/TemaProvider'
 import TemaScript from '@/components/TemaScript'
 import FacebookPixel from '@/components/FacebookPixel'
+import FacebookPixelNoscript from '@/components/FacebookPixelNoscript'
 
 export const metadata: Metadata = {
   title: 'Tradição do Bicho - Acerte no Jogo do Bicho e Ganhe!',
@@ -25,6 +26,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <FacebookPixel />
+        <FacebookPixelNoscript />
         <TemaProvider>{children}</TemaProvider>
       </body>
     </html>
