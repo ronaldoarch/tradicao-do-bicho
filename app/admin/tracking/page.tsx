@@ -156,6 +156,21 @@ export default function TrackingPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Tracking de Eventos</h1>
         <p className="text-gray-600 mt-2">Monitore webhooks e eventos do Facebook em tempo real</p>
+        {config && config.facebookPixelId && (
+          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm text-green-800">
+              <strong>✅ Facebook Pixel Ativo:</strong> {config.facebookPixelId}
+              {config.ativo ? ' (Ativado)' : ' (Desativado)'}
+            </p>
+          </div>
+        )}
+        {config && !config.facebookPixelId && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              <strong>⚠️ Facebook Pixel não configurado.</strong> Configure o Pixel ID nas configurações para ativar o rastreamento.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Botão de Configuração */}
