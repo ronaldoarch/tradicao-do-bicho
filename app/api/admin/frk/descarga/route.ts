@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAPI } from '@/lib/admin-auth'
 import { getFrkConfigForClient } from '@/lib/frk-store'
 import { FrkApiClient, mapearTipoJogoFRK, mapearPremioFRK } from '@/lib/frk-api-client'
+import { buscarEstatisticasDescarga } from '@/lib/descarga-helpers'
+import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,6 +76,76 @@ export async function POST(request: NextRequest) {
     // Calcular total de apostas e valor
     const quantidadeApostas = apostas.length
     const valorTotal = apostas.reduce((sum: number, ap: any) => sum + (ap.valor || 0), 0)
+
+    // VALIDAÇÃO: Verificar limites de descarga antes de enviar para FRK
+    console.log('🔍 Verificando limites de descarga antes de enviar para FRK...')
+    const dataConcursoDate = dataJogo ? new Date(dataJogo + 'T00:00:00') : null
+    
+    // Agrupar apostas por modalidade e prêmio para verificar limites
+    const apostasPorLimite = new Map<string, { modalidade: string; premio: number; valor: number }>()
+    
+    for (const aposta of apostas) {
+      const modalidade = aposta.modalidade || 'GRUPO'
+      const premio = aposta.premio || 1
+      const valor = aposta.valor || 0
+      const key = `${modalidade}_${premio}`
+      
+      if (apostasPorLimite.has(key)) {
+        const existente = apostasPorLimite.get(key)!
+        existente.valor += valor
+      } else {
+        apostasPorLimite.set(key, { modalidade, premio, valor })
+      }
+    }
+
+    // Verificar limites para cada combinação modalidade/prêmio
+    const limitesUltrapassados: Array<{ modalidade: string; premio: number; limite: number; totalApostado: number; excedente: number }> = []
+    
+    for (const [key, dados] of Array.from(apostasPorLimite.entries())) {
+      // Buscar limite configurado
+      const limiteConfig = await prisma.limiteDescarga.findFirst({
+        where: {
+          modalidade: dados.modalidade,
+          premio: dados.premio,
+          loteria: '',
+          horario: '',
+          ativo: true,
+        },
+      })
+
+      if (limiteConfig) {
+        // Calcular total já apostado usando a função helper (considera apenas apostas que cobrem o prêmio)
+        const { calcularTotalApostadoPorPremio } = await import('@/lib/descarga-helpers')
+        const totalApostado = await calcularTotalApostadoPorPremio(
+          dados.modalidade,
+          dados.premio,
+          dataConcursoDate || null
+        )
+
+        const totalComDescarga = totalApostado + dados.valor
+        const ultrapassou = totalComDescarga > limiteConfig.limite
+        const excedente = ultrapassou ? totalComDescarga - limiteConfig.limite : 0
+
+        if (ultrapassou) {
+          limitesUltrapassados.push({
+            modalidade: dados.modalidade,
+            premio: dados.premio,
+            limite: limiteConfig.limite,
+            totalApostado: totalComDescarga,
+            excedente,
+          })
+        }
+
+        console.log(`📊 Limite ${dados.modalidade} ${dados.premio}º: Total atual R$ ${totalApostado.toFixed(2)}, com descarga R$ ${totalComDescarga.toFixed(2)}, limite R$ ${limiteConfig.limite.toFixed(2)}, ${ultrapassou ? '⚠️ ULTRAPASSOU' : '✅ OK'}`)
+      }
+    }
+
+    // Se houver limites ultrapassados, retornar aviso (mas permitir continuar se admin quiser)
+    if (limitesUltrapassados.length > 0) {
+      console.warn('⚠️ Limites de descarga ultrapassados:', limitesUltrapassados)
+      // Não bloquear, apenas avisar - admin pode querer descarregar mesmo assim
+      // Mas vamos retornar um aviso para que o admin saiba
+    }
 
     // Converter apostas para formato FRK
     const arrApostas = apostas.map((aposta: any) => {
@@ -195,6 +267,10 @@ export async function POST(request: NextRequest) {
       success: true,
       resultado,
       message: `Descarga efetuada com sucesso. Pule: ${resultado.intNumeroPule}`,
+      avisos: limitesUltrapassados.length > 0 ? {
+        limitesUltrapassados,
+        mensagem: `${limitesUltrapassados.length} limite(s) ultrapassado(s). Descarga realizada mesmo assim.`,
+      } : undefined,
     })
   } catch (error: any) {
     console.error('❌ Erro ao efetuar descarga FRK:', error)
