@@ -187,6 +187,72 @@ export default function FrkConfigPage() {
     }
   }
 
+  const handleGerarRelatorioPDF = async () => {
+    try {
+      const hoje = new Date()
+      const dataJogo = hoje.toISOString().split('T')[0] // YYYY-MM-DD
+      const dataHora = hoje.toISOString().slice(0, 16).replace('T', ' ') // YYYY-MM-DD HH:mm
+
+      // Apostas de exemplo para o relatório
+      const apostas = [
+        {
+          modalidade: 'MILHAR',
+          tipo: '',
+          numero: '1234',
+          premio: 1,
+          valor: 10.00,
+        },
+        {
+          modalidade: 'GRUPO',
+          tipo: '',
+          numero: '05',
+          premio: 2,
+          valor: 5.00,
+        },
+        {
+          modalidade: 'DUPLA_GRUPO',
+          tipo: '',
+          numero: '05-10',
+          premio: 1,
+          valor: 20.00,
+        },
+      ]
+
+      const response = await fetch('/api/admin/frk/relatorio-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          dataJogo,
+          dataHora,
+          extracao: 130,
+          apostas,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || errorData.message || 'Erro ao gerar PDF')
+      }
+
+      // Baixar PDF
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `relatorio_descarga_frk_${dataJogo}_130.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      alert('✅ Relatório PDF gerado e baixado com sucesso!')
+    } catch (error: any) {
+      console.error('Erro ao gerar relatório PDF:', error)
+      alert(`❌ Erro ao gerar relatório PDF: ${error.message || 'Erro desconhecido'}`)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -411,6 +477,22 @@ export default function FrkConfigPage() {
             className="rounded-lg bg-purple-600 px-6 py-2 font-semibold text-white hover:bg-purple-700 transition-colors"
           >
             📤 Testar Descarga (Extração 130)
+          </button>
+        </div>
+      </section>
+
+      <section className="bg-white rounded-xl shadow p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Gerar Relatório PDF</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Gere um PDF com o relatório completo dos dados que seriam enviados para a API FRK. 
+          O relatório inclui todas as apostas formatadas, configuração FRK e dados JSON para referência técnica.
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={handleGerarRelatorioPDF}
+            className="rounded-lg bg-green-600 px-6 py-2 font-semibold text-white hover:bg-green-700 transition-colors"
+          >
+            📄 Gerar Relatório PDF (Teste)
           </button>
         </div>
       </section>
