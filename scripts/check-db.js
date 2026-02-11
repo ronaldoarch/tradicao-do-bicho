@@ -48,6 +48,7 @@ function checkAndCreateTables() {
         '20250124000000_add_configuracao_gatebox',
         '20250124000001_update_gateway_model',
         '20260129000000_add_configuracao_frk',
+        '20260129000001_add_cotadas',
       ];
       for (const migrationName of migrationsToResolve) {
         try {

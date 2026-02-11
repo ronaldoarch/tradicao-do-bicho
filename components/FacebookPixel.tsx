@@ -11,7 +11,19 @@ declare global {
 
 export default function FacebookPixel() {
   const [pixelStatus, setPixelStatus] = useState<'loading' | 'loaded' | 'error' | 'not-configured'>('loading')
+  const [mounted, setMounted] = useState(false)
+
+  // Garantir que só executa no cliente após montagem
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    // Só executar após montagem no cliente
+    if (!mounted || typeof window === 'undefined') {
+      return
+    }
+
     // Buscar configuração do pixel
     const loadPixel = async () => {
       try {
@@ -63,19 +75,39 @@ export default function FacebookPixel() {
           window.fbq = fbqFn
         }
 
+        // Verificar se script já existe
+        const existingScript = document.getElementById('facebook-pixel-script')
+        if (existingScript) {
+          console.log('⚠️ FacebookPixel: Script já existe, removendo...')
+          existingScript.remove()
+        }
+
+        // Verificar se já existe fbq global (pode ter sido carregado por outro script)
+        if (window.fbq && typeof window.fbq === 'function') {
+          console.log('✅ FacebookPixel: fbq já existe globalmente, usando...')
+          try {
+            window.fbq('init', pixelId)
+            console.log('✅ FacebookPixel: Pixel inicializado com ID:', pixelId)
+            window.fbq('track', 'PageView')
+            console.log('✅ FacebookPixel: PageView rastreado')
+            setPixelStatus('loaded')
+            return
+          } catch (initError) {
+            console.error('❌ FacebookPixel: Erro ao inicializar com fbq existente:', initError)
+          }
+        }
+
         // Carregar script do Facebook Pixel
         const script = document.createElement('script')
         script.id = 'facebook-pixel-script'
         script.async = true
         script.src = `https://connect.facebook.net/en_US/fbevents.js`
         
-        // Remover script anterior se existir
-        const existingScript = document.getElementById('facebook-pixel-script')
-        if (existingScript) {
-          existingScript.remove()
-        }
+        // Adicionar crossorigin para evitar problemas CORS
+        script.crossOrigin = 'anonymous'
 
         document.head.appendChild(script)
+        console.log('📥 FacebookPixel: Script adicionado ao head')
 
         // Inicializar pixel após script carregar
         script.onload = () => {
@@ -108,7 +140,7 @@ export default function FacebookPixel() {
     }
 
     loadPixel()
-  }, [])
+  }, [mounted])
 
   // Debug: mostrar status no console em desenvolvimento
   if (process.env.NODE_ENV === 'development') {
