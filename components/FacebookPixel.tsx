@@ -90,6 +90,12 @@ export default function FacebookPixel() {
             console.log('✅ FacebookPixel: Pixel inicializado com ID:', pixelId)
             window.fbq('track', 'PageView')
             console.log('✅ FacebookPixel: PageView rastreado')
+            
+            // Também enviar PageView para nossa API
+            trackFacebookEvent('PageView', {
+              source_url: window.location.href,
+            }, pixelId)
+            
             setPixelStatus('loaded')
             return
           } catch (initError) {
@@ -118,6 +124,12 @@ export default function FacebookPixel() {
               console.log('✅ FacebookPixel: Pixel inicializado com ID:', pixelId)
               window.fbq('track', 'PageView')
               console.log('✅ FacebookPixel: PageView rastreado')
+              
+              // Também enviar PageView para nossa API
+              trackFacebookEvent('PageView', {
+                source_url: window.location.href,
+              }, pixelId)
+              
               setPixelStatus('loaded')
             } catch (initError) {
               console.error('❌ FacebookPixel: Erro ao inicializar:', initError)
@@ -168,27 +180,77 @@ export function trackFacebookEvent(
     currency?: string
     content_name?: string
     content_ids?: string[]
+    source_url?: string
     [key: string]: any
-  }
+  },
+  pixelIdOverride?: string
 ) {
+  // Enviar para Facebook Pixel (se disponível)
   if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('track', eventName, eventData || {})
-    
-    // Também enviar para nossa API para registro
-    fetch('/api/facebook/events', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        event_name: eventName,
-        event_id: `${eventName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        custom_data: eventData || {},
-        value: eventData?.value,
-        currency: eventData?.currency || 'BRL',
-      }),
-    }).catch((error) => {
-      console.error('Erro ao registrar evento no servidor:', error)
-    })
+    try {
+      window.fbq('track', eventName, eventData || {})
+      console.log(`📤 FacebookPixel: Evento "${eventName}" enviado para Facebook`)
+    } catch (error) {
+      console.error('Erro ao enviar evento para Facebook:', error)
+    }
   }
+  
+  // Sempre enviar para nossa API para registro (mesmo se fbq não estiver disponível)
+  const eventId = `${eventName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  
+  // Buscar pixelId da configuração se não foi fornecido
+  let pixelId = pixelIdOverride
+  if (!pixelId && typeof window !== 'undefined') {
+    // Tentar buscar do localStorage ou fazer fetch
+    fetch('/api/tracking/config', { cache: 'no-store' })
+      .then(res => res.json())
+      .then(data => {
+        pixelId = data.config?.facebookPixelId
+        sendToAPI(eventName, eventId, eventData, pixelId)
+      })
+      .catch(() => {
+        sendToAPI(eventName, eventId, eventData, null)
+      })
+  } else {
+    sendToAPI(eventName, eventId, eventData, pixelId)
+  }
+}
+
+function sendToAPI(
+  eventName: string,
+  eventId: string,
+  eventData: any,
+  pixelId: string | null | undefined
+) {
+  fetch('/api/facebook/events', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      event_name: eventName,
+      event_id: eventId,
+      pixel_id: pixelId || null,
+      custom_data: eventData || {},
+      value: eventData?.value,
+      currency: eventData?.currency || 'BRL',
+      source_url: eventData?.source_url || (typeof window !== 'undefined' ? window.location.href : null),
+    }),
+  })
+    .then((res) => {
+      if (res.ok) {
+        console.log(`✅ FacebookPixel: Evento "${eventName}" registrado na API`)
+      } else {
+        console.warn(`⚠️ FacebookPixel: Erro ao registrar evento na API: ${res.status}`)
+        return res.json().catch(() => ({}))
+      }
+    })
+    .then((data) => {
+      if (data?.error) {
+        console.warn(`⚠️ FacebookPixel: Erro da API:`, data.error)
+      }
+    })
+    .catch((error) => {
+      console.error('❌ FacebookPixel: Erro ao registrar evento no servidor:', error)
+    })
 }
