@@ -9,12 +9,21 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET() {
   try {
+    // Buscar configuração (mesmo se não estiver ativa, para debug)
     const config = await prisma.configuracaoTracking.findFirst({
-      where: { ativo: true },
       select: {
         facebookPixelId: true,
         ativo: true,
       },
+      orderBy: {
+        id: 'desc', // Pegar a mais recente
+      },
+    })
+
+    console.log('📊 Configuração de tracking encontrada:', {
+      temPixelId: !!config?.facebookPixelId,
+      pixelId: config?.facebookPixelId ? `${config.facebookPixelId.substring(0, 5)}...` : null,
+      ativo: config?.ativo,
     })
 
     // Retornar apenas pixel ID e status ativo (sem token por segurança)

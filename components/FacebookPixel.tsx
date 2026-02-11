@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 declare global {
   interface Window {
@@ -10,21 +10,45 @@ declare global {
 }
 
 export default function FacebookPixel() {
+  const [pixelStatus, setPixelStatus] = useState<'loading' | 'loaded' | 'error' | 'not-configured'>('loading')
   useEffect(() => {
     // Buscar configuração do pixel
     const loadPixel = async () => {
       try {
+        console.log('🔍 FacebookPixel: Buscando configuração...')
         const res = await fetch('/api/tracking/config', {
           cache: 'no-store',
         })
+        
+        if (!res.ok) {
+          console.error('❌ FacebookPixel: Erro ao buscar config:', res.status, res.statusText)
+          return
+        }
+        
         const data = await res.json()
+        console.log('📥 FacebookPixel: Config recebida:', {
+          temConfig: !!data.config,
+          temPixelId: !!data.config?.facebookPixelId,
+          pixelId: data.config?.facebookPixelId ? `${data.config.facebookPixelId.substring(0, 5)}...` : null,
+          ativo: data.config?.ativo,
+        })
         
         const pixelId = data.config?.facebookPixelId
         const ativo = data.config?.ativo !== false
 
-        if (!pixelId || !ativo) {
+        if (!pixelId) {
+          console.warn('⚠️ FacebookPixel: Pixel ID não configurado')
+          setPixelStatus('not-configured')
           return
         }
+
+        if (!ativo) {
+          console.warn('⚠️ FacebookPixel: Tracking está desativado')
+          setPixelStatus('not-configured')
+          return
+        }
+
+        console.log('✅ FacebookPixel: Inicializando pixel:', pixelId)
 
         // Inicializar fbq se ainda não existe
         if (typeof window !== 'undefined' && !window.fbq) {
@@ -55,18 +79,49 @@ export default function FacebookPixel() {
 
         // Inicializar pixel após script carregar
         script.onload = () => {
+          console.log('✅ FacebookPixel: Script carregado, inicializando...')
           if (typeof window !== 'undefined' && window.fbq) {
-            window.fbq('init', pixelId)
-            window.fbq('track', 'PageView')
+            try {
+              window.fbq('init', pixelId)
+              console.log('✅ FacebookPixel: Pixel inicializado com ID:', pixelId)
+              window.fbq('track', 'PageView')
+              console.log('✅ FacebookPixel: PageView rastreado')
+              setPixelStatus('loaded')
+            } catch (initError) {
+              console.error('❌ FacebookPixel: Erro ao inicializar:', initError)
+              setPixelStatus('error')
+            }
+          } else {
+            console.error('❌ FacebookPixel: window.fbq não está disponível')
+            setPixelStatus('error')
           }
         }
+
+        script.onerror = (error) => {
+          console.error('❌ FacebookPixel: Erro ao carregar script:', error)
+          setPixelStatus('error')
+        }
       } catch (error) {
-        console.error('Erro ao carregar Facebook Pixel:', error)
+        console.error('❌ Erro ao carregar Facebook Pixel:', error)
+        setPixelStatus('error')
       }
     }
 
     loadPixel()
   }, [])
+
+  // Debug: mostrar status no console em desenvolvimento
+  if (process.env.NODE_ENV === 'development') {
+    useEffect(() => {
+      if (pixelStatus === 'loaded') {
+        console.log('🎯 FacebookPixel: Status = LOADED - Pixel está funcionando!')
+      } else if (pixelStatus === 'not-configured') {
+        console.log('⚠️ FacebookPixel: Status = NOT CONFIGURED - Configure o pixel em /admin/tracking')
+      } else if (pixelStatus === 'error') {
+        console.log('❌ FacebookPixel: Status = ERROR - Verifique os logs acima')
+      }
+    }, [pixelStatus])
+  }
 
   return null
 }
