@@ -15,7 +15,7 @@ export default function PromotionalBanner() {
       <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
         {/* Left Side - Text */}
         <div className="flex-1 text-center md:text-left">
-          <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-blue-950 leading-tight">
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-tema-texto-titulo leading-tight">
             Gaste pouco hoje para multiplicar seu futuro amanhã
           </h2>
         </div>
