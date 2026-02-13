@@ -209,32 +209,128 @@ export function trackFacebookEvent(
   // Enviar para Facebook Pixel (se disponível)
   if (typeof window !== 'undefined' && window.fbq) {
     try {
-      window.fbq('track', eventName, eventData || {})
-      console.log(`📤 FacebookPixel: Evento "${eventName}" enviado para Facebook`)
+      // Normalizar nome do evento (Facebook aceita apenas eventos padrão)
+      const normalizedEventName = normalizeFacebookEventName(eventName)
+      
+      console.log(`📤 FacebookPixel: Enviando evento "${eventName}" (normalizado: "${normalizedEventName}") para Facebook`)
+      window.fbq('track', normalizedEventName, eventData || {})
+      console.log(`✅ FacebookPixel: Evento "${normalizedEventName}" enviado para Facebook Pixel`)
+      
+      // IMPORTANTE: Usar o nome ORIGINAL do evento para nossa API
+      // O Facebook Pixel recebe o nome normalizado, mas nossa API deve receber o original
+      const eventId = `${eventName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      
+      // Buscar pixelId da configuração se não foi fornecido
+      let pixelId = pixelIdOverride
+      if (!pixelId && typeof window !== 'undefined') {
+        // Tentar buscar do localStorage ou fazer fetch
+        fetch('/api/tracking/config', { cache: 'no-store' })
+          .then(res => res.json())
+          .then(data => {
+            pixelId = data.config?.facebookPixelId
+            console.log(`📤 FacebookPixel: Enviando para nossa API: evento="${eventName}" (original), eventId="${eventId}"`)
+            sendToAPI(eventName, eventId, eventData, pixelId)
+          })
+          .catch(() => {
+            console.log(`📤 FacebookPixel: Enviando para nossa API (sem pixelId): evento="${eventName}" (original), eventId="${eventId}"`)
+            sendToAPI(eventName, eventId, eventData, null)
+          })
+      } else {
+        console.log(`📤 FacebookPixel: Enviando para nossa API: evento="${eventName}" (original), eventId="${eventId}"`)
+        sendToAPI(eventName, eventId, eventData, pixelId)
+      }
     } catch (error) {
       console.error('Erro ao enviar evento para Facebook:', error)
+      // Mesmo em caso de erro, enviar para nossa API
+      const eventId = `${eventName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      let pixelId = pixelIdOverride
+      if (!pixelId && typeof window !== 'undefined') {
+        fetch('/api/tracking/config', { cache: 'no-store' })
+          .then(res => res.json())
+          .then(data => {
+            pixelId = data.config?.facebookPixelId
+            sendToAPI(eventName, eventId, eventData, pixelId)
+          })
+          .catch(() => {
+            sendToAPI(eventName, eventId, eventData, null)
+          })
+      } else {
+        sendToAPI(eventName, eventId, eventData, pixelId)
+      }
+    }
+  } else {
+    // Se fbq não está disponível, apenas enviar para nossa API
+    const eventId = `${eventName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    let pixelId = pixelIdOverride
+    if (!pixelId && typeof window !== 'undefined') {
+      fetch('/api/tracking/config', { cache: 'no-store' })
+        .then(res => res.json())
+        .then(data => {
+          pixelId = data.config?.facebookPixelId
+          sendToAPI(eventName, eventId, eventData, pixelId)
+        })
+        .catch(() => {
+          sendToAPI(eventName, eventId, eventData, null)
+        })
+    } else {
+      sendToAPI(eventName, eventId, eventData, pixelId)
     }
   }
   
-  // Sempre enviar para nossa API para registro (mesmo se fbq não estiver disponível)
-  const eventId = `${eventName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+}
+
+/**
+ * Normaliza o nome do evento para um evento padrão do Facebook
+ * Se o evento não for reconhecido, mantém o nome original
+ */
+function normalizeFacebookEventName(eventName: string): string {
+  // Eventos padrão do Facebook Pixel
+  const facebookStandardEvents = [
+    'PageView',
+    'ViewContent',
+    'Search',
+    'AddToCart',
+    'AddToWishlist',
+    'InitiateCheckout',
+    'AddPaymentInfo',
+    'Purchase',
+    'Lead',
+    'CompleteRegistration',
+    'Subscribe',
+    'StartTrial',
+    'AchievementUnlocked',
+    'SpentCredits',
+    'Schedule',
+    'FindLocation',
+    'Contact',
+    'Donate',
+    'SubmitApplication',
+    'BookAppointment',
+  ]
   
-  // Buscar pixelId da configuração se não foi fornecido
-  let pixelId = pixelIdOverride
-  if (!pixelId && typeof window !== 'undefined') {
-    // Tentar buscar do localStorage ou fazer fetch
-    fetch('/api/tracking/config', { cache: 'no-store' })
-      .then(res => res.json())
-      .then(data => {
-        pixelId = data.config?.facebookPixelId
-        sendToAPI(eventName, eventId, eventData, pixelId)
-      })
-      .catch(() => {
-        sendToAPI(eventName, eventId, eventData, null)
-      })
-  } else {
-    sendToAPI(eventName, eventId, eventData, pixelId)
+  // Se já é um evento padrão, retorna como está
+  if (facebookStandardEvents.includes(eventName)) {
+    return eventName
   }
+  
+  // Mapear eventos customizados para eventos padrão
+  const eventMapping: Record<string, string> = {
+    'Deposit': 'AddPaymentInfo',
+    'Withdraw': 'InitiateCheckout',
+    'Bet': 'Purchase',
+    'Registration': 'CompleteRegistration',
+    'SignUp': 'CompleteRegistration',
+    'Login': 'Lead',
+  }
+  
+  // Se há mapeamento, usar o evento padrão correspondente
+  if (eventMapping[eventName]) {
+    return eventMapping[eventName]
+  }
+  
+  // Se não há mapeamento, usar como evento customizado
+  // Facebook aceita eventos customizados, mas vamos usar 'CustomEvent' como prefixo
+  return eventName.startsWith('CustomEvent') ? eventName : `CustomEvent_${eventName}`
 }
 
 function sendToAPI(
@@ -243,20 +339,29 @@ function sendToAPI(
   eventData: any,
   pixelId: string | null | undefined
 ) {
+  // Log detalhado do que está sendo enviado
+  const payload = {
+    event_name: eventName,
+    event_id: eventId,
+    pixel_id: pixelId || null,
+    custom_data: eventData || {},
+    value: eventData?.value,
+    currency: eventData?.currency || 'BRL',
+    source_url: eventData?.source_url || (typeof window !== 'undefined' ? window.location.href : null),
+  }
+  
+  console.log(`📤 FacebookPixel: sendToAPI chamado com:`, {
+    event_name: eventName,
+    event_id: eventId,
+    payloadKeys: Object.keys(payload),
+  })
+  
   fetch('/api/facebook/events', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      event_name: eventName,
-      event_id: eventId,
-      pixel_id: pixelId || null,
-      custom_data: eventData || {},
-      value: eventData?.value,
-      currency: eventData?.currency || 'BRL',
-      source_url: eventData?.source_url || (typeof window !== 'undefined' ? window.location.href : null),
-    }),
+    body: JSON.stringify(payload),
   })
     .then((res) => {
       if (res.ok) {

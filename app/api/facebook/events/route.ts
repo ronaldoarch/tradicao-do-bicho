@@ -14,6 +14,14 @@ export async function POST(request: NextRequest) {
     
     // Extrair informações do evento
     const eventName = body.event_name || body.eventName || 'Unknown'
+    
+    // Log para debug
+    console.log('📥 Facebook Events API recebido:', {
+      event_name: body.event_name,
+      eventName: body.eventName,
+      eventNameFinal: eventName,
+      bodyKeys: Object.keys(body),
+    })
     const eventId = body.event_id || body.eventId || null
     const pixelId = body.pixel_id || body.pixelId || headersList.get('x-pixel-id') || null
     
@@ -48,9 +56,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar registro do evento
+    // IMPORTANTE: Usar o eventName extraído do body, não hardcoded
+    const finalEventName = String(eventName)
+    
+    console.log('💾 Salvando evento no banco:', {
+      eventNameOriginal: body.event_name,
+      eventNameAlt: body.eventName,
+      eventNameFinal: finalEventName,
+      eventId,
+      pixelId,
+      value,
+      bodyKeys: Object.keys(body),
+    })
+    
     const event = await prisma.facebookEvent.create({
       data: {
-        eventName: String(eventName),
+        eventName: finalEventName,
         eventId: eventId ? String(eventId) : null,
         pixelId: pixelId ? String(pixelId) : null,
         userData: userData,
