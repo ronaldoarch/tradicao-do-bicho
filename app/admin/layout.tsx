@@ -118,6 +118,7 @@ export default function AdminLayout({
     { href: '/admin/modalidades', label: 'Modalidades', icon: '🎯' },
     { href: '/admin/bingo', label: 'Bingo', icon: '🎰' },
     { href: '/admin/usuarios', label: 'Usuários', icon: '👥' },
+    { href: '/admin/apostas', label: 'Apostas', icon: '🎫' },
     { href: '/admin/promotores', label: 'Promotores', icon: '🎯' },
     { href: '/admin/saques', label: 'Saques', icon: '💳' },
     { href: '/admin/promocoes', label: 'Promoções', icon: '🎁' },
