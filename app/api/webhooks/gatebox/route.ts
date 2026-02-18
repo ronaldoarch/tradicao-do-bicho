@@ -268,7 +268,10 @@ export async function POST(req: NextRequest) {
         }
         return NextResponse.json({ message: 'Saque confirmado' })
       }
-      return NextResponse.json({ message: 'Saque não encontrado ou já processado' })
+      // Se externalId começa com "deposito_", é um depósito - não retornar, deixar fluxo continuar para processamento
+      if (!(externalId && externalId.startsWith('deposito_'))) {
+        return NextResponse.json({ message: 'Saque não encontrado ou já processado' })
+      }
     }
 
     // Se externalId começa com "saque-" e status é COMPLETED, tratar como saque
