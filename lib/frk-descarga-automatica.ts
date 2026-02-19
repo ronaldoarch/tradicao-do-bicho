@@ -108,17 +108,16 @@ export async function efetuarDescargaAutomatica(
                   : aposta.valor
 
               // Extrair número apostado (suporta modalidades de grupo com animalBets)
+              // Prioriza animalBets sempre que existir - modalidade pode ser "Dupla de Grupo" ou "DUPLA_GRUPO"
               let numero = ''
-              const modalidade = aposta.modalidade
-              if (['GRUPO', 'DUPLA_GRUPO', 'TERNO_GRUPO', 'QUADRA_GRUPO', 'QUINA_GRUPO'].includes(modalidade)) {
-                const animalBets = detalhes.betData.animalBets
-                if (Array.isArray(animalBets) && animalBets.length > 0 && Array.isArray(animalBets[0])) {
-                  const grupos = animalBets[0].map((id: number) => {
-                    const animal = ANIMALS.find((a) => a.id === id)
-                    return animal ? animal.group : id
-                  })
-                  numero = grupos.map((g: number) => String(g).padStart(2, '0')).join('')
-                }
+              const animalBets = detalhes.betData.animalBets
+              if (Array.isArray(animalBets) && animalBets.length > 0 && Array.isArray(animalBets[0])) {
+                const grupos = animalBets[0].map((id: number | string) => {
+                  const numId = typeof id === 'string' ? parseInt(id, 10) : id
+                  const animal = ANIMALS.find((a) => a.id === numId)
+                  return animal ? animal.group : numId
+                })
+                numero = grupos.map((g: number) => String(g).padStart(2, '0')).join('')
               }
               if (!numero) {
                 numero = detalhes.betData.numbers?.[0] || detalhes.betData.numberBets?.[0] || detalhes.betData.number || ''

@@ -16,31 +16,31 @@ interface ApostaFRK {
   valor: number
 }
 
-const MODALIDADES_GRUPO = ['GRUPO', 'DUPLA_GRUPO', 'TERNO_GRUPO', 'QUADRA_GRUPO', 'QUINA_GRUPO']
-
 /**
  * Extrai o número apostado do betData (suporta modalidades numéricas e de grupo)
+ * Prioriza animalBets quando existir (Grupo, Dupla de Grupo, etc.) - o banco pode
+ * armazenar modalidade como "Dupla de Grupo" ou "DUPLA_GRUPO"
  */
 function extrairNumeroAposta(
   betData: Record<string, unknown>,
-  modalidade: string
+  _modalidade: string
 ): string {
   // Modalidades de grupo: usar animalBets (IDs de animais → grupos)
-  if (MODALIDADES_GRUPO.includes(modalidade)) {
-    const animalBets = betData.animalBets as number[][] | undefined
-    if (Array.isArray(animalBets) && animalBets.length > 0) {
-      const primeiroPalpite = animalBets[0]
-      if (Array.isArray(primeiroPalpite) && primeiroPalpite.length > 0) {
-        const grupos = primeiroPalpite.map((animalId) => {
-          const animal = ANIMALS.find((a) => a.id === animalId)
-          return animal ? animal.group : animalId
-        })
-        return grupos.map((g) => String(g).padStart(2, '0')).join('')
-      }
+  // Tenta animalBets primeiro sempre que existir - não depende do formato de modalidade
+  const animalBets = betData.animalBets as number[][] | undefined
+  if (Array.isArray(animalBets) && animalBets.length > 0) {
+    const primeiroPalpite = animalBets[0]
+    if (Array.isArray(primeiroPalpite) && primeiroPalpite.length > 0) {
+      const grupos = primeiroPalpite.map((animalId) => {
+        const id = typeof animalId === 'string' ? parseInt(animalId, 10) : animalId
+        const animal = ANIMALS.find((a) => a.id === id)
+        return animal ? animal.group : (typeof id === 'number' ? id : parseInt(String(animalId), 10) || 0)
+      })
+      return grupos.map((g) => String(g).padStart(2, '0')).join('')
     }
   }
 
-  // Modalidades numéricas: numbers, numberBets ou number
+  // Fallback: modalidades numéricas - numbers, numberBets ou number
   return (
     (Array.isArray(betData.numbers)
       ? String(betData.numbers[0] ?? '')
@@ -66,6 +66,11 @@ function converterApostasParaFormatoFRK(apostas: Array<{
     const betData = detalhes?.betData as Record<string, unknown> | undefined
     if (!betData) continue
 
+    // Garantir que animalBets exista (fallback para detalhes.animalNames em apostas antigas)
+    const betDataComAnimalBets = betData.animalBets
+      ? betData
+      : { ...betData, animalBets: detalhes?.animalNames ?? betData.animalBets }
+
     const positionToUse =
       (betData.customPosition && betData.customPositionValue
         ? String(betData.customPositionValue).trim()
@@ -74,7 +79,7 @@ function converterApostasParaFormatoFRK(apostas: Array<{
     if (!positionToUse) continue
 
     const modalidade = aposta.modalidade || 'GRUPO'
-    const numero = extrairNumeroAposta(betData, modalidade)
+    const numero = extrairNumeroAposta(betDataComAnimalBets, modalidade)
     const valorTotal = aposta.valor || 0
     const divisionType = (betData.divisionType as string) || 'all'
 

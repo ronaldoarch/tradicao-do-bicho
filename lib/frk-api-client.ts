@@ -682,29 +682,27 @@ export class FrkApiClient {
 
 /**
  * Mapeia tipo de jogo interno para código FRK
+ * Aceita tanto códigos (DUPLA_GRUPO) quanto nomes de exibição (Dupla de Grupo)
  */
 export function mapearTipoJogoFRK(modalidade: string, tipo: string): number {
   // Mapeamento baseado na planilha "730 - Integração Externa"
-  // ID Jogo conforme planilha fornecida
   const map: Record<string, number> = {
-    'MILHAR': 1,        // ID Jogo: 1, Sigla: M
-    'CENTENA': 2,       // ID Jogo: 2, Sigla: C
-    'DEZENA': 3,        // ID Jogo: 3, Sigla: D
-    'GRUPO': 4,         // ID Jogo: 4, Sigla: G
-    'TERNO_DEZENA': 5,  // ID Jogo: 5, Sigla: TD
-    'TERNO_GRUPO': 6,   // ID Jogo: 6, Sigla: TG
-    'DUQUE_DEZENA': 7,  // ID Jogo: 7, Sigla: DD
-    'DUQUE_GRUPO': 8,   // ID Jogo: 8, Sigla: DG
-    'DUPLA_GRUPO': 8,   // Dupla de Grupo = Duque de Grupo
-    'GRUPO_COMBINADO': 49, // ID Jogo: 49, Sigla: GC
-    'QUINA': 555,       // ID Jogo: 555, Sigla: Q
-    'SENA': 666,        // ID Jogo: 666, Sigla: S
-    'LOTINHA': 1515,    // ID Jogo: 1515, Sigla: LT
-    'PASSE_SECO_VAI': 813, // ID Jogo: 813, Sigla: PV
-    'PASSE_VOLTA_VAI_VEM': 83, // ID Jogo: 83, Sigla: PVV
+    'MILHAR': 1, 'Milhar': 1,
+    'CENTENA': 2, 'Centena': 2,
+    'DEZENA': 3, 'Dezena': 3,
+    'GRUPO': 4, 'Grupo': 4,
+    'TERNO_DEZENA': 5, 'Terno de Dezena': 5,
+    'TERNO_GRUPO': 6, 'Terno de Grupo': 6,
+    'DUQUE_DEZENA': 7, 'Duque de Dezena': 7,
+    'DUQUE_GRUPO': 8, 'Dupla de Grupo': 8, 'DUPLA_GRUPO': 8,
+    'QUADRA_GRUPO': 9, 'Quadra de Grupo': 9,
+    'QUINA_GRUPO': 10, 'Quina de Grupo': 10,
+    'GRUPO_COMBINADO': 49,
+    'QUINA': 555, 'SENA': 666, 'LOTINHA': 1515,
+    'PASSE_SECO_VAI': 813, 'Passe vai': 813,
+    'PASSE_VOLTA_VAI_VEM': 83, 'Passe vai e vem': 83,
   }
-
-  return map[modalidade] || 1 // Default: milhar
+  return map[modalidade] ?? map[modalidade?.trim() ?? ''] ?? 1
 }
 
 /**
