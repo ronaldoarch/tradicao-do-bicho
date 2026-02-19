@@ -33,6 +33,10 @@ export default function FrkConfigPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showPasswords, setShowPasswords] = useState(false)
+  const [dataRelatorioReal, setDataRelatorioReal] = useState(() =>
+    new Date().toISOString().split('T')[0]
+  )
+  const [gerandoRelatorioReal, setGerandoRelatorioReal] = useState(false)
 
   useEffect(() => {
     loadConfig()
@@ -250,6 +254,39 @@ export default function FrkConfigPage() {
     } catch (error: any) {
       console.error('Erro ao gerar relatório PDF:', error)
       alert(`❌ Erro ao gerar relatório PDF: ${error.message || 'Erro desconhecido'}`)
+    }
+  }
+
+  const handleGerarRelatorioPDFReal = async () => {
+    setGerandoRelatorioReal(true)
+    try {
+      const params = new URLSearchParams({ data: dataRelatorioReal })
+      const response = await fetch(`/api/admin/frk/relatorio-pdf-real?${params}`, {
+        method: 'GET',
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || errorData.message || `Erro ${response.status}`)
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `relatorio_descarga_frk_REAL_${dataRelatorioReal}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      alert('✅ Relatório PDF real gerado e baixado com sucesso!')
+    } catch (error: any) {
+      console.error('Erro ao gerar relatório PDF real:', error)
+      alert(`❌ Erro ao gerar relatório PDF real: ${error.message || 'Erro desconhecido'}`)
+    } finally {
+      setGerandoRelatorioReal(false)
     }
   }
 
@@ -487,14 +524,35 @@ export default function FrkConfigPage() {
           Gere um PDF com o relatório completo dos dados que seriam enviados para a API FRK. 
           O relatório inclui todas as apostas formatadas, configuração FRK e dados JSON para referência técnica.
         </p>
-        <div className="flex gap-2">
-          <button
-            onClick={handleGerarRelatorioPDF}
-            className="rounded-lg bg-green-600 px-6 py-2 font-semibold text-white hover:bg-green-700 transition-colors"
-          >
-            📄 Gerar Relatório PDF (Teste)
-          </button>
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={handleGerarRelatorioPDF}
+              className="rounded-lg bg-green-600 px-6 py-2 font-semibold text-white hover:bg-green-700 transition-colors"
+            >
+              📄 Gerar Relatório PDF (Teste)
+            </button>
+            <div className="flex gap-2 items-center">
+              <label className="text-sm font-medium text-gray-700">Relatório real:</label>
+              <input
+                type="date"
+                value={dataRelatorioReal}
+                onChange={(e) => setDataRelatorioReal(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <button
+                onClick={handleGerarRelatorioPDFReal}
+                disabled={gerandoRelatorioReal}
+                className="rounded-lg bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {gerandoRelatorioReal ? 'Gerando...' : '📊 Gerar Relatório PDF (Real)'}
+              </button>
+            </div>
+          </div>
         </div>
+        <p className="text-xs text-gray-500 mt-2">
+          O relatório real usa as apostas pendentes do banco de dados para a data selecionada.
+        </p>
       </section>
 
       <section className="bg-blue-50 rounded-xl p-6">
