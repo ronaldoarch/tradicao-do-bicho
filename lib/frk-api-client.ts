@@ -695,6 +695,7 @@ export function mapearTipoJogoFRK(modalidade: string, tipo: string): number {
     'TERNO_GRUPO': 6,   // ID Jogo: 6, Sigla: TG
     'DUQUE_DEZENA': 7,  // ID Jogo: 7, Sigla: DD
     'DUQUE_GRUPO': 8,   // ID Jogo: 8, Sigla: DG
+    'DUPLA_GRUPO': 8,   // Dupla de Grupo = Duque de Grupo
     'GRUPO_COMBINADO': 49, // ID Jogo: 49, Sigla: GC
     'QUINA': 555,       // ID Jogo: 555, Sigla: Q
     'SENA': 666,        // ID Jogo: 666, Sigla: S

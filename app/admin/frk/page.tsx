@@ -36,6 +36,7 @@ export default function FrkConfigPage() {
   const [dataRelatorioReal, setDataRelatorioReal] = useState(() =>
     new Date().toISOString().split('T')[0]
   )
+  const [incluirLiquidadas, setIncluirLiquidadas] = useState(false)
   const [gerandoRelatorioReal, setGerandoRelatorioReal] = useState(false)
 
   useEffect(() => {
@@ -260,7 +261,10 @@ export default function FrkConfigPage() {
   const handleGerarRelatorioPDFReal = async () => {
     setGerandoRelatorioReal(true)
     try {
-      const params = new URLSearchParams({ data: dataRelatorioReal })
+      const params = new URLSearchParams({
+        data: dataRelatorioReal,
+        ...(incluirLiquidadas && { incluirLiquidadas: 'true' }),
+      })
       const response = await fetch(`/api/admin/frk/relatorio-pdf-real?${params}`, {
         method: 'GET',
         credentials: 'include',
@@ -532,7 +536,7 @@ export default function FrkConfigPage() {
             >
               📄 Gerar Relatório PDF (Teste)
             </button>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center flex-wrap">
               <label className="text-sm font-medium text-gray-700">Relatório real:</label>
               <input
                 type="date"
@@ -540,6 +544,15 @@ export default function FrkConfigPage() {
                 onChange={(e) => setDataRelatorioReal(e.target.value)}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={incluirLiquidadas}
+                  onChange={(e) => setIncluirLiquidadas(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                Incluir liquidadas
+              </label>
               <button
                 onClick={handleGerarRelatorioPDFReal}
                 disabled={gerandoRelatorioReal}
@@ -551,7 +564,7 @@ export default function FrkConfigPage() {
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-2">
-          O relatório real usa as apostas pendentes do banco de dados para a data selecionada.
+          O relatório real usa as apostas do banco para a data selecionada. Marque &quot;Incluir liquidadas&quot; para ver apostas já fechadas e liquidadas.
         </p>
       </section>
 

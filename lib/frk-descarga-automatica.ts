@@ -8,6 +8,7 @@ import { getFrkConfigForClient } from './frk-store'
 import { FrkApiClient, mapearTipoJogoFRK, mapearPremioFRK } from './frk-api-client'
 import { prisma } from './prisma'
 import { extracoes } from '@/data/extracoes'
+import { ANIMALS } from '@/data/animals'
 
 export interface ApostaParaDescarga {
   modalidade: string
@@ -97,8 +98,22 @@ export async function efetuarDescargaAutomatica(
                 continue
               }
 
-              // Extrair número apostado
-              const numero = detalhes.betData.numbers?.[0] || detalhes.betData.number || ''
+              // Extrair número apostado (suporta modalidades de grupo com animalBets)
+              let numero = ''
+              const modalidade = aposta.modalidade
+              if (['GRUPO', 'DUPLA_GRUPO', 'TERNO_GRUPO', 'QUADRA_GRUPO', 'QUINA_GRUPO'].includes(modalidade)) {
+                const animalBets = detalhes.betData.animalBets
+                if (Array.isArray(animalBets) && animalBets.length > 0 && Array.isArray(animalBets[0])) {
+                  const grupos = animalBets[0].map((id: number) => {
+                    const animal = ANIMALS.find((a) => a.id === id)
+                    return animal ? animal.group : id
+                  })
+                  numero = grupos.map((g: number) => String(g).padStart(2, '0')).join('')
+                }
+              }
+              if (!numero) {
+                numero = detalhes.betData.numbers?.[0] || detalhes.betData.numberBets?.[0] || detalhes.betData.number || ''
+              }
               
               // Buscar loteria e horário
               let loteriaNome = aposta.loteria || ''

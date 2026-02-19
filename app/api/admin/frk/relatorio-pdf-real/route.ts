@@ -4,6 +4,7 @@ import { gerarPDFRelatorioFRK } from '@/lib/frk-relatorio-pdf'
 import { getFrkConfigForClient } from '@/lib/frk-store'
 import { FrkApiClient } from '@/lib/frk-api-client'
 import { prisma } from '@/lib/prisma'
+import { ANIMALS } from '@/data/animals'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,40 @@ interface ApostaFRK {
   numero: string
   premio: number
   valor: number
+}
+
+const MODALIDADES_GRUPO = ['GRUPO', 'DUPLA_GRUPO', 'TERNO_GRUPO', 'QUADRA_GRUPO', 'QUINA_GRUPO']
+
+/**
+ * Extrai o número apostado do betData (suporta modalidades numéricas e de grupo)
+ */
+function extrairNumeroAposta(
+  betData: Record<string, unknown>,
+  modalidade: string
+): string {
+  // Modalidades de grupo: usar animalBets (IDs de animais → grupos)
+  if (MODALIDADES_GRUPO.includes(modalidade)) {
+    const animalBets = betData.animalBets as number[][] | undefined
+    if (Array.isArray(animalBets) && animalBets.length > 0) {
+      const primeiroPalpite = animalBets[0]
+      if (Array.isArray(primeiroPalpite) && primeiroPalpite.length > 0) {
+        const grupos = primeiroPalpite.map((animalId) => {
+          const animal = ANIMALS.find((a) => a.id === animalId)
+          return animal ? animal.group : animalId
+        })
+        return grupos.map((g) => String(g).padStart(2, '0')).join('')
+      }
+    }
+  }
+
+  // Modalidades numéricas: numbers, numberBets ou number
+  return (
+    (Array.isArray(betData.numbers)
+      ? String(betData.numbers[0] ?? '')
+      : Array.isArray(betData.numberBets)
+        ? String(betData.numberBets[0] ?? '')
+        : String(betData.number ?? '')) || ''
+  )
 }
 
 /**
@@ -38,14 +73,8 @@ function converterApostasParaFormatoFRK(apostas: Array<{
 
     if (!positionToUse) continue
 
-    const numero =
-      (Array.isArray(betData.numbers)
-        ? String(betData.numbers[0] ?? '')
-        : Array.isArray(betData.numberBets)
-          ? String(betData.numberBets[0] ?? '')
-          : String(betData.number ?? '')) || ''
-
     const modalidade = aposta.modalidade || 'GRUPO'
+    const numero = extrairNumeroAposta(betData, modalidade)
     const valor = aposta.valor || 0
 
     // Parsear posição (ex: "1-5", "1", "1st")
@@ -70,7 +99,7 @@ function converterApostasParaFormatoFRK(apostas: Array<{
       resultado.push({
         modalidade,
         tipo: '',
-        numero: numero.toString().padStart(4, '0'),
+        numero: numero ? numero.padStart(4, '0') : '0000',
         premio,
         valor,
       })
@@ -81,8 +110,9 @@ function converterApostasParaFormatoFRK(apostas: Array<{
 }
 
 /**
- * GET /api/admin/frk/relatorio-pdf-real?data=YYYY-MM-DD&extracao=130
- * Gera PDF com relatório REAL de apostas pendentes do banco
+ * GET /api/admin/frk/relatorio-pdf-real?data=YYYY-MM-DD&extracao=130&incluirLiquidadas=true
+ * Gera PDF com relatório REAL de apostas do banco
+ * incluirLiquidadas=true: inclui apostas fechadas e liquidadas (além das pendentes)
  */
 export async function GET(request: NextRequest) {
   const adminCheck = await requireAdminAPI(request)
@@ -94,6 +124,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const dataParam = searchParams.get('data') || new Date().toISOString().split('T')[0]
     const extracaoParam = searchParams.get('extracao')
+    const incluirLiquidadas = searchParams.get('incluirLiquidadas') === 'true'
 
     const dataJogo = dataParam
     const dataConcurso = new Date(dataJogo + 'T00:00:00')
@@ -102,10 +133,13 @@ export async function GET(request: NextRequest) {
     const fimDia = new Date(dataConcurso)
     fimDia.setHours(23, 59, 59, 999)
 
-    // Buscar apostas pendentes do banco
+    const statusFiltro = incluirLiquidadas
+      ? { in: ['pendente', 'liquidado', 'perdida'] }
+      : 'pendente'
+
     const apostasDb = await prisma.aposta.findMany({
       where: {
-        status: 'pendente',
+        status: statusFiltro,
         dataConcurso: {
           gte: inicioDia,
           lte: fimDia,
@@ -122,7 +156,11 @@ export async function GET(request: NextRequest) {
 
     if (apostas.length === 0) {
       return NextResponse.json(
-        { error: 'Nenhuma aposta pendente encontrada para esta data' },
+        {
+          error: incluirLiquidadas
+            ? 'Nenhuma aposta encontrada para esta data (pendentes ou liquidadas)'
+            : 'Nenhuma aposta pendente encontrada para esta data',
+        },
         { status: 404 }
       )
     }
