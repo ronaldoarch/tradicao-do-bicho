@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { validarHashWebhookSuitPay, type SuitPayWebhookPixPayload } from '@/lib/suitpay-client'
 import { calcularBonus } from '@/lib/promocoes-calculator'
 import { creditarPromotorPrimeiroDeposito } from '@/lib/promotor-helpers'
+import { trackFacebookEventServer } from '@/lib/facebook-tracking'
 
 export const dynamic = 'force-dynamic'
 
@@ -154,6 +155,17 @@ export async function POST(req: NextRequest) {
       } catch (promError) {
         console.error('Erro ao creditar promotor:', promError)
       }
+    }
+
+    // Rastrear depósito no Facebook Pixel (Purchase)
+    try {
+      await trackFacebookEventServer('Purchase', {
+        value: transacao.valor,
+        currency: 'BRL',
+        content_name: 'Depósito',
+      }, user.id)
+    } catch (trackError) {
+      console.error('Erro ao rastrear depósito no Facebook:', trackError)
     }
 
     // Atualizar status do webhook para processado

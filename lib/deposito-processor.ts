@@ -1,6 +1,7 @@
 import { prisma } from './prisma'
 import { calcularBonus } from './promocoes-calculator'
 import { creditarPromotorPrimeiroDeposito } from './promotor-helpers'
+import { trackFacebookEventServer } from './facebook-tracking'
 
 /**
  * Processa um depósito que foi confirmado (pago).
@@ -69,6 +70,17 @@ export async function processarDepositoPago(transacaoId: number): Promise<{ ok: 
     } catch (promError) {
       console.error('Erro ao creditar promotor:', promError)
     }
+  }
+
+  // Rastrear depósito no Facebook Pixel (Purchase)
+  try {
+    await trackFacebookEventServer('Purchase', {
+      value: transacao.valor,
+      currency: 'BRL',
+      content_name: 'Depósito',
+    }, user.id)
+  } catch (trackError) {
+    console.error('Erro ao rastrear depósito no Facebook:', trackError)
   }
 
   console.log(`✅ Depósito ${transacao.id} processado: R$ ${transacao.valor.toFixed(2)} para usuário ${user.id}`)
