@@ -81,7 +81,17 @@ export async function calcularTotalApostadoPorPremio(
     }
 
     if (incluiPremio) {
-      total += aposta.valor
+      // "Para todo o palpite" (all): valor total dividido entre posições
+      // "Para cada palpite" (each): valor integral por posição
+      const divisionType = betData.divisionType || 'all'
+      let valorParaPremio = aposta.valor
+      if (divisionType === 'all' && cleanedPos.includes('-')) {
+        const [from, to] = cleanedPos.split('-').map(Number)
+        if (!isNaN(from) && !isNaN(to) && to > from) {
+          valorParaPremio = aposta.valor / (to - from + 1)
+        }
+      }
+      total += valorParaPremio
     }
   }
 

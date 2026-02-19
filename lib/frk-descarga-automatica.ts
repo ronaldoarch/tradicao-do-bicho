@@ -98,6 +98,15 @@ export async function efetuarDescargaAutomatica(
                 continue
               }
 
+              // "Para todo o palpite" (all): valor total dividido entre posições
+              // "Para cada palpite" (each): valor integral por posição
+              const divisionType = detalhes.betData.divisionType || 'all'
+              const qtdPosicoes = posTo - posFrom + 1
+              const valorParaPremio =
+                divisionType === 'all' && qtdPosicoes > 1
+                  ? aposta.valor / qtdPosicoes
+                  : aposta.valor
+
               // Extrair número apostado (suporta modalidades de grupo com animalBets)
               let numero = ''
               const modalidade = aposta.modalidade
@@ -132,7 +141,7 @@ export async function efetuarDescargaAutomatica(
                 modalidade: aposta.modalidade,
                 numero: numero.toString().padStart(4, '0'),
                 premio,
-                valor: aposta.valor,
+                valor: Math.round(valorParaPremio * 100) / 100,
                 loteria: loteriaNome || undefined,
                 horario: horarioNome || undefined,
                 dataConcurso: aposta.dataConcurso || undefined,

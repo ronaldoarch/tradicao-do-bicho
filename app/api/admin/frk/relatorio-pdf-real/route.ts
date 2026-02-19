@@ -75,7 +75,8 @@ function converterApostasParaFormatoFRK(apostas: Array<{
 
     const modalidade = aposta.modalidade || 'GRUPO'
     const numero = extrairNumeroAposta(betData, modalidade)
-    const valor = aposta.valor || 0
+    const valorTotal = aposta.valor || 0
+    const divisionType = (betData.divisionType as string) || 'all'
 
     // Parsear posição (ex: "1-5", "1", "1st")
     const cleanedPos = positionToUse.replace(/º/g, '').replace(/\s/g, '')
@@ -95,13 +96,20 @@ function converterApostasParaFormatoFRK(apostas: Array<{
       }
     }
 
+    // "Para todo o palpite" (all): valor é o total, dividir entre as posições
+    // "Para cada palpite" (each): valor é por posição, usar integral em cada
+    const valorPorPremio =
+      divisionType === 'all' && premios.length > 1
+        ? valorTotal / premios.length
+        : valorTotal
+
     for (const premio of premios) {
       resultado.push({
         modalidade,
         tipo: '',
         numero: numero ? numero.padStart(4, '0') : '0000',
         premio,
-        valor,
+        valor: Math.round(valorPorPremio * 100) / 100,
       })
     }
   }
