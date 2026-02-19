@@ -3,6 +3,7 @@
  * Salva diretamente no banco (evita fetch interno que falha em containers)
  */
 
+import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
 
 export interface FacebookEventData {
@@ -57,8 +58,8 @@ export async function trackFacebookEventServer(
         eventName,
         eventId,
         pixelId: config.facebookPixelId,
-        userData,
-        customData,
+        userData: userData as Prisma.InputJsonValue,
+        customData: customData as Prisma.InputJsonValue,
         value: eventData?.value ?? null,
         currency: eventData?.currency || 'BRL',
         sourceUrl: eventData?.source_url ?? null,
