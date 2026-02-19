@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { createSessionToken, hashPassword, cleanCPF, isValidCPFFormat } from '@/lib/auth'
 import { buscarPromotorPorCodigo } from '@/lib/promotor-helpers'
+import { trackFacebookEventServer } from '@/lib/facebook-tracking'
 
 export async function POST(req: NextRequest) {
   try {
@@ -98,6 +99,15 @@ export async function POST(req: NextRequest) {
       } catch (indError) {
         console.error('Erro ao criar indicação:', indError)
       }
+    }
+
+    // Rastrear cadastro no Facebook Pixel (CompleteRegistration) - servidor garante envio
+    try {
+      await trackFacebookEventServer('CompleteRegistration', {
+        content_name: 'Cadastro',
+      }, user.id)
+    } catch (trackError) {
+      console.error('Erro ao rastrear cadastro no Facebook:', trackError)
     }
 
     const token = createSessionToken({ id: user.id, email: user.email, nome: user.nome })

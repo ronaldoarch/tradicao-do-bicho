@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import BottomNav from '@/components/BottomNav'
-import { trackFacebookEvent } from '@/components/FacebookPixel'
 
 export default function CadastroPage() {
   const router = useRouter()
@@ -48,11 +47,7 @@ export default function CadastroPage() {
       if (!res.ok) {
         throw new Error(data.error || 'Erro ao cadastrar')
       }
-      // Rastrear cadastro no Facebook Pixel (CompleteRegistration)
-      trackFacebookEvent('CompleteRegistration', {
-        content_name: 'Cadastro',
-        source_url: typeof window !== 'undefined' ? window.location.href : undefined,
-      })
+      // Rastreamento é feito no servidor (API register) - garante envio mesmo com redirect
       router.push('/minhas-apostas')
     } catch (err: any) {
       setError(err.message || 'Erro ao cadastrar')
