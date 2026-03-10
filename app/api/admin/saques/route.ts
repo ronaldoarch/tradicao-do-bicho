@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getConfiguracoes, updateConfiguracoes } from '@/lib/configuracoes-store'
+import { getConfiguracoes, updateConfiguracoes, GATEWAY_DEPOSITO_MINIMO } from '@/lib/configuracoes-store'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,6 +68,12 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
 
     if (body.limiteSaque || body.limiteDepositoMinimo !== undefined) {
+      if (body.limiteDepositoMinimo !== undefined && body.limiteDepositoMinimo < GATEWAY_DEPOSITO_MINIMO) {
+        return NextResponse.json(
+          { error: `O depósito mínimo deve ser de pelo menos R$ ${GATEWAY_DEPOSITO_MINIMO.toFixed(2)} (exigido pelo gateway Gatebox).` },
+          { status: 400 }
+        )
+      }
       const updates: Record<string, number> = {}
       if (body.limiteSaque?.minimo !== undefined) updates.limiteSaqueMinimo = body.limiteSaque.minimo
       if (body.limiteSaque?.maximo !== undefined) updates.limiteSaqueMaximo = body.limiteSaque.maximo

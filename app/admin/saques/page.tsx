@@ -26,7 +26,16 @@ export default function SaquesPage() {
       const data = await response.json()
       setSaques(data.saques || [])
       setLimiteSaque(data.limiteSaque || { minimo: 30, maximo: 10000 })
-      setLimiteDepositoMinimo(data.limiteDepositoMinimo ?? 25)
+      const depMin = data.limiteDepositoMinimo ?? 25
+      const depMinCorrigido = depMin < 5 ? 5 : depMin
+      setLimiteDepositoMinimo(depMinCorrigido)
+      if (depMin < 5) {
+        await fetch('/api/admin/saques', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ limiteDepositoMinimo: 5 }),
+        })
+      }
     } catch (error) {
       console.error('Erro ao carregar dados:', error)
     } finally {
@@ -48,13 +57,23 @@ export default function SaquesPage() {
   }
 
   const updateLimite = async () => {
+    if (limiteDepositoMinimo < 5) {
+      alert('O depósito mínimo deve ser de pelo menos R$ 5,00 (exigido pelo gateway Gatebox).')
+      return
+    }
     try {
-      await fetch('/api/admin/saques', {
+      const response = await fetch('/api/admin/saques', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limiteSaque, limiteDepositoMinimo }),
       })
+      const data = await response.json()
+      if (!response.ok) {
+        alert(data.error || 'Erro ao atualizar limites')
+        return
+      }
       alert('Limites atualizados com sucesso!')
+      loadData()
     } catch (error) {
       console.error('Erro ao atualizar limites:', error)
       alert('Erro ao atualizar limites')
@@ -100,11 +119,14 @@ export default function SaquesPage() {
             <input
               type="number"
               step="0.01"
-              min="0"
+              min="5"
               value={limiteDepositoMinimo}
-              onChange={(e) => setLimiteDepositoMinimo(parseFloat(e.target.value) || 0)}
+              onChange={(e) => setLimiteDepositoMinimo(Math.max(5, parseFloat(e.target.value) || 5))}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Mínimo R$ 5,00 (exigido pelo gateway Gatebox). Este valor será exibido na carteira.
+            </p>
           </div>
         </div>
         <button

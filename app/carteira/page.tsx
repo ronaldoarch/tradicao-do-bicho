@@ -52,7 +52,7 @@ export default function CarteiraPage() {
         const data = await res.json()
         const c = data.configuracoes || {}
         const minSaque = c.limiteSaqueMinimo ?? 30
-        const minDep = c.limiteDepositoMinimo ?? 25
+        const minDep = c.limiteDepositoMinimoEfetivo ?? c.limiteDepositoMinimo ?? 25
         setLimites({
           saqueMinimo: minSaque,
           saqueMaximo: c.limiteSaqueMaximo ?? 10000,

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { suitpayCreatePix, buscarCodigoIBGEPorCEP, type SuitPayCreatePixPayload } from '@/lib/suitpay-client'
 import { gateboxCreatePix, type GateboxCreatePixPayload } from '@/lib/gatebox-client'
 import { getActiveGateway, getGatewayConfig } from '@/lib/gateways-store'
-import { getConfiguracoes } from '@/lib/configuracoes-store'
+import { getConfiguracoes, getLimiteDepositoMinimoEfetivo } from '@/lib/configuracoes-store'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     const config = await getConfiguracoes()
-    const minDeposito = config.limiteDepositoMinimo ?? 25
+    const minDeposito = getLimiteDepositoMinimoEfetivo(config.limiteDepositoMinimo)
     if (valor < minDeposito) {
       return NextResponse.json(
         { error: `Valor mínimo para depósito é R$ ${minDeposito.toFixed(2).replace('.', ',')}.` },

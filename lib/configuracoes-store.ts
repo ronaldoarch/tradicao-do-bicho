@@ -1,5 +1,16 @@
 import { prisma } from './prisma'
 
+/** Mínimo exigido pelo gateway Gatebox para PIX. Valores abaixo são rejeitados pela API. */
+export const GATEWAY_DEPOSITO_MINIMO = 5
+
+/**
+ * Retorna o limite efetivo de depósito mínimo (o maior entre config e mínimo do gateway).
+ */
+export function getLimiteDepositoMinimoEfetivo(configLimite: number | null | undefined): number {
+  const config = configLimite ?? 25
+  return Math.max(config, GATEWAY_DEPOSITO_MINIMO)
+}
+
 export async function getConfiguracoes() {
   let config = await prisma.configuracao.findFirst()
   
