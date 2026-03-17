@@ -22,17 +22,20 @@ Este documento lista os motivos que podem impedir a liquidação de apostas pend
 
 ---
 
-## 3. API Agência Midas sem resultados
+## 3. API Agência Midas sem resultados (Cloudflare, etc.)
 
-**Condição:** A API externa não retorna resultados para a loteria/data.
+**Condição:** A API externa não retorna resultados (ex.: "Proxy bloqueado pelo Cloudflare").
 
-**Possíveis causas:**
-- API fora do ar ou lenta
+**Usar proxy alternativo:** Defina `RESULTADOS_API_URL` com a URL do proxy (ex.: `https://forestgreen-monkey-902898.hostingersite.com`). O sistema chama `{RESULTADOS_API_URL}/api_resultados.php`.
+
+**Fallback automático:** Quando a API falha, o sistema tenta **bichocerto.com**. Para desativar: `RESULTADOS_FALLBACK_BICHOCERTO=false`.
+
+**Outras causas:**
 - Loteria não mapeada em `CODIGO_LOTERIA_MAP`
 - Data sem resultados publicados ainda
 - Timeout (30s)
 
-**Solução:** Verificar logs, testar `GET /api/resultados/liquidar/debug` para ver resultados disponíveis.
+**Solução:** Verificar logs (deve aparecer "Tentando fallback bichocerto.com"), testar `GET /api/resultados/liquidar/debug`.
 
 ---
 

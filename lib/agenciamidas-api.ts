@@ -3,10 +3,13 @@
  * 
  * Busca resultados diretamente da API oficial
  * https://rk48ccsoo8kcooc00wwwog04.agenciamidas.com/api_resultados.php
+ * 
+ * Fallback: quando a API está bloqueada (ex: Cloudflare), usa bichocerto.com
  */
 
 import { extracoes } from '@/data/extracoes'
 import { ANIMALS } from '@/data/animals'
+import { buscarResultadosBichoCerto } from '@/lib/bichocerto-parser'
 
 export interface AgenciaMidasResultado {
   horario: string
@@ -345,16 +348,20 @@ export async function buscarResultadosAgenciaMidas(
     }
   }
   
-  console.log(`🔍 Buscando resultados da API Agência Midas: loteria="${nomeLoteria}" (código: ${codigo}), data="${dataStr}"`)
-  
-  const apiUrl = 'https://rk48ccsoo8kcooc00wwwog04.agenciamidas.com/api_resultados.php'
+  const apiBase = (process.env.RESULTADOS_API_URL || 'https://rk48ccsoo8kcooc00wwwog04.agenciamidas.com').replace(/\/$/, '')
+  const apiUrl = `${apiBase}/api_resultados.php`
   const url = `${apiUrl}?acao=buscar&loteria=${codigo}&data=${dataStr}`
+
+  console.log(`🔍 Buscando resultados: loteria="${nomeLoteria}" (código: ${codigo}), data="${dataStr}" [${apiBase}]`)
   
   try {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        'Referer': 'https://agenciamidas.com/',
       },
       cache: 'no-store',
       signal: AbortSignal.timeout(30000), // Timeout de 30 segundos
@@ -412,6 +419,20 @@ export async function buscarResultadosAgenciaMidas(
     
     if (resultado.erro) {
       console.log(`⚠️ Erro na resposta da API: ${resultado.erro}`)
+      // Fallback: tentar bichocerto.com quando API Midas bloqueada (ex: Cloudflare)
+      const usarFallback = process.env.RESULTADOS_FALLBACK_BICHOCERTO !== 'false'
+      if (usarFallback) {
+        console.log(`🔄 Tentando fallback bichocerto.com...`)
+        try {
+          const resultadosBichoCerto = await buscarResultadosBichoCerto(nomeLoteria, dataStr)
+          if (resultadosBichoCerto.length > 0) {
+            console.log(`✅ Fallback bichocerto.com: ${resultadosBichoCerto.length} resultado(s) obtido(s)`)
+            return resultadosBichoCerto as unknown as AgenciaMidasResultado[]
+          }
+        } catch (fallbackError) {
+          console.error('❌ Fallback bichocerto.com falhou:', fallbackError)
+        }
+      }
       return []
     }
     
