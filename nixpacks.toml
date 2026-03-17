@@ -2,9 +2,10 @@
 nixPkgs = ["nodejs_22"]
 
 [phases.install]
+# --include=dev garante devDependencies mesmo com NODE_ENV=production no Coolify
 cmds = [
   "apt-get update && apt-get install -y --no-install-recommends cron curl && rm -rf /var/lib/apt/lists/* || true",
-  "npm ci"
+  "npm ci --include=dev"
 ]
 
 [phases.build]
