@@ -150,7 +150,7 @@ function extrairGrupo(numero: string): string {
  * Usado por todas as loterias/estados (RJ, SP, BA, PB, GO, CE, BR).
  * Aceita: "21:00", "21h", "21h00", "21h0", "9h20", "9:20", "09h20", "21"
  */
-function normalizarChaveHorario(chave: string): string | null {
+export function normalizarChaveHorario(chave: string): string | null {
   if (!chave || typeof chave !== 'string') return null
   const s = chave.trim().toLowerCase().replace(/\s/g, '')
   // Já no formato HH:MM ou H:MM

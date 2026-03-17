@@ -11,7 +11,7 @@ import { ResultadoItem } from '@/types/resultados'
 import { extracoes } from '@/data/extracoes'
 import { buscarExtracaoPorNomeEHorario } from '@/lib/extracao-helpers'
 import { getHorarioRealApuracao, temSorteioNoDia } from '@/data/horarios-reais-apuracao'
-import { buscarResultadosAgenciaMidas } from '@/lib/agenciamidas-api'
+import { buscarResultadosAgenciaMidas, normalizarChaveHorario } from '@/lib/agenciamidas-api'
 import { getCotada } from '@/lib/cotadas-store'
 import { normalizarLoteria } from '@/lib/descarga-helpers'
 
@@ -339,7 +339,7 @@ export async function POST(request: NextRequest) {
     // Pré-processar resultados em índice para acesso O(1) ao invés de O(n) por aposta
     for (const resultado of resultados) {
       const loteriaNormalizada = normalizarLoteria(resultado.loteria || '') || ''
-      const horario = resultado.horario || ''
+      const horario = normalizarChaveHorario(resultado.horario || '') || (resultado.horario || '').trim()
       const data = resultado.date || resultado.dataExtracao || ''
       const chave = `${loteriaNormalizada}|${horario}|${data}`
       
@@ -383,11 +383,10 @@ export async function POST(request: NextRequest) {
         // Buscar resultados do índice (muito mais rápido que filtrar)
         let resultadosFiltrados: ResultadoItem[] = []
         
-        // Tentar buscar por chave exata primeiro (horário normalizado HH:MM, trim)
+        // Tentar buscar por chave exata primeiro (horário normalizado HH:MM)
         if (aposta.loteria && aposta.horario && aposta.dataConcurso) {
           const loteriaNormalizada = normalizarLoteria(aposta.loteria) || ''
-          const h = (aposta.horario || '').trim()
-          const horarioAposta = h.match(/^\d{1,2}:\d{1,2}$/) ? h.replace(/^(\d{1,2}):(\d{1,2})$/, (_, a, b) => `${String(a).padStart(2, '0')}:${String(b).padStart(2, '0')}`) : h
+          const horarioAposta = normalizarChaveHorario(aposta.horario) || (aposta.horario || '').trim()
           const dataAposta = aposta.dataConcurso.toISOString().split('T')[0]
           const chaveExata = `${loteriaNormalizada}|${horarioAposta}|${dataAposta}`
           resultadosFiltrados = indiceResultados.get(chaveExata) || []
@@ -422,8 +421,11 @@ export async function POST(request: NextRequest) {
           }
 
           if (aposta.horario) {
-            const horarioAposta = aposta.horario // Garantir que não é null
-            resultadosFiltrados = resultadosFiltrados.filter((r) => r.horario === horarioAposta)
+            const horarioApostaNorm = normalizarChaveHorario(aposta.horario) || aposta.horario
+            resultadosFiltrados = resultadosFiltrados.filter((r) => {
+              const horarioResultadoNorm = normalizarChaveHorario(r.horario || '') || r.horario
+              return horarioResultadoNorm === horarioApostaNorm
+            })
           }
 
           if (aposta.dataConcurso) {
@@ -458,7 +460,7 @@ export async function POST(request: NextRequest) {
           if (resultadosFiltrados.length === 0 && aposta.loteria && aposta.horario && aposta.dataConcurso) {
             const loteriaNorm = normalizarLoteria(aposta.loteria) || ''
             const dataApostaISO = aposta.dataConcurso.toISOString().split('T')[0]
-            const horarioAposta = (aposta.horario || '').trim()
+            const horarioAposta = normalizarChaveHorario(aposta.horario) || (aposta.horario || '').trim()
 
             let todosLoteriaData = resultados.filter((r) => {
               const loteriaOk = loteriaNorm && r.loteria && matchExtracao(normalizarLoteria(r.loteria) || '', loteriaNorm)
