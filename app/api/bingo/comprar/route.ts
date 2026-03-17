@@ -43,6 +43,15 @@ export async function POST(request: NextRequest) {
 
     const usuario = await prisma.usuario.findUnique({
       where: { id: user.id },
+      select: {
+        id: true,
+        saldo: true,
+        saldoSacavel: true,
+        rolloverAtual: true,
+        rolloverNecessario: true,
+        bonusBloqueado: true,
+        bonus: true,
+      },
     })
 
     if (!usuario) {
@@ -56,19 +65,38 @@ export async function POST(request: NextRequest) {
     // Gerar cartela
     const numerosCartela = gerarCartelaBingo()
 
+    // Compra de cartela usa apenas saldo (dinheiro real) - conta para rollover
+    const debitarSaldo = sala.valorCartela
+    const novoRolloverAtual = usuario.rolloverAtual + debitarSaldo
+    const rolloverCumprido =
+      usuario.rolloverNecessario > 0 && novoRolloverAtual >= usuario.rolloverNecessario
+
     // Criar cartela e debitar saldo
     const result = await prisma.$transaction(async (tx) => {
       const debitarSaldoSacavel = Math.min(
         sala.valorCartela,
         Math.max(0, usuario.saldoSacavel ?? 0)
       )
-      // Debitar saldo e saldoSacavel (proporcional ao dinheiro real)
+
+      const updateData: Record<string, unknown> = {
+        saldo: { decrement: sala.valorCartela },
+        saldoSacavel: { decrement: debitarSaldoSacavel },
+        rolloverAtual: novoRolloverAtual,
+      }
+
+      if (rolloverCumprido) {
+        updateData.bonusBloqueado = 0
+        updateData.bonus = { increment: usuario.bonusBloqueado }
+        updateData.rolloverNecessario = 0
+        console.log(
+          `✅ Rollover cumprido (bingo) para usuário ${user.id}. Bônus liberado: R$ ${usuario.bonusBloqueado.toFixed(2)}`
+        )
+      }
+
+      // Debitar saldo e atualizar rollover (compras de bingo contam para liberar bônus)
       await tx.usuario.update({
         where: { id: user.id },
-        data: {
-          saldo: { decrement: sala.valorCartela },
-          saldoSacavel: { decrement: debitarSaldoSacavel },
-        },
+        data: updateData,
       })
 
       // Criar cartela
