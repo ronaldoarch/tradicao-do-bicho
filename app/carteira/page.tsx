@@ -132,6 +132,16 @@ export default function CarteiraPage() {
     load()
   }, [])
 
+  /** Abre o modal PIX quando o usuário vem de /depositar (redirect → ?deposito=1). */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('deposito') === '1') {
+      setShowDepositModal(true)
+      window.history.replaceState(null, '', '/carteira')
+    }
+  }, [])
+
   useEffect(() => {
     loadTransactions()
   }, [filtroTransacoes])

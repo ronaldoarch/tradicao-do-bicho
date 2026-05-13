@@ -1,5 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    return [
+      {
+        source: '/depositar',
+        destination: '/carteira?deposito=1',
+        permanent: false,
+      },
+    ]
+  },
   images: {
     remotePatterns: [
       {
