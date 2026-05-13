@@ -58,11 +58,14 @@ export async function requireAdmin(): Promise<AdminSessionPayload> {
  * Versão para uso em rotas API
  */
 export async function requireAdminAPI(request: NextRequest): Promise<{ userId: number } | NextResponse> {
-  // Buscar cookie de sessão (tenta ambos os cookies)
+  // Ordem importa: se existir `lotbicho_session` (site) e `admin_session` (painel),
+  // deve prevalecer admin_session nas rotas /api/admin/* — senão o usuário comum
+  // "vence" e retorna 403 (não é admin no banco).
   const cookieStore = await cookies()
-  const sessionCookie = cookieStore.get('lotbicho_session')?.value || 
-                        cookieStore.get('admin_session')?.value ||
-                        cookieStore.get('postenobicho_session')?.value
+  const sessionCookie =
+    cookieStore.get(ADMIN_SESSION_COOKIE)?.value ||
+    cookieStore.get('postenobicho_session')?.value ||
+    cookieStore.get('lotbicho_session')?.value
   
   if (!sessionCookie) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
