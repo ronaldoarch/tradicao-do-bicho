@@ -53,6 +53,14 @@ export default function GatewaysPage() {
     selectbankingWebhookUrl?: string
     selectbankingWebhookSecretConfigured?: boolean
   } | null>(null)
+  const [testeSbChavePix, setTesteSbChavePix] = useState('')
+  const [testeSbWithdraw, setTesteSbWithdraw] = useState<{
+    ok?: boolean
+    error?: string
+    mensagem?: string
+    withdrawalId?: string
+  } | null>(null)
+  const [testeSbWithdrawLoading, setTesteSbWithdrawLoading] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -256,6 +264,78 @@ export default function GatewaysPage() {
               Configure <strong>SELECTBANKING_WEBHOOK_SECRET</strong> ou <strong>WEBHOOK_SECRET</strong> no servidor.
               Em produção o webhook retorna erro se o segredo não estiver definido.
             </p>
+          )}
+
+          {gateways.some((g) => g.type === 'selectbanking') && (
+            <div className="mt-6 pt-6 border-t border-indigo-200">
+              <h3 className="text-lg font-semibold text-indigo-900 mb-2">Testar saque via Cash API</h3>
+              <p className="text-xs text-indigo-800 mb-2">
+                Requer um gateway <strong>SelectBanking</strong> marcado como <strong>Ativo</strong>. Será enviado{' '}
+                <strong>R$ 1,00</strong> real da sua conta Cash API para a chave PIX informada (use uma chave sua). O CPF
+                do primeiro usuário admin ou uma chave CPF/CNPJ válida é usado no campo documento do recebedor.
+              </p>
+              <div className="flex gap-2 flex-wrap items-end">
+                <div className="flex-1 min-w-[180px]">
+                  <input
+                    type="text"
+                    value={testeSbChavePix}
+                    onChange={(e) => setTesteSbChavePix(e.target.value)}
+                    placeholder="Chave PIX (telefone, CPF, e-mail ou aleatória)"
+                    className="w-full rounded border border-indigo-300 px-2 py-1.5 text-sm bg-white"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={testeSbWithdrawLoading || !testeSbChavePix.trim()}
+                  onClick={async () => {
+                    setTesteSbWithdrawLoading(true)
+                    setTesteSbWithdraw(null)
+                    try {
+                      const res = await fetch('/api/admin/selectbanking/test-withdraw', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ key: testeSbChavePix.trim() }),
+                      })
+                      const data = await res.json().catch(() => ({}))
+                      if (res.ok && data.ok) {
+                        setTesteSbWithdraw({
+                          ok: true,
+                          mensagem: data.mensagem,
+                          withdrawalId: data.withdrawalId,
+                        })
+                      } else {
+                        setTesteSbWithdraw({
+                          ok: false,
+                          error: data.error || `Erro ${res.status}`,
+                          mensagem: data.mensagem,
+                        })
+                      }
+                    } catch {
+                      setTesteSbWithdraw({ ok: false, error: 'Falha na requisição' })
+                    } finally {
+                      setTesteSbWithdrawLoading(false)
+                    }
+                  }}
+                  className="rounded bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {testeSbWithdrawLoading ? 'Enviando...' : 'Testar saque (R$ 1,00)'}
+                </button>
+              </div>
+              {testeSbWithdraw && (
+                <div
+                  className={`mt-2 p-2 rounded text-sm ${
+                    testeSbWithdraw.ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}
+                >
+                  {testeSbWithdraw.ok ? '✅ ' : '❌ '}
+                  {testeSbWithdraw.mensagem ?? testeSbWithdraw.error}
+                  {testeSbWithdraw.withdrawalId && (
+                    <p className="mt-1 text-xs font-mono">ID: {testeSbWithdraw.withdrawalId}</p>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </section>
       )}
