@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getActiveGateway, getGatewayConfig } from '@/lib/gateways-store'
 import { gateboxGetStatus } from '@/lib/gatebox-client'
-import { selectbankingFindDepositStatusByExternalId } from '@/lib/selectbanking-client'
+import { selectbankingFindDepositStatusByExternalId, type SelectBankingConfig } from '@/lib/selectbanking-client'
 import { processarDepositoPago } from '@/lib/deposito-processor'
 
 export const dynamic = 'force-dynamic'
@@ -81,9 +81,13 @@ export async function GET(request: NextRequest) {
         }
       }
     } else {
-      const sbConfig = await getGatewayConfig(gateway)
-      if (!sbConfig || sbConfig.type !== 'selectbanking') {
+      const raw = await getGatewayConfig(gateway)
+      if (!raw || raw.type !== 'selectbanking') {
         return NextResponse.json({ message: 'Config SelectBanking inválida', processados: 0 })
+      }
+      const sbConfig: SelectBankingConfig = {
+        baseUrl: raw.baseUrl,
+        token: raw.token,
       }
 
       for (const t of pendentes) {
