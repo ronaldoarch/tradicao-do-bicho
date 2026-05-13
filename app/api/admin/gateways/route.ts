@@ -18,9 +18,24 @@ export async function GET(request: NextRequest) {
       password: gw.password ? '***' : null,
       passwordSet: !!gw.password,
       // Para SuitPay, não mostrar apiKey completo
-      apiKey: gw.apiKey ? (gw.type === 'suitpay' ? gw.apiKey.split('|')[0] + '|***' : '***') : null,
+      apiKey: gw.apiKey
+        ? gw.type === 'suitpay'
+          ? gw.apiKey.split('|')[0] + '|***'
+          : '***'
+        : null,
     }))
-    return NextResponse.json({ gateways: gatewaysSafe, total: gatewaysSafe.length })
+    const appBase = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+    const whSecret = process.env.SELECTBANKING_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET || ''
+    const selectbankingWebhookUrl = appBase
+      ? `${appBase}/api/webhooks/selectbanking${whSecret ? `?secret=${encodeURIComponent(whSecret)}` : ''}`
+      : ''
+
+    return NextResponse.json({
+      gateways: gatewaysSafe,
+      total: gatewaysSafe.length,
+      selectbankingWebhookUrl,
+      selectbankingWebhookSecretConfigured: Boolean(whSecret),
+    })
   } catch (error) {
     console.error('Erro ao listar gateways:', error)
     return NextResponse.json({ gateways: [], total: 0, error: 'Erro ao listar gateways' }, { status: 500 })
@@ -41,7 +56,11 @@ export async function POST(request: NextRequest) {
       ...gw,
       password: gw.password ? '***' : null,
       passwordSet: !!gw.password,
-      apiKey: gw.apiKey ? (gw.type === 'suitpay' ? gw.apiKey.split('|')[0] + '|***' : '***') : null,
+      apiKey: gw.apiKey
+        ? gw.type === 'suitpay'
+          ? gw.apiKey.split('|')[0] + '|***'
+          : '***'
+        : null,
     }
     return NextResponse.json({ gateway: gwSafe, message: 'Gateway criado com sucesso' })
   } catch (error) {
@@ -67,7 +86,11 @@ export async function PUT(request: NextRequest) {
       ...gw,
       password: gw.password ? '***' : null,
       passwordSet: !!gw.password,
-      apiKey: gw.apiKey ? (gw.type === 'suitpay' ? gw.apiKey.split('|')[0] + '|***' : '***') : null,
+      apiKey: gw.apiKey
+        ? gw.type === 'suitpay'
+          ? gw.apiKey.split('|')[0] + '|***'
+          : '***'
+        : null,
     }
     return NextResponse.json({ gateway: gwSafe, message: 'Gateway atualizado com sucesso' })
   } catch (error) {

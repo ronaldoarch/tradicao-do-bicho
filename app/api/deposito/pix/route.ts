@@ -4,8 +4,10 @@ import { parseSessionToken } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { suitpayCreatePix, buscarCodigoIBGEPorCEP, type SuitPayCreatePixPayload } from '@/lib/suitpay-client'
 import { gateboxCreatePix, type GateboxCreatePixPayload } from '@/lib/gatebox-client'
+import { selectbankingCreateDeposit } from '@/lib/selectbanking-client'
 import { getActiveGateway, getGatewayConfig } from '@/lib/gateways-store'
 import { getConfiguracoes, getLimiteDepositoMinimoEfetivo } from '@/lib/configuracoes-store'
+import { appendWebhookSecret, getWebhookSecret } from '@/lib/webhook-security'
 
 export const dynamic = 'force-dynamic'
 
@@ -83,6 +85,7 @@ export async function POST(req: NextRequest) {
     }
 
     const useGatebox = gatewayConfig.type === 'gatebox'
+    const useSelectBanking = gatewayConfig.type === 'selectbanking'
 
     // Construir URL do webhook
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
@@ -194,6 +197,62 @@ export async function POST(req: NextRequest) {
       } catch (gateboxError: any) {
         console.error('Erro ao criar PIX via Gatebox:', gateboxError)
         throw gateboxError
+      }
+    }
+
+    // SelectBanking (Cash API)
+    if (useSelectBanking && gatewayConfig.type === 'selectbanking') {
+      const secret = getWebhookSecret('selectbanking')
+      const postbackUrl = appendWebhookSecret(`${baseUrl}/api/webhooks/selectbanking`, secret)
+
+      const externalId = `deposito_${user.id}_${Date.now()}`
+      const amountCents = Math.round(parseFloat(valor.toFixed(2)) * 100)
+
+      try {
+        const pixResponse = await selectbankingCreateDeposit(
+          {
+            baseUrl: gatewayConfig.baseUrl,
+            token: gatewayConfig.token,
+          },
+          {
+            amountCents,
+            externalId,
+            postbackUrl,
+            payer: {
+              name: user.nome.trim(),
+              email: user.email.trim().toLowerCase(),
+              document: cpfLimpo,
+            },
+          }
+        )
+
+        const providerId = pixResponse.id || ''
+        await prisma.transacao.create({
+          data: {
+            usuarioId: user.id,
+            tipo: 'deposito',
+            status: 'pendente',
+            valor,
+            gatewayId: activeGateway.id,
+            referenciaExterna: externalId,
+            descricao: `Depósito PIX SelectBanking (${activeGateway.name}) id=${providerId} - Aguardando`,
+          },
+        })
+
+        const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString()
+
+        return NextResponse.json({
+          qrCode: pixResponse.qrCodeImage || undefined,
+          qrCodeText: pixResponse.qrCodeText,
+          transactionId: providerId || externalId,
+          valor,
+          status: 'pending',
+          expiresAt,
+        })
+      } catch (sbError: unknown) {
+        console.error('Erro ao criar PIX via SelectBanking:', sbError)
+        const msg = sbError instanceof Error ? sbError.message : 'Erro SelectBanking'
+        throw new Error(msg)
       }
     }
 

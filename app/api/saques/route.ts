@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { parseSessionToken } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getActiveGateway } from '@/lib/gateways-store'
+import { getActiveGateway, getGatewayConfig } from '@/lib/gateways-store'
 import { getGateboxConfig, gateboxWithdraw } from '@/lib/gatebox-client'
+import { selectbankingCreateWithdrawal } from '@/lib/selectbanking-client'
 import { getConfiguracoes } from '@/lib/configuracoes-store'
-import { normalizePixKey, sanitizeDocumentNumber } from '@/lib/pix-helpers'
+import { normalizePixKey, sanitizeDocumentNumber, inferSelectBankingPixKeyType } from '@/lib/pix-helpers'
+import { appendWebhookSecret, getWebhookSecret } from '@/lib/webhook-security'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,7 +49,16 @@ export async function POST(request: NextRequest) {
 
     const gateway = await getActiveGateway()
     const isGatebox = gateway?.type === 'gatebox'
-    if (isGatebox && (!chavePix || typeof chavePix !== 'string' || !chavePix.trim())) {
+    const isSelectBanking = gateway?.type === 'selectbanking'
+
+    const baseUrlPublic =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'http://localhost:3001')
+
+    if (
+      (isGatebox || isSelectBanking) &&
+      (!chavePix || typeof chavePix !== 'string' || !chavePix.trim())
+    ) {
       return NextResponse.json(
         { error: 'Informe a chave PIX (CPF, e-mail, telefone ou chave aleatória) para receber o saque.' },
         { status: 400 }
@@ -165,6 +176,92 @@ export async function POST(request: NextRequest) {
         })
       } catch (gateboxError: unknown) {
         const msg = gateboxError instanceof Error ? gateboxError.message : 'Falha ao enviar PIX'
+        await refundAndReject(usuario.id, saque.id, valor, msg)
+        return NextResponse.json(
+          { error: 'Não foi possível processar o saque. Valor devolvido ao saldo. ' + msg },
+          { status: 502 }
+        )
+      }
+    }
+
+    if (isSelectBanking && chavePixNormalizada) {
+      const gwFull = gateway ? await getGatewayConfig(gateway) : null
+      if (!gwFull || gwFull.type !== 'selectbanking') {
+        await refundAndReject(
+          usuario.id,
+          saque.id,
+          valor,
+          'Gateway SelectBanking não configurado.',
+        )
+        return NextResponse.json(
+          {
+            error: 'Saque automático indisponível. Tente novamente mais tarde ou entre em contato com o suporte.',
+          },
+          { status: 503 }
+        )
+      }
+
+      try {
+        const secret = getWebhookSecret('selectbanking')
+        const postbackUrl = appendWebhookSecret(
+          `${baseUrlPublic.replace(/\/$/, '')}/api/webhooks/selectbanking`,
+          secret
+        )
+        const pixKeyType = inferSelectBankingPixKeyType(chavePixNormalizada)
+        const pixKeyOut =
+          pixKeyType === 'phone_number' ? normalizePixKey(chavePixNormalizada) : chavePixNormalizada
+
+        const docRecebedor =
+          sanitizeDocumentNumber(usuario.cpf) ||
+          (pixKeyType === 'document'
+            ? (() => {
+                const d = pixKeyOut.replace(/\D/g, '')
+                return d.length === 11 || d.length === 14 ? d : undefined
+              })()
+            : undefined)
+
+        if (!docRecebedor) {
+          await refundAndReject(
+            usuario.id,
+            saque.id,
+            valor,
+            'CPF do usuário ou documento na chave é obrigatório para SelectBanking.',
+          )
+          return NextResponse.json(
+            { error: 'CPF obrigatório no perfil para saque via este gateway.' },
+            { status: 400 }
+          )
+        }
+
+        const result = await selectbankingCreateWithdrawal(
+          {
+            baseUrl: gwFull.baseUrl,
+            token: gwFull.token,
+          },
+          {
+            amountCents: Math.round(parseFloat(valor.toFixed(2)) * 100),
+            externalId: `saque-${saque.id}`,
+            postbackUrl,
+            description: `Saque #${saque.id}`,
+            recipient: {
+              name: usuario.nome.trim(),
+              document: docRecebedor,
+              pixKeyType,
+              pixKey: pixKeyOut,
+            },
+          }
+        )
+
+        await prisma.saque.update({
+          where: { id: saque.id },
+          data: { status: 'processando', referenciaExterna: result.id },
+        })
+        return NextResponse.json({
+          message: 'Saque enviado. O PIX será processado em instantes. Acompanhe na sua carteira.',
+          saque: { ...saque, status: 'processando', referenciaExterna: result.id },
+        })
+      } catch (sbError: unknown) {
+        const msg = sbError instanceof Error ? sbError.message : 'Falha SelectBanking'
         await refundAndReject(usuario.id, saque.id, valor, msg)
         return NextResponse.json(
           { error: 'Não foi possível processar o saque. Valor devolvido ao saldo. ' + msg },

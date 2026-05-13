@@ -54,3 +54,31 @@ export function sanitizeDocumentNumber(doc: string | null | undefined): string |
   if (digits.length === 11 || digits.length === 14) return digits
   return undefined
 }
+
+/** Tipos de chave PIX esperados pela Cash API (SelectBanking). */
+export function inferSelectBankingPixKeyType(key: string): 'document' | 'email' | 'phone_number' | 'aleatory' {
+  const t = key.trim()
+  if (t.includes('@')) return 'email'
+
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t)) {
+    return 'aleatory'
+  }
+
+  const digitsOnly = t.replace(/\D/g, '')
+
+  if (digitsOnly.length === 11 && digitsOnly[2] !== '9') {
+    return 'document'
+  }
+  if (digitsOnly.length === 14) {
+    return 'document'
+  }
+  if (digitsOnly.length >= 10) {
+    return 'phone_number'
+  }
+
+  if (t.length > 20) {
+    return 'aleatory'
+  }
+
+  return 'aleatory'
+}

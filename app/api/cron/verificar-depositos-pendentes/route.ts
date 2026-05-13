@@ -2,15 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getActiveGateway, getGatewayConfig } from '@/lib/gateways-store'
 import { gateboxGetStatus } from '@/lib/gatebox-client'
+import { selectbankingFindDepositStatusByExternalId } from '@/lib/selectbanking-client'
 import { processarDepositoPago } from '@/lib/deposito-processor'
 
 export const dynamic = 'force-dynamic'
 
+const PAID_SELECTBANKING = ['paid', 'completed', 'complete', 'approved', 'success', 'settled', 'confirmed', 'transferred']
+
 /**
  * GET /api/cron/verificar-depositos-pendentes
  *
- * Verifica depósitos pendentes (Gatebox) e processa se pagos.
- * Fallback quando o webhook não é recebido.
+ * Fallback quando o webhook não é recebido (Gatebox ou SelectBanking).
  *
  * Chamar via cron a cada 1-2 minutos: curl "https://seu-site.com/api/cron/verificar-depositos-pendentes?secret=SEU_SECRET"
  */
@@ -24,13 +26,15 @@ export async function GET(request: NextRequest) {
 
   try {
     const gateway = await getActiveGateway()
-    if (!gateway || gateway.type !== 'gatebox') {
-      return NextResponse.json({ message: 'Gatebox não configurado ou inativo', processados: 0 })
+    if (!gateway) {
+      return NextResponse.json({ message: 'Nenhum gateway ativo', processados: 0 })
     }
 
-    const gateboxConfig = await getGatewayConfig(gateway)
-    if (!gateboxConfig || gateboxConfig.type !== 'gatebox') {
-      return NextResponse.json({ message: 'Config Gatebox inválida', processados: 0 })
+    if (gateway.type !== 'gatebox' && gateway.type !== 'selectbanking') {
+      return NextResponse.json({
+        message: 'Cron de polling não aplicável ao gateway ativo (use Gatebox ou SelectBanking)',
+        processados: 0,
+      })
     }
 
     const pendentes = await prisma.transacao.findMany({
@@ -45,29 +49,56 @@ export async function GET(request: NextRequest) {
 
     let processados = 0
 
-    for (const t of pendentes) {
-      const externalId = t.referenciaExterna
-      if (!externalId) continue
+    if (gateway.type === 'gatebox') {
+      const gateboxConfig = await getGatewayConfig(gateway)
+      if (!gateboxConfig || gateboxConfig.type !== 'gatebox') {
+        return NextResponse.json({ message: 'Config Gatebox inválida', processados: 0 })
+      }
 
-      try {
-        const statusRes = await gateboxGetStatus(
-          {
-            username: gateboxConfig.username!,
-            password: gateboxConfig.password!,
-            baseUrl: gateboxConfig.baseUrl,
-          },
-          { externalId }
-        )
+      for (const t of pendentes) {
+        const externalId = t.referenciaExterna
+        if (!externalId) continue
 
-        const data = statusRes as any
-        const status = (data?.status ?? data?.data?.status ?? '').toLowerCase()
+        try {
+          const statusRes = await gateboxGetStatus(
+            {
+              username: gateboxConfig.username!,
+              password: gateboxConfig.password!,
+              baseUrl: gateboxConfig.baseUrl,
+            },
+            { externalId }
+          )
 
-        if (['paid', 'completed', 'pago', 'paid_out'].includes(status)) {
-          const result = await processarDepositoPago(t.id)
-          if (result.ok) processados++
+          const data = statusRes as Record<string, unknown>
+          const status = String(data?.status ?? (data?.data as Record<string, unknown>)?.status ?? '').toLowerCase()
+
+          if (['paid', 'completed', 'pago', 'paid_out'].includes(status)) {
+            const result = await processarDepositoPago(t.id)
+            if (result.ok) processados++
+          }
+        } catch (err) {
+          console.error(`Erro ao verificar depósito ${t.id}:`, err)
         }
-      } catch (err) {
-        console.error(`Erro ao verificar depósito ${t.id}:`, err)
+      }
+    } else {
+      const sbConfig = await getGatewayConfig(gateway)
+      if (!sbConfig || sbConfig.type !== 'selectbanking') {
+        return NextResponse.json({ message: 'Config SelectBanking inválida', processados: 0 })
+      }
+
+      for (const t of pendentes) {
+        const externalId = t.referenciaExterna
+        if (!externalId) continue
+        try {
+          const info = await selectbankingFindDepositStatusByExternalId(sbConfig, externalId)
+          const st = (info?.status || '').toLowerCase()
+          if (st && PAID_SELECTBANKING.includes(st)) {
+            const result = await processarDepositoPago(t.id)
+            if (result.ok) processados++
+          }
+        } catch (err) {
+          console.error(`Erro ao verificar depósito SelectBanking ${t.id}:`, err)
+        }
       }
     }
 
@@ -78,9 +109,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Erro ao verificar depósitos pendentes:', error)
-    return NextResponse.json(
-      { error: 'Erro interno' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }

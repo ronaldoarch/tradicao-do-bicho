@@ -49,6 +49,10 @@ export default function GatewaysPage() {
   const [testeChavePix, setTesteChavePix] = useState('')
   const [testeWithdraw, setTesteWithdraw] = useState<{ ok?: boolean; error?: string; mensagem?: string } | null>(null)
   const [testeWithdrawLoading, setTesteWithdrawLoading] = useState(false)
+  const [selectbankingMeta, setSelectbankingMeta] = useState<{
+    selectbankingWebhookUrl?: string
+    selectbankingWebhookSecretConfigured?: boolean
+  } | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -68,6 +72,10 @@ export default function GatewaysPage() {
       const data = await res.json()
       const gws = data.gateways || []
       setGateways(gws)
+      setSelectbankingMeta({
+        selectbankingWebhookUrl: data.selectbankingWebhookUrl,
+        selectbankingWebhookSecretConfigured: data.selectbankingWebhookSecretConfigured,
+      })
       if (gws.some((g: Gateway) => g.type === 'gatebox')) {
         loadServerIp()
       }
@@ -214,6 +222,43 @@ export default function GatewaysPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Gateways</h1>
       </div>
+
+      {(gateways.some((g) => g.type === 'selectbanking') || selectbankingMeta?.selectbankingWebhookUrl) && (
+        <section className="bg-indigo-50 border border-indigo-200 rounded-xl shadow p-6">
+          <h2 className="text-xl font-semibold text-indigo-900 mb-2">SelectBanking (Cash API): webhook</h2>
+          <p className="text-sm text-indigo-800 mb-3">
+            Cadastre esta URL no painel SelectBanking para receber confirmações de depósito e saque. Use{' '}
+            <code className="bg-white px-1 rounded">NEXT_PUBLIC_APP_URL</code> correta em produção (HTTPS).
+          </p>
+          {selectbankingMeta?.selectbankingWebhookUrl ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="flex-1 min-w-[200px] px-3 py-2 bg-white rounded-lg border border-indigo-300 text-sm break-all">
+                {selectbankingMeta.selectbankingWebhookUrl}
+              </code>
+              <button
+                type="button"
+                onClick={() =>
+                  selectbankingMeta.selectbankingWebhookUrl &&
+                  navigator.clipboard.writeText(selectbankingMeta.selectbankingWebhookUrl)
+                }
+                className="text-sm text-indigo-800 underline hover:no-underline"
+              >
+                Copiar
+              </button>
+            </div>
+          ) : (
+            <p className="text-sm text-amber-800">
+              Defina <strong>NEXT_PUBLIC_APP_URL</strong> no ambiente para gerar a URL completa do webhook.
+            </p>
+          )}
+          {selectbankingMeta?.selectbankingWebhookSecretConfigured === false && (
+            <p className="text-xs text-amber-800 mt-2">
+              Configure <strong>SELECTBANKING_WEBHOOK_SECRET</strong> ou <strong>WEBHOOK_SECRET</strong> no servidor.
+              Em produção o webhook retorna erro se o segredo não estiver definido.
+            </p>
+          )}
+        </section>
+      )}
 
       {gateways.some((g) => g.type === 'gatebox') && (
         <section className="bg-amber-50 border border-amber-200 rounded-xl shadow p-6">
@@ -376,7 +421,7 @@ export default function GatewaysPage() {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue focus:outline-none"
-              placeholder="Gatebox ou SuitPay"
+              placeholder="Ex.: SelectBanking produção"
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -386,21 +431,25 @@ export default function GatewaysPage() {
               value={form.type}
               onChange={(e) => {
                 const newType = e.target.value
-                setForm({ 
-                  ...form, 
+                setForm({
+                  ...form,
                   type: newType,
-                  // Limpar campos quando mudar tipo
-                  apiKey: newType === 'suitpay' ? form.apiKey : '',
+                  apiKey: newType === 'suitpay' || newType === 'selectbanking' ? form.apiKey : '',
                   username: newType === 'gatebox' ? form.username : '',
                   password: newType === 'gatebox' ? form.password : '',
-                  // Ajustar baseUrl padrão
-                  baseUrl: newType === 'gatebox' ? 'https://api.gatebox.com.br' : form.baseUrl || 'https://sandbox.ws.suitpay.app',
+                  baseUrl:
+                    newType === 'gatebox'
+                      ? 'https://api.gatebox.com.br'
+                      : newType === 'selectbanking'
+                        ? 'https://api.selectbanking.com.br/api/public/cash'
+                        : form.baseUrl || 'https://sandbox.ws.suitpay.app',
                 })
               }}
               className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue focus:outline-none"
             >
               <option value="suitpay">SuitPay</option>
               <option value="gatebox">Gatebox</option>
+              <option value="selectbanking">SelectBanking (Cash API)</option>
             </select>
           </div>
           <div className="flex flex-col gap-2">
@@ -410,7 +459,13 @@ export default function GatewaysPage() {
               value={form.baseUrl}
               onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
               className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue focus:outline-none"
-              placeholder={form.type === 'gatebox' ? 'https://api.gatebox.com.br' : 'https://sandbox.ws.suitpay.app'}
+              placeholder={
+                form.type === 'gatebox'
+                  ? 'https://api.gatebox.com.br'
+                  : form.type === 'selectbanking'
+                    ? 'https://api.selectbanking.com.br/api/public/cash'
+                    : 'https://sandbox.ws.suitpay.app'
+              }
             />
           </div>
           
@@ -430,11 +485,28 @@ export default function GatewaysPage() {
             </div>
           )}
 
+          {form.type === 'selectbanking' && (
+            <div className="flex flex-col gap-2 md:col-span-2">
+              <label className="text-sm font-semibold text-gray-700">Token Cash API (Bearer)</label>
+              <input
+                required={form.type === 'selectbanking'}
+                type="password"
+                value={form.apiKey || ''}
+                onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+                className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue focus:outline-none"
+                placeholder="Token gerado no painel SelectBanking"
+              />
+              <p className="text-xs text-gray-500">
+                Cole o token da Cash API. Base URL sem barra final, conforme documentação oficial.
+              </p>
+            </div>
+          )}
+
           {/* Campos específicos para Gatebox */}
           {form.type === 'gatebox' && (
             <>
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-semibold text-gray-700">Username (CNPJ)</label>
+                <label className="text-sm font-semibold text-gray-700">Username (CNPJ ou login)</label>
                 <input
                   required={form.type === 'gatebox'}
                   value={form.username || ''}
@@ -534,10 +606,20 @@ export default function GatewaysPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{gw.id}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{gw.name}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      gw.type === 'gatebox' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                    }`}>
-                      {gw.type === 'gatebox' ? 'Gatebox' : 'SuitPay'}
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${
+                        gw.type === 'gatebox'
+                          ? 'bg-green-100 text-green-800'
+                          : gw.type === 'selectbanking'
+                            ? 'bg-indigo-100 text-indigo-800'
+                            : 'bg-blue-100 text-blue-800'
+                      }`}
+                    >
+                      {gw.type === 'gatebox'
+                        ? 'Gatebox'
+                        : gw.type === 'selectbanking'
+                          ? 'SelectBanking'
+                          : 'SuitPay'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{gw.baseUrl}</td>

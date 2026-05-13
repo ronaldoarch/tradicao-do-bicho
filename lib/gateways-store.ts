@@ -30,7 +30,7 @@ function decrypt(encryptedText: string): string {
 export interface GatewayInput {
   id?: number
   name: string
-  type?: string // "gatebox" ou "suitpay"
+  type?: string // "gatebox" | "suitpay" | "selectbanking"
   baseUrl: string
   apiKey?: string // Para SuitPay
   username?: string // Para Gatebox
@@ -137,19 +137,28 @@ export async function getGatewayConfig(gateway: any) {
       password: decrypt(gateway.password),
       baseUrl: gateway.baseUrl,
     }
-  } else {
-    // SuitPay - apiKey contém "clientId|clientSecret"
-    if (!gateway.apiKey) return null
-    
-    const [clientId, clientSecret] = gateway.apiKey.split('|')
-    if (!clientId || !clientSecret) return null
+  }
 
+  if (gateway.type === 'selectbanking') {
+    if (!gateway.apiKey || !gateway.baseUrl) return null
     return {
-      type: 'suitpay',
-      clientId,
-      clientSecret,
-      baseUrl: gateway.baseUrl,
+      type: 'selectbanking' as const,
+      token: gateway.apiKey.trim(),
+      baseUrl: String(gateway.baseUrl).replace(/\/$/, ''),
     }
+  }
+
+  // SuitPay - apiKey contém "clientId|clientSecret"
+  if (!gateway.apiKey) return null
+
+  const [clientId, clientSecret] = gateway.apiKey.split('|')
+  if (!clientId || !clientSecret) return null
+
+  return {
+    type: 'suitpay',
+    clientId,
+    clientSecret,
+    baseUrl: gateway.baseUrl,
   }
 }
 
