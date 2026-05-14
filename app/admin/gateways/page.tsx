@@ -343,7 +343,7 @@ export default function GatewaysPage() {
             <div className="mt-6 pt-6 border-t border-indigo-200">
               <h3 className="text-lg font-semibold text-indigo-900 mb-2">Testar depósito via Cash API</h3>
               <p className="text-xs text-indigo-800 mb-2">
-                Gera um PIX de <strong>R$ 1,00</strong> (padrão) e cria uma transação{' '}
+                Gera um PIX de <strong>R$ 5,00</strong> (padrão — mínimo da Cash API) e cria uma transação{' '}
                 <strong>pendente</strong> no primeiro usuário admin. O e-mail desse admin precisa estar preenchido. O{' '}
                 <strong>CPF do pagador</strong> na Cash API pode vir do cadastro do admin ou do campo abaixo. Ao pagar o
                 PIX, o postback deve marcar como pago e creditar o saldo desse admin.
@@ -412,7 +412,7 @@ export default function GatewaysPage() {
                   }}
                   className="rounded bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {testeSbDepositLoading ? 'Gerando...' : 'Gerar PIX de teste (R$ 1,00)'}
+                  {testeSbDepositLoading ? 'Gerando...' : 'Gerar PIX de teste (R$ 5,00)'}
                 </button>
               </div>
               {testeSbDeposit && (
@@ -483,8 +483,8 @@ export default function GatewaysPage() {
               <h3 className="text-lg font-semibold text-indigo-900 mb-2">Testar saque via Cash API</h3>
               <p className="text-xs text-indigo-800 mb-2">
                 Requer um gateway <strong>SelectBanking</strong> marcado como <strong>Ativo</strong>. Será enviado{' '}
-                <strong>R$ 1,00</strong> real da sua conta Cash API para a chave PIX informada (use uma chave sua). O CPF
-                do primeiro usuário admin ou uma chave CPF/CNPJ válida é usado no campo documento do recebedor.
+                <strong>R$ 10,00</strong> (mínimo de saque da Cash API) da sua conta Cash API para a chave PIX informada.
+                O CPF do primeiro usuário admin ou uma chave CPF/CNPJ válida é usado no campo documento do recebedor.
               </p>
               <div className="flex gap-2 flex-wrap items-end">
                 <div className="flex-1 min-w-[180px]">
@@ -533,7 +533,7 @@ export default function GatewaysPage() {
                   }}
                   className="rounded bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {testeSbWithdrawLoading ? 'Enviando...' : 'Testar saque (R$ 1,00)'}
+                  {testeSbWithdrawLoading ? 'Enviando...' : 'Testar saque (R$ 10,00)'}
                 </button>
               </div>
               {testeSbWithdraw && (

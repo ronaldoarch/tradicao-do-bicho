@@ -8,12 +8,14 @@ import { appendWebhookSecret, getWebhookSecret } from '@/lib/webhook-security'
 
 export const dynamic = 'force-dynamic'
 
-const VALOR_TESTE_REAIS = 1
-const VALOR_TESTE_CENTAVOS = 100
+/** Piso da Cash API para cash-out PIX (erro 422 se menor). */
+const CASH_API_SAQUE_MIN_REAIS = 10
+const VALOR_TESTE_REAIS = CASH_API_SAQUE_MIN_REAIS
+const VALOR_TESTE_CENTAVOS = Math.round(VALOR_TESTE_REAIS * 100)
 
 /**
  * POST /api/admin/selectbanking/test-withdraw
- * Envia PIX de R$ 1,00 via Cash API (gateway ativo SelectBanking).
+ * Envia PIX de teste via Cash API (gateway ativo SelectBanking). Valor fixo R$ 10,00 (mínimo de saque da API).
  * Body: { key: string }
  */
 export async function POST(request: NextRequest) {
@@ -32,7 +34,7 @@ export async function POST(request: NextRequest) {
   const key = typeof body.key === 'string' ? body.key.trim() : ''
   if (!key) {
     return NextResponse.json(
-      { error: 'Informe a chave PIX. Será enviado R$ 1,00 a partir da conta Cash API configurada.' },
+      { error: 'Informe a chave PIX. Será enviado o valor mínimo de teste (R$ 10,00) a partir da conta Cash API configurada.' },
       { status: 400 }
     )
   }
@@ -105,7 +107,7 @@ export async function POST(request: NextRequest) {
         amountCents: VALOR_TESTE_CENTAVOS,
         externalId,
         postbackUrl,
-        description: 'Teste saque Admin (R$ 1,00)',
+        description: 'Teste saque Admin (R$ 10,00)',
         recipient: {
           name: nome,
           document: docRecebedor,

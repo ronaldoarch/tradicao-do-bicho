@@ -8,12 +8,14 @@ import { appendWebhookSecret, getWebhookSecret } from '@/lib/webhook-security'
 
 export const dynamic = 'force-dynamic'
 
-const VALOR_TESTE_REAIS = 1
+/** Piso da Cash API para cash-in PIX (erro 422 se menor). */
+const CASH_API_DEPOSITO_MIN_REAIS = 5
+const VALOR_TESTE_PADRAO_REAIS = CASH_API_DEPOSITO_MIN_REAIS
 
 /**
  * POST /api/admin/selectbanking/test-deposit
- * Gera PIX de depósito de teste (R$ 1,00) via Cash API e cria transação pendente no primeiro admin.
- * Body opcional: { "valor": 1, "cpf" | "document": "..." } — CPF do pagador na API (11 dígitos) se o admin não tiver CPF no cadastro.
+ * Gera PIX de depósito de teste via Cash API e cria transação pendente no primeiro admin.
+ * Valor padrão R$ 5,00 (mínimo da Cash API). Body opcional: { "valor": 5 }, { "cpf" | "document": "..." }.
  */
 export async function POST(request: NextRequest) {
   const adminCheck = await requireAdminAPI(request)
@@ -28,9 +30,9 @@ export async function POST(request: NextRequest) {
     body = {}
   }
 
-  let valorReais = VALOR_TESTE_REAIS
+  let valorReais = VALOR_TESTE_PADRAO_REAIS
   const v = body.valor
-  if (v != null && typeof v === 'number' && !Number.isNaN(v) && v >= 1) {
+  if (v != null && typeof v === 'number' && !Number.isNaN(v) && v >= CASH_API_DEPOSITO_MIN_REAIS) {
     valorReais = Math.min(100, Math.round(v * 100) / 100)
   }
 
@@ -155,7 +157,7 @@ export async function POST(request: NextRequest) {
       ok: false,
       error: msg,
       hint:
-        'Confira baseUrl (ex.: https://api.selectbanking.com.br/api/public/cash), token na API Key, limites mínimos da Cash API e NEXT_PUBLIC_APP_URL para o postback.',
+        `Valor de teste deve ser ≥ R$ ${CASH_API_DEPOSITO_MIN_REAIS.toFixed(2).replace('.', ',')} (mínimo Cash API). Confira baseUrl, token, NEXT_PUBLIC_APP_URL no postback.`,
     })
   }
 }
