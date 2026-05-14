@@ -126,6 +126,9 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    const credenciaisConfiguradas = Boolean(raw.baseUrl && raw.token?.length)
+    const webhookSecretConfigurado = Boolean(secret)
+
     return NextResponse.json({
       ok: true,
       mensagem: `PIX de teste gerado (R$ ${valorReais.toFixed(2).replace('.', ',')}). Pague com o app do banco para validar postback e crédito na carteira do admin (usuário #${adminUser.id}).`,
@@ -136,6 +139,14 @@ export async function POST(request: NextRequest) {
       transacaoId: transacao.id,
       usuarioId: adminUser.id,
       valor: valorReais,
+      testeRealPix: {
+        titulo: 'Teste bem-sucedido!',
+        subtitulo: 'Teste real: PIX gerado com sucesso.',
+        credenciaisConfiguradas,
+        webhookUrl: postbackUrl,
+        apiUrl: raw.baseUrl,
+        webhookSecretConfigurado,
+      },
     })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)

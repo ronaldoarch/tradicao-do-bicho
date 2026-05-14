@@ -14,6 +14,8 @@ export default function SaquesPage() {
   const [saques, setSaques] = useState<Saque[]>([])
   const [limiteSaque, setLimiteSaque] = useState({ minimo: 30, maximo: 10000 })
   const [limiteDepositoMinimo, setLimiteDepositoMinimo] = useState(25)
+  const [depositoPisoPlataforma, setDepositoPisoPlataforma] = useState(5)
+  const [gatewayDepositoAtivo, setGatewayDepositoAtivo] = useState<{ type: string; name: string } | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -27,13 +29,20 @@ export default function SaquesPage() {
       setSaques(data.saques || [])
       setLimiteSaque(data.limiteSaque || { minimo: 30, maximo: 10000 })
       const depMin = data.limiteDepositoMinimo ?? 25
-      const depMinCorrigido = depMin < 5 ? 5 : depMin
+      const piso = typeof data.depositoPisoPlataforma === 'number' ? data.depositoPisoPlataforma : 5
+      setDepositoPisoPlataforma(piso)
+      setGatewayDepositoAtivo(
+        data.gatewayDepositoAtivo?.type && data.gatewayDepositoAtivo?.name
+          ? { type: data.gatewayDepositoAtivo.type, name: data.gatewayDepositoAtivo.name }
+          : null
+      )
+      const depMinCorrigido = depMin < piso ? piso : depMin
       setLimiteDepositoMinimo(depMinCorrigido)
-      if (depMin < 5) {
+      if (depMin < piso) {
         await fetch('/api/admin/saques', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ limiteDepositoMinimo: 5 }),
+          body: JSON.stringify({ limiteDepositoMinimo: piso }),
         })
       }
     } catch (error) {
@@ -57,8 +66,10 @@ export default function SaquesPage() {
   }
 
   const updateLimite = async () => {
-    if (limiteDepositoMinimo < 5) {
-      alert('O depósito mínimo deve ser de pelo menos R$ 5,00 (exigido pelo gateway Gatebox).')
+    if (limiteDepositoMinimo < depositoPisoPlataforma) {
+      alert(
+        `O depósito mínimo deve ser de pelo menos R$ ${depositoPisoPlataforma.toFixed(2).replace('.', ',')} (piso da plataforma para PIX).`
+      )
       return
     }
     try {
@@ -119,13 +130,23 @@ export default function SaquesPage() {
             <input
               type="number"
               step="0.01"
-              min="5"
+              min={depositoPisoPlataforma}
               value={limiteDepositoMinimo}
-              onChange={(e) => setLimiteDepositoMinimo(Math.max(5, parseFloat(e.target.value) || 5))}
+              onChange={(e) =>
+                setLimiteDepositoMinimo(
+                  Math.max(depositoPisoPlataforma, parseFloat(e.target.value) || depositoPisoPlataforma)
+                )
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg"
             />
             <p className="mt-1 text-xs text-gray-500">
-              Mínimo R$ 5,00 (exigido pelo gateway Gatebox). Este valor será exibido na carteira.
+              Piso da plataforma (PIX): R$ {depositoPisoPlataforma.toFixed(2).replace('.', ',')} — não depende do
+              gateway. O limite exibido na carteira não fica abaixo desse valor. Gateway de depósito ativo:{' '}
+              <strong>{gatewayDepositoAtivo?.name ?? '—'}</strong>
+              {gatewayDepositoAtivo?.type ? (
+                <span className="text-gray-400"> ({gatewayDepositoAtivo.type})</span>
+              ) : null}
+              .
             </p>
           </div>
         </div>

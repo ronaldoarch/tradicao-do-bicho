@@ -16,6 +16,60 @@ interface Gateway {
   active: boolean
 }
 
+interface TesteRealPixPayload {
+  titulo?: string
+  subtitulo?: string
+  credenciaisConfiguradas?: boolean
+  webhookUrl?: string
+  apiUrl?: string
+  webhookSecretConfigurado?: boolean
+}
+
+function SelectBankingTesteRealPainel({ info }: { info: TesteRealPixPayload | undefined }) {
+  if (!info) return null
+  return (
+    <div className="rounded-lg overflow-hidden border border-green-800 shadow-md">
+      <div className="bg-green-800 px-4 py-3 text-white flex gap-3 items-start">
+        <span className="text-2xl leading-none shrink-0" aria-hidden>
+          ✓
+        </span>
+        <div className="min-w-0">
+          <p className="font-bold text-base">{info.titulo ?? 'Teste bem-sucedido!'}</p>
+          <p className="text-sm text-green-100 mt-0.5">
+            {info.subtitulo ?? 'Teste real concluído com a Cash API.'}
+          </p>
+        </div>
+      </div>
+      <div className="bg-emerald-950 px-4 py-3 text-xs text-emerald-50 space-y-2">
+        <div className="flex flex-col sm:flex-row sm:gap-2 sm:items-baseline">
+          <span className="text-emerald-300 shrink-0 min-w-[180px]">Credenciais configuradas:</span>
+          <span className="font-medium break-words">
+            {info.credenciaisConfiguradas === false
+              ? 'Não'
+              : info.credenciaisConfiguradas === true
+                ? 'Sim'
+                : '—'}
+          </span>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:gap-2 sm:items-baseline">
+          <span className="text-emerald-300 shrink-0 min-w-[180px]">Webhook URL:</span>
+          <code className="break-all text-[11px] leading-relaxed opacity-95">{info.webhookUrl ?? '—'}</code>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:gap-2 sm:items-baseline">
+          <span className="text-emerald-300 shrink-0 min-w-[180px]">API URL:</span>
+          <code className="break-all text-[11px] leading-relaxed opacity-95">{info.apiUrl ?? '—'}</code>
+        </div>
+        {info.webhookSecretConfigurado !== undefined && (
+          <div className="flex flex-col sm:flex-row sm:gap-2 sm:items-baseline pt-1 border-t border-emerald-800/80">
+            <span className="text-emerald-300 shrink-0 min-w-[180px]">Segredo webhook (servidor):</span>
+            <span className="font-medium">{info.webhookSecretConfigurado ? 'Configurado' : 'Ausente'}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 const emptyForm: Omit<Gateway, 'id' | 'passwordSet'> = {
   name: '',
   type: 'suitpay',
@@ -60,6 +114,7 @@ export default function GatewaysPage() {
     mensagem?: string
     hint?: string
     withdrawalId?: string
+    testeRealPix?: TesteRealPixPayload
   } | null>(null)
   const [testeSbWithdrawLoading, setTesteSbWithdrawLoading] = useState(false)
   const [testeSbDeposit, setTesteSbDeposit] = useState<{
@@ -74,6 +129,7 @@ export default function GatewaysPage() {
     transacaoId?: number
     usuarioId?: number
     valor?: number
+    testeRealPix?: TesteRealPixPayload
   } | null>(null)
   const [testeSbDepositLoading, setTesteSbDepositLoading] = useState(false)
   const [testeSbCpfPagador, setTesteSbCpfPagador] = useState('')
@@ -339,6 +395,7 @@ export default function GatewaysPage() {
                           transacaoId: data.transacaoId,
                           usuarioId: data.usuarioId,
                           valor: data.valor,
+                          testeRealPix: data.testeRealPix,
                         })
                       } else {
                         setTesteSbDeposit({
@@ -360,13 +417,17 @@ export default function GatewaysPage() {
               </div>
               {testeSbDeposit && (
                 <div
-                  className={`mt-3 p-2 rounded text-sm ${
-                    testeSbDeposit.ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}
+                  className={
+                    testeSbDeposit.ok
+                      ? 'mt-3'
+                      : 'mt-3 p-2 rounded text-sm bg-red-100 text-red-800'
+                  }
                 >
                   {testeSbDeposit.ok ? (
-                    <div className="space-y-2">
-                      <p>{testeSbDeposit.mensagem}</p>
+                    <div className="space-y-3">
+                      <SelectBankingTesteRealPainel info={testeSbDeposit.testeRealPix} />
+                      <div className="rounded-lg border border-green-200 bg-green-50/80 p-3 text-green-900 space-y-2">
+                        <p className="text-sm">{testeSbDeposit.mensagem}</p>
                       {testeSbDeposit.qrCodeImage && (
                         <div className="flex justify-center">
                           <img
@@ -401,10 +462,11 @@ export default function GatewaysPage() {
                           </div>
                         </div>
                       )}
-                      <p className="text-xs font-mono opacity-90">
+                      <p className="text-xs font-mono text-green-800/90">
                         ID provedor: {testeSbDeposit.depositId || '—'} · externalId: {testeSbDeposit.externalId} ·
                         transação #{testeSbDeposit.transacaoId}
                       </p>
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -453,6 +515,7 @@ export default function GatewaysPage() {
                           ok: true,
                           mensagem: data.mensagem,
                           withdrawalId: data.withdrawalId,
+                          testeRealPix: data.testeRealPix,
                         })
                       } else {
                         setTesteSbWithdraw({
@@ -475,17 +538,22 @@ export default function GatewaysPage() {
               </div>
               {testeSbWithdraw && (
                 <div
-                  className={`mt-2 p-2 rounded text-sm ${
-                    testeSbWithdraw.ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}
+                  className={
+                    testeSbWithdraw.ok ? 'mt-2' : 'mt-2 p-2 rounded text-sm bg-red-100 text-red-800'
+                  }
                 >
                   {testeSbWithdraw.ok ? (
-                    <>
-                      ✅ {testeSbWithdraw.mensagem}
-                      {testeSbWithdraw.withdrawalId && (
-                        <p className="mt-1 text-xs font-mono">ID: {testeSbWithdraw.withdrawalId}</p>
-                      )}
-                    </>
+                    <div className="space-y-3">
+                      <SelectBankingTesteRealPainel info={testeSbWithdraw.testeRealPix} />
+                      <div className="rounded-lg border border-green-200 bg-green-50/90 px-3 py-2 text-sm text-green-900">
+                        <p>{testeSbWithdraw.mensagem}</p>
+                        {testeSbWithdraw.withdrawalId && (
+                          <p className="mt-1 text-xs font-mono text-green-800">
+                            ID: {testeSbWithdraw.withdrawalId}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   ) : (
                     <>
                       <p className="font-semibold break-words">❌ {testeSbWithdraw.error}</p>

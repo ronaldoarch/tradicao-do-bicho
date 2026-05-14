@@ -120,6 +120,14 @@ export async function POST(request: NextRequest) {
       mensagem: `Saque de teste enviado (R$ ${VALOR_TESTE_REAIS.toFixed(2).replace('.', ',')}). ID no provedor: ${result.id}. Acompanhe o webhook ou o painel SelectBanking.`,
       withdrawalId: result.id,
       externalId,
+      testeRealPix: {
+        titulo: 'Teste bem-sucedido!',
+        subtitulo: 'Teste real: saque PIX enviado pela Cash API.',
+        credenciaisConfiguradas: Boolean(raw.baseUrl && raw.token?.length),
+        webhookUrl: postbackUrl,
+        apiUrl: raw.baseUrl,
+        webhookSecretConfigurado: Boolean(secret),
+      },
     })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)

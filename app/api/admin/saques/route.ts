@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getConfiguracoes, updateConfiguracoes, GATEWAY_DEPOSITO_MINIMO } from '@/lib/configuracoes-store'
+import { getActiveGateway } from '@/lib/gateways-store'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +29,7 @@ function formatSaqueForAdmin(saque: {
  */
 export async function GET() {
   try {
-    const [saquesDb, config] = await Promise.all([
+    const [saquesDb, config, gatewayAtivo] = await Promise.all([
       prisma.saque.findMany({
         orderBy: { createdAt: 'desc' },
         include: {
@@ -37,6 +38,7 @@ export async function GET() {
         take: 500,
       }),
       getConfiguracoes(),
+      getActiveGateway(),
     ])
     const saques = saquesDb.map(formatSaqueForAdmin)
     const limiteSaque = {
@@ -49,6 +51,10 @@ export async function GET() {
       total: saques.length,
       limiteSaque,
       limiteDepositoMinimo,
+      depositoPisoPlataforma: GATEWAY_DEPOSITO_MINIMO,
+      gatewayDepositoAtivo: gatewayAtivo
+        ? { type: gatewayAtivo.type, name: gatewayAtivo.name }
+        : null,
     })
   } catch (error) {
     console.error('Erro ao listar saques (admin):', error)
@@ -70,7 +76,9 @@ export async function PUT(request: NextRequest) {
     if (body.limiteSaque || body.limiteDepositoMinimo !== undefined) {
       if (body.limiteDepositoMinimo !== undefined && body.limiteDepositoMinimo < GATEWAY_DEPOSITO_MINIMO) {
         return NextResponse.json(
-          { error: `O depósito mínimo deve ser de pelo menos R$ ${GATEWAY_DEPOSITO_MINIMO.toFixed(2)} (exigido pelo gateway Gatebox).` },
+          {
+            error: `O depósito mínimo configurável não pode ser inferior a R$ ${GATEWAY_DEPOSITO_MINIMO.toFixed(2)} (piso da plataforma para PIX).`,
+          },
           { status: 400 }
         )
       }
