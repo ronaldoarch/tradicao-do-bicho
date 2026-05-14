@@ -55,8 +55,13 @@ export async function selectbankingCreateDeposit(
   const data = parseJsonResponse(text, res.status, res.statusText)
 
   if (!res.ok) {
-    const msg = data?.message ?? data?.error ?? text
-    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
+    const msg =
+      data?.message ??
+      data?.error ??
+      (Array.isArray(data?.errors) ? data.errors.map(String).join('; ') : data?.errors) ??
+      text
+    const body = typeof msg === 'string' ? msg : JSON.stringify(msg)
+    throw new Error(`Cash API ${res.status}: ${body}`.trim())
   }
 
   const deposit = data?.data ?? data
@@ -113,8 +118,13 @@ export async function selectbankingCreateWithdrawal(
   const data = parseJsonResponse(text, res.status, res.statusText)
 
   if (!res.ok) {
-    const msg = data?.message ?? data?.error ?? text
-    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
+    const msg =
+      data?.message ??
+      data?.error ??
+      (Array.isArray(data?.errors) ? data.errors.map(String).join('; ') : data?.errors) ??
+      text
+    const body = typeof msg === 'string' ? msg : JSON.stringify(msg)
+    throw new Error(`Cash API ${res.status}: ${body}`.trim())
   }
 
   const w = data?.data ?? data

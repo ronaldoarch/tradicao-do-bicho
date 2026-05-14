@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic'
 
 const PAID_DEPOSIT = new Set([
   'paid',
+  'pago',
   'completed',
   'complete',
   'approved',
@@ -15,6 +16,7 @@ const PAID_DEPOSIT = new Set([
   'settled',
   'confirmed',
   'transferred',
+  'paid_out',
 ])
 
 const FAILED_DEPOSIT = new Set([

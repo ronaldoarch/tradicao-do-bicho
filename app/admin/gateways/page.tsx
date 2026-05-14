@@ -58,9 +58,24 @@ export default function GatewaysPage() {
     ok?: boolean
     error?: string
     mensagem?: string
+    hint?: string
     withdrawalId?: string
   } | null>(null)
   const [testeSbWithdrawLoading, setTesteSbWithdrawLoading] = useState(false)
+  const [testeSbDeposit, setTesteSbDeposit] = useState<{
+    ok?: boolean
+    error?: string
+    hint?: string
+    mensagem?: string
+    qrCodeText?: string
+    qrCodeImage?: string | null
+    depositId?: string
+    externalId?: string
+    transacaoId?: number
+    usuarioId?: number
+    valor?: number
+  } | null>(null)
+  const [testeSbDepositLoading, setTesteSbDepositLoading] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -267,6 +282,119 @@ export default function GatewaysPage() {
           )}
 
           {gateways.some((g) => g.type === 'selectbanking') && (
+            <>
+            <div className="mt-6 pt-6 border-t border-indigo-200">
+              <h3 className="text-lg font-semibold text-indigo-900 mb-2">Testar depósito via Cash API</h3>
+              <p className="text-xs text-indigo-800 mb-2">
+                Gera um PIX de <strong>R$ 1,00</strong> (padrão) e cria uma transação{' '}
+                <strong>pendente</strong> no primeiro usuário admin. CPF e e-mail desse admin precisam estar
+                preenchidos. Ao pagar o PIX, o postback deve marcar como pago e creditar o saldo desse admin — útil para
+                validar URL de webhook e segredo.
+              </p>
+              <div className="flex flex-wrap gap-2 items-center">
+                <button
+                  type="button"
+                  disabled={testeSbDepositLoading}
+                  onClick={async () => {
+                    setTesteSbDepositLoading(true)
+                    setTesteSbDeposit(null)
+                    try {
+                      const res = await fetch('/api/admin/selectbanking/test-deposit', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({}),
+                      })
+                      const data = await res.json().catch(() => ({}))
+                      if (res.ok && data.ok) {
+                        setTesteSbDeposit({
+                          ok: true,
+                          mensagem: data.mensagem,
+                          qrCodeText: data.qrCodeText,
+                          qrCodeImage: data.qrCodeImage,
+                          depositId: data.depositId,
+                          externalId: data.externalId,
+                          transacaoId: data.transacaoId,
+                          usuarioId: data.usuarioId,
+                          valor: data.valor,
+                        })
+                      } else {
+                        setTesteSbDeposit({
+                          ok: false,
+                          error: data.error || `Erro ${res.status}`,
+                          hint: data.hint,
+                        })
+                      }
+                    } catch {
+                      setTesteSbDeposit({ ok: false, error: 'Falha na requisição' })
+                    } finally {
+                      setTesteSbDepositLoading(false)
+                    }
+                  }}
+                  className="rounded bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {testeSbDepositLoading ? 'Gerando...' : 'Gerar PIX de teste (R$ 1,00)'}
+                </button>
+              </div>
+              {testeSbDeposit && (
+                <div
+                  className={`mt-3 p-2 rounded text-sm ${
+                    testeSbDeposit.ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}
+                >
+                  {testeSbDeposit.ok ? (
+                    <div className="space-y-2">
+                      <p>{testeSbDeposit.mensagem}</p>
+                      {testeSbDeposit.qrCodeImage && (
+                        <div className="flex justify-center">
+                          <img
+                            alt="QR Code PIX"
+                            className="max-w-[200px] rounded border border-indigo-200 bg-white p-1"
+                            src={
+                              testeSbDeposit.qrCodeImage.startsWith('data:')
+                                ? testeSbDeposit.qrCodeImage
+                                : `data:image/png;base64,${testeSbDeposit.qrCodeImage}`
+                            }
+                          />
+                        </div>
+                      )}
+                      {testeSbDeposit.qrCodeText && (
+                        <div>
+                          <p className="text-xs font-medium text-indigo-900">Copia e cola:</p>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            <code className="flex-1 min-w-0 break-all rounded bg-white px-2 py-1 text-xs text-gray-900 border border-indigo-200">
+                              {testeSbDeposit.qrCodeText.slice(0, 120)}
+                              {testeSbDeposit.qrCodeText.length > 120 ? '…' : ''}
+                            </code>
+                            <button
+                              type="button"
+                              className="text-xs underline shrink-0"
+                              onClick={() =>
+                                testeSbDeposit.qrCodeText &&
+                                navigator.clipboard.writeText(testeSbDeposit.qrCodeText)
+                              }
+                            >
+                              Copiar código completo
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      <p className="text-xs font-mono opacity-90">
+                        ID provedor: {testeSbDeposit.depositId || '—'} · externalId: {testeSbDeposit.externalId} ·
+                        transação #{testeSbDeposit.transacaoId}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="font-semibold break-words">❌ {testeSbDeposit.error}</p>
+                      {testeSbDeposit.hint && (
+                        <p className="mt-1 text-xs opacity-90">{testeSbDeposit.hint}</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="mt-6 pt-6 border-t border-indigo-200">
               <h3 className="text-lg font-semibold text-indigo-900 mb-2">Testar saque via Cash API</h3>
               <p className="text-xs text-indigo-800 mb-2">
@@ -309,6 +437,7 @@ export default function GatewaysPage() {
                           ok: false,
                           error: data.error || `Erro ${res.status}`,
                           mensagem: data.mensagem,
+                          hint: data.hint,
                         })
                       }
                     } catch {
@@ -328,14 +457,25 @@ export default function GatewaysPage() {
                     testeSbWithdraw.ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                   }`}
                 >
-                  {testeSbWithdraw.ok ? '✅ ' : '❌ '}
-                  {testeSbWithdraw.mensagem ?? testeSbWithdraw.error}
-                  {testeSbWithdraw.withdrawalId && (
-                    <p className="mt-1 text-xs font-mono">ID: {testeSbWithdraw.withdrawalId}</p>
+                  {testeSbWithdraw.ok ? (
+                    <>
+                      ✅ {testeSbWithdraw.mensagem}
+                      {testeSbWithdraw.withdrawalId && (
+                        <p className="mt-1 text-xs font-mono">ID: {testeSbWithdraw.withdrawalId}</p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-semibold break-words">❌ {testeSbWithdraw.error}</p>
+                      {(testeSbWithdraw.hint || testeSbWithdraw.mensagem) && (
+                        <p className="mt-1 text-xs opacity-90">{testeSbWithdraw.hint ?? testeSbWithdraw.mensagem}</p>
+                      )}
+                    </>
                   )}
                 </div>
               )}
             </div>
+            </>
           )}
         </section>
       )}

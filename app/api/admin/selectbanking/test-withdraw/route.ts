@@ -123,10 +123,12 @@ export async function POST(request: NextRequest) {
     })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
+    console.error('[SelectBanking test-withdraw]', msg)
     return NextResponse.json({
       ok: false,
       error: msg,
-      mensagem: 'Falha ao chamar a Cash API. Verifique token, saldo da conta e logs.',
+      hint:
+        'Confira baseUrl do gateway (ex.: https://api.selectbanking.com.br/api/public/cash), token Bearer na API Key, saldo na conta Cash API e se o PIX da chave está correto.',
     })
   }
 }

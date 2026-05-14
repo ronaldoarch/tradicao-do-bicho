@@ -7,7 +7,19 @@ import { processarDepositoPago } from '@/lib/deposito-processor'
 
 export const dynamic = 'force-dynamic'
 
-const PAID_SELECTBANKING = ['paid', 'completed', 'complete', 'approved', 'success', 'settled', 'confirmed', 'transferred']
+const PAID_SELECTBANKING = [
+  'paid',
+  'pago',
+  'completed',
+  'complete',
+  'approved',
+  'success',
+  'succeeded',
+  'settled',
+  'confirmed',
+  'transferred',
+  'paid_out',
+]
 
 /**
  * GET /api/cron/verificar-depositos-pendentes
