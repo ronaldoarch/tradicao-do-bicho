@@ -81,6 +81,32 @@ export async function selectbankingCreateDeposit(
   }
 }
 
+/** Detalhes de um depósito pelo `id` retornado ao criar o PIX (GET /deposits/{hash}). */
+export async function selectbankingGetDepositByHash(
+  config: SelectBankingConfig,
+  depositHash: string
+): Promise<{ status?: string; id?: string; externalId?: string } | null> {
+  const base = normalizeBaseUrl(config.baseUrl)
+  const trimmed = depositHash.trim()
+  if (!trimmed) return null
+  const res = await fetch(`${base}/deposits/${encodeURIComponent(trimmed)}`, {
+    headers: {
+      Authorization: `Bearer ${config.token}`,
+      Accept: 'application/json',
+    },
+  })
+  const text = await res.text()
+  if (!res.ok) return null
+  const data = parseJsonResponse(text, res.status, res.statusText)
+  const deposit = data?.data ?? data
+  if (!deposit || typeof deposit !== 'object') return null
+  return {
+    id: deposit.id != null ? String(deposit.id) : undefined,
+    externalId: deposit.externalId != null ? String(deposit.externalId) : undefined,
+    status: deposit.status != null ? String(deposit.status).toLowerCase() : undefined,
+  }
+}
+
 export async function selectbankingCreateWithdrawal(
   config: SelectBankingConfig,
   params: {

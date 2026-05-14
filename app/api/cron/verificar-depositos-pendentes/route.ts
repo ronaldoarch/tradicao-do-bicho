@@ -2,7 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getActiveGateway, getGatewayConfig } from '@/lib/gateways-store'
 import { gateboxGetStatus } from '@/lib/gatebox-client'
-import { selectbankingFindDepositStatusByExternalId, type SelectBankingConfig } from '@/lib/selectbanking-client'
+import {
+  selectbankingFindDepositStatusByExternalId,
+  selectbankingGetDepositByHash,
+  type SelectBankingConfig,
+} from '@/lib/selectbanking-client'
+
+/** Extrai hash `dep_…` gravado na descrição ao criar o PIX (`id=dep_xxx`). */
+function parseDepositHashFromDescricao(descricao: string | null | undefined): string | null {
+  if (!descricao) return null
+  const m = descricao.match(/\bid=(dep_[^\s]+)/i)
+  return m?.[1] ?? null
+}
 import { processarDepositoPago } from '@/lib/deposito-processor'
 
 export const dynamic = 'force-dynamic'
@@ -106,8 +117,16 @@ export async function GET(request: NextRequest) {
         const externalId = t.referenciaExterna
         if (!externalId) continue
         try {
-          const info = await selectbankingFindDepositStatusByExternalId(sbConfig, externalId)
-          const st = (info?.status || '').toLowerCase()
+          const hashFromDesc = parseDepositHashFromDescricao(t.descricao)
+          let st = ''
+          if (hashFromDesc) {
+            const byHash = await selectbankingGetDepositByHash(sbConfig, hashFromDesc)
+            st = (byHash?.status || '').toLowerCase()
+          }
+          if (!st) {
+            const info = await selectbankingFindDepositStatusByExternalId(sbConfig, externalId)
+            st = (info?.status || '').toLowerCase()
+          }
           if (st && PAID_SELECTBANKING.includes(st)) {
             const result = await processarDepositoPago(t.id)
             if (result.ok) processados++
