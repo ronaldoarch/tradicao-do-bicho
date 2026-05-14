@@ -76,6 +76,7 @@ export default function GatewaysPage() {
     valor?: number
   } | null>(null)
   const [testeSbDepositLoading, setTesteSbDepositLoading] = useState(false)
+  const [testeSbCpfPagador, setTesteSbCpfPagador] = useState('')
 
   const load = async () => {
     setLoading(true)
@@ -287,10 +288,26 @@ export default function GatewaysPage() {
               <h3 className="text-lg font-semibold text-indigo-900 mb-2">Testar depósito via Cash API</h3>
               <p className="text-xs text-indigo-800 mb-2">
                 Gera um PIX de <strong>R$ 1,00</strong> (padrão) e cria uma transação{' '}
-                <strong>pendente</strong> no primeiro usuário admin. CPF e e-mail desse admin precisam estar
-                preenchidos. Ao pagar o PIX, o postback deve marcar como pago e creditar o saldo desse admin — útil para
-                validar URL de webhook e segredo.
+                <strong>pendente</strong> no primeiro usuário admin. O e-mail desse admin precisa estar preenchido. O{' '}
+                <strong>CPF do pagador</strong> na Cash API pode vir do cadastro do admin ou do campo abaixo. Ao pagar o
+                PIX, o postback deve marcar como pago e creditar o saldo desse admin.
               </p>
+              <div className="flex flex-wrap gap-2 items-end mb-2">
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-xs font-medium text-indigo-900 mb-0.5">
+                    CPF do pagador (teste) — se o admin não tiver CPF no perfil
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={testeSbCpfPagador}
+                    onChange={(e) => setTesteSbCpfPagador(e.target.value)}
+                    placeholder="Somente números, 11 dígitos"
+                    className="w-full rounded border border-indigo-300 px-2 py-1.5 text-sm bg-white"
+                  />
+                </div>
+              </div>
               <div className="flex flex-wrap gap-2 items-center">
                 <button
                   type="button"
@@ -299,11 +316,16 @@ export default function GatewaysPage() {
                     setTesteSbDepositLoading(true)
                     setTesteSbDeposit(null)
                     try {
+                      const cpfDigits = testeSbCpfPagador.replace(/\D/g, '')
+                      const payload: { cpf?: string } = {}
+                      if (cpfDigits.length >= 11) {
+                        payload.cpf = cpfDigits.slice(0, 11)
+                      }
                       const res = await fetch('/api/admin/selectbanking/test-deposit', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'include',
-                        body: JSON.stringify({}),
+                        body: JSON.stringify(Object.keys(payload).length ? payload : {}),
                       })
                       const data = await res.json().catch(() => ({}))
                       if (res.ok && data.ok) {

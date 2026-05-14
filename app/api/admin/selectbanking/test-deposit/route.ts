@@ -13,7 +13,7 @@ const VALOR_TESTE_REAIS = 1
 /**
  * POST /api/admin/selectbanking/test-deposit
  * Gera PIX de depósito de teste (R$ 1,00) via Cash API e cria transação pendente no primeiro admin.
- * Body opcional: { "valor": 1 } (mínimo 1 real se o provedor permitir).
+ * Body opcional: { "valor": 1, "cpf" | "document": "..." } — CPF do pagador na API (11 dígitos) se o admin não tiver CPF no cadastro.
  */
 export async function POST(request: NextRequest) {
   const adminCheck = await requireAdminAPI(request)
@@ -21,15 +21,17 @@ export async function POST(request: NextRequest) {
     return adminCheck
   }
 
-  let valorReais = VALOR_TESTE_REAIS
+  let body: Record<string, unknown> = {}
   try {
-    const body = await request.json().catch(() => ({}))
-    const v = body?.valor
-    if (v != null && typeof v === 'number' && !Number.isNaN(v) && v >= 1) {
-      valorReais = Math.min(100, Math.round(v * 100) / 100)
-    }
+    body = (await request.json().catch(() => ({}))) as Record<string, unknown>
   } catch {
-    /* usa padrão */
+    body = {}
+  }
+
+  let valorReais = VALOR_TESTE_REAIS
+  const v = body.valor
+  if (v != null && typeof v === 'number' && !Number.isNaN(v) && v >= 1) {
+    valorReais = Math.min(100, Math.round(v * 100) / 100)
   }
 
   const gateway = await getActiveGateway()
@@ -57,12 +59,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Nenhum usuário administrador encontrado no banco.' }, { status: 400 })
   }
 
-  const cpfLimpo = sanitizeDocumentNumber(adminUser.cpf)
+  const cpfDoBody =
+    typeof body.cpf === 'string' ? body.cpf : typeof body.document === 'string' ? body.document : undefined
+  const cpfLimpo =
+    sanitizeDocumentNumber(cpfDoBody) || sanitizeDocumentNumber(adminUser.cpf)
   if (!cpfLimpo || cpfLimpo.length !== 11) {
     return NextResponse.json(
       {
         error:
-          'CPF do primeiro admin obrigatório para depósito PIX: atualize o campo CPF do usuário admin no banco ou no perfil.',
+          'CPF do pagador (11 dígitos) obrigatório: informe no campo "CPF do pagador (teste)" no Admin → Gateways ou cadastre o CPF do primeiro admin no perfil/banco.',
       },
       { status: 400 }
     )
