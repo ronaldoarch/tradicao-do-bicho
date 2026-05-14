@@ -15,8 +15,8 @@ const VALOR_TESTE_CENTAVOS = Math.round(VALOR_TESTE_REAIS * 100)
 
 /**
  * POST /api/admin/selectbanking/test-withdraw
- * Envia PIX de teste via Cash API (gateway ativo SelectBanking). Valor fixo R$ 10,00 (mínimo de saque da API).
- * Body: { key: string }
+ * Diagnóstico de cash-out: envia o mínimo exigido pela Cash API (R$ 10,00) para a chave informada.
+ * Débito na conta do provedor; não credita saldo interno de jogador no site.
  */
 export async function POST(request: NextRequest) {
   const adminCheck = await requireAdminAPI(request)
@@ -119,12 +119,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      mensagem: `Saque de teste enviado (R$ ${VALOR_TESTE_REAIS.toFixed(2).replace('.', ',')}). ID no provedor: ${result.id}. Acompanhe o webhook ou o painel SelectBanking.`,
+      mensagem: `Cash API aceitou o saque de teste (R$ ${VALOR_TESTE_REAIS.toFixed(2).replace('.', ',')}). O débito é na conta Cash API do provedor; não credita carteira na plataforma.`,
       withdrawalId: result.id,
       externalId,
+      apenasDiagnostico: true,
       testeRealPix: {
         titulo: 'Teste bem-sucedido!',
-        subtitulo: 'Teste real: saque PIX enviado pela Cash API.',
+        subtitulo:
+          'Saque enfileirado na Cash API (validação de cash-out). Não altera saldo de usuários no site neste modo.',
         credenciaisConfiguradas: Boolean(raw.baseUrl && raw.token?.length),
         webhookUrl: postbackUrl,
         apiUrl: raw.baseUrl,

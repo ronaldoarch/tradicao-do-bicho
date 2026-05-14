@@ -17,14 +17,32 @@ O sistema de autenticação admin protege todas as rotas administrativas, exigin
 
 ### Opção 1: Via Script (Recomendado)
 
+Use **apenas o texto** do e-mail e da senha — **não** use os sinais `<` e `>` (no shell, `<` é redirecionamento e gera erro de sintaxe).
+
 ```bash
-npm run create-admin <email> <senha> [nome]
+npm run create-admin EMAIL SENHA ["Nome opcional"]
 ```
 
 **Exemplo:**
 ```bash
 npm run create-admin admin@exemplo.com senha123 "Admin Principal"
 ```
+
+### Promover conta que já existe (só marca `isAdmin`)
+
+O usuário já precisa estar cadastrado na tabela `Usuario`.
+
+```bash
+npx tsx scripts/tornar-usuario-admin.ts seu@email.com
+```
+
+Exemplo válido:
+
+```bash
+npx tsx scripts/tornar-usuario-admin.ts falbuquerque010@gmail.com
+```
+
+**Erro comum:** `... <falbuquerque010@gmail.com>` — **errado.** Remova `<` e `>` e execute dentro da pasta do projeto (`tradicao-do-bicho`), com `DATABASE_URL` apontando para o banco certo.
 
 ### Opção 2: Via Prisma Studio
 
@@ -55,7 +73,8 @@ app/api/admin/auth/             # APIs de autenticação
   ├── logout/route.ts          # Logout
   └── me/route.ts              # Verificar sessão
 middleware.ts                   # Middleware de proteção
-scripts/create-admin.ts         # Script para criar admin
+scripts/create-admin.ts              # Criar ou atualizar admin (senha + isAdmin)
+scripts/tornar-usuario-admin.ts      # Só define isAdmin=true para e-mail existente
 ```
 
 ## Proteção de Rotas

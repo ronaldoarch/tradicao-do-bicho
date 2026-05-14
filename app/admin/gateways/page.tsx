@@ -126,8 +126,6 @@ export default function GatewaysPage() {
     qrCodeImage?: string | null
     depositId?: string
     externalId?: string
-    transacaoId?: number
-    usuarioId?: number
     valor?: number
     testeRealPix?: TesteRealPixPayload
   } | null>(null)
@@ -343,10 +341,10 @@ export default function GatewaysPage() {
             <div className="mt-6 pt-6 border-t border-indigo-200">
               <h3 className="text-lg font-semibold text-indigo-900 mb-2">Testar depósito via Cash API</h3>
               <p className="text-xs text-indigo-800 mb-2">
-                Gera um PIX de <strong>R$ 5,00</strong> (padrão — mínimo da Cash API) e cria uma transação{' '}
-                <strong>pendente</strong> no primeiro usuário admin. O e-mail desse admin precisa estar preenchido. O{' '}
-                <strong>CPF do pagador</strong> na Cash API pode vir do cadastro do admin ou do campo abaixo. Ao pagar o
-                PIX, o postback deve marcar como pago e creditar o saldo desse admin.
+                Diagnóstico de <strong>cash-in</strong>: gera um PIX de <strong>R$ 5,00</strong> (mínimo da Cash API) na API
+                usando token e URL do gateway. <strong>Não cria depósito nem saldo na plataforma</strong> — só confirma se
+                credenciais e postback estão corretos. Dados de pagador usam o primeiro admin (e-mail + CPF digitado ou do
+                cadastro). Depósito real do jogador: <strong>/carteira</strong>.
               </p>
               <div className="flex flex-wrap gap-2 items-end mb-2">
                 <div className="flex-1 min-w-[200px]">
@@ -392,8 +390,6 @@ export default function GatewaysPage() {
                           qrCodeImage: data.qrCodeImage,
                           depositId: data.depositId,
                           externalId: data.externalId,
-                          transacaoId: data.transacaoId,
-                          usuarioId: data.usuarioId,
                           valor: data.valor,
                           testeRealPix: data.testeRealPix,
                         })
@@ -463,8 +459,7 @@ export default function GatewaysPage() {
                         </div>
                       )}
                       <p className="text-xs font-mono text-green-800/90">
-                        ID provedor: {testeSbDeposit.depositId || '—'} · externalId: {testeSbDeposit.externalId} ·
-                        transação #{testeSbDeposit.transacaoId}
+                        ID provedor: {testeSbDeposit.depositId || '—'} · externalId: {testeSbDeposit.externalId}
                       </p>
                       </div>
                     </div>
@@ -482,9 +477,10 @@ export default function GatewaysPage() {
             <div className="mt-6 pt-6 border-t border-indigo-200">
               <h3 className="text-lg font-semibold text-indigo-900 mb-2">Testar saque via Cash API</h3>
               <p className="text-xs text-indigo-800 mb-2">
-                Requer um gateway <strong>SelectBanking</strong> marcado como <strong>Ativo</strong>. Será enviado{' '}
-                <strong>R$ 10,00</strong> (mínimo de saque da Cash API) da sua conta Cash API para a chave PIX informada.
-                O CPF do primeiro usuário admin ou uma chave CPF/CNPJ válida é usado no campo documento do recebedor.
+                Diagnóstico de <strong>cash-out</strong> (gateway <strong>SelectBanking</strong> ativo): envia PIX de{' '}
+                <strong>R$ 10,00</strong> (mínimo da Cash API) da conta do provedor para a chave informada.{' '}
+                <strong>Não credita saldo na plataforma</strong> — só valida saque e credenciais. Exige saldo na conta Cash
+                API. CPF/documento usa o primeiro admin ou a chave PIX (CPF/CNPJ).
               </p>
               <div className="flex gap-2 flex-wrap items-end">
                 <div className="flex-1 min-w-[180px]">

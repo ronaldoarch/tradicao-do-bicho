@@ -14,8 +14,9 @@ const VALOR_TESTE_PADRAO_REAIS = CASH_API_DEPOSITO_MIN_REAIS
 
 /**
  * POST /api/admin/selectbanking/test-deposit
- * Gera PIX de depósito de teste via Cash API e cria transação pendente no primeiro admin.
- * Valor padrão R$ 5,00 (mínimo da Cash API). Body opcional: { "valor": 5 }, { "cpf" | "document": "..." }.
+ * Somente diagnóstico: chama a Cash API e obtém dados de PIX (mínimo R$ 5,00).
+ * Não registra Transacao nem altera saldo na plataforma — crédito real é só pelo fluxo /carteira.
+ * Body opcional: { "valor": 5 }, { "cpf" | "document": "..." }.
  */
 export async function POST(request: NextRequest) {
   const adminCheck = await requireAdminAPI(request)
@@ -93,7 +94,8 @@ export async function POST(request: NextRequest) {
     secret
   )
 
-  const externalId = `deposito_${adminUser.id}_${Date.now()}`
+  /** externalId só no provedor; não usa prefixo deposito_ para não sugerir conciliação com carteira local. */
+  const externalId = `teste-cashapi-diagnostico-${Date.now()}`
   const amountCents = Math.round(valorReais * 100)
 
   try {
@@ -116,34 +118,22 @@ export async function POST(request: NextRequest) {
 
     const providerId = pixResponse.id || ''
 
-    const transacao = await prisma.transacao.create({
-      data: {
-        usuarioId: adminUser.id,
-        tipo: 'deposito',
-        status: 'pendente',
-        valor: valorReais,
-        gatewayId: gateway.id,
-        referenciaExterna: externalId,
-        descricao: `Teste depósito Admin — SelectBanking (${gateway.name}) id=${providerId || '—'}`,
-      },
-    })
-
     const credenciaisConfiguradas = Boolean(raw.baseUrl && raw.token?.length)
     const webhookSecretConfigurado = Boolean(secret)
 
     return NextResponse.json({
       ok: true,
-      mensagem: `PIX de teste gerado (R$ ${valorReais.toFixed(2).replace('.', ',')}). Pague com o app do banco para validar postback e crédito na carteira do admin (usuário #${adminUser.id}).`,
+      mensagem: `Cash API aceitou a requisição: PIX de R$ ${valorReais.toFixed(2).replace('.', ',')} disponível só para conferência. Este teste não cria lançamento na carteira da plataforma; depósitos reais ficam em /carteira.`,
       qrCodeText: pixResponse.qrCodeText,
       qrCodeImage: pixResponse.qrCodeImage || null,
       depositId: providerId,
       externalId,
-      transacaoId: transacao.id,
-      usuarioId: adminUser.id,
+      apenasDiagnostico: true,
       valor: valorReais,
       testeRealPix: {
         titulo: 'Teste bem-sucedido!',
-        subtitulo: 'Teste real: PIX gerado com sucesso.',
+        subtitulo:
+          'Conexão com a Cash API OK (PIX gerado). Nenhum valor é registrado na carteira pelo painel Admin neste modo.',
         credenciaisConfiguradas,
         webhookUrl: postbackUrl,
         apiUrl: raw.baseUrl,
