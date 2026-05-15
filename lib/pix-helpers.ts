@@ -66,7 +66,7 @@ export function inferSelectBankingPixKeyType(key: string): 'document' | 'email' 
 
   const digitsOnly = t.replace(/\D/g, '')
 
-  if (digitsOnly.length === 11 && digitsOnly[2] !== '9') {
+  if (digitsOnly.length === 11 && !t.startsWith('+')) {
     return 'document'
   }
   if (digitsOnly.length === 14) {

@@ -11,7 +11,7 @@ import {
 /** Extrai hash `dep_…` gravado na descrição ao criar o PIX (`id=dep_xxx`). */
 function parseDepositHashFromDescricao(descricao: string | null | undefined): string | null {
   if (!descricao) return null
-  const m = descricao.match(/\bid=(dep_[^\s]+)/i)
+  const m = descricao.match(/\bid=([^\s]+)/i)
   return m?.[1] ?? null
 }
 import { processarDepositoPago } from '@/lib/deposito-processor'
@@ -67,7 +67,8 @@ export async function GET(request: NextRequest) {
         referenciaExterna: { not: null },
         gatewayId: gateway.id,
       },
-      take: 20,
+      orderBy: { createdAt: 'asc' },
+      take: 50,
     })
 
     let processados = 0

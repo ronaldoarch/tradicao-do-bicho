@@ -48,20 +48,24 @@ export async function processarDepositoPago(transacaoId: number): Promise<{ ok: 
 
   const rolloverMult = Number(process.env.BONUS_ROLLOVER_MULTIPLIER ?? 3)
 
-  await prisma.$transaction(async (tx) => {
-    await tx.transacao.update({
-      where: { id: transacao.id },
-      data: { status: 'pago', bonusAplicado },
-    })
-    await tx.usuario.update({
-      where: { id: user.id },
-      data: {
-        saldo: { increment: transacao.valor },
-        saldoSacavel: { increment: transacao.valor },
-        bonusBloqueado: bonusAplicado > 0 ? { increment: bonusAplicado } : undefined,
-        rolloverNecessario: bonusAplicado > 0 ? { increment: bonusAplicado * rolloverMult } : undefined,
-      },
-    })
+  const updated = await prisma.transacao.updateMany({
+    where: { id: transacao.id, status: 'pendente' },
+    data: { status: 'pago', bonusAplicado },
+  })
+
+  // Outra requisição concorrente já processou
+  if (updated.count === 0) {
+    return { ok: true }
+  }
+
+  await prisma.usuario.update({
+    where: { id: user.id },
+    data: {
+      saldo: { increment: transacao.valor },
+      saldoSacavel: { increment: transacao.valor },
+      bonusBloqueado: bonusAplicado > 0 ? { increment: bonusAplicado } : undefined,
+      rolloverNecessario: bonusAplicado > 0 ? { increment: bonusAplicado * rolloverMult } : undefined,
+    },
   })
 
   if (depositosPagos === 0) {

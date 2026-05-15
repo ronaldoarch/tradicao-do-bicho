@@ -174,12 +174,25 @@ export async function POST(req: NextRequest) {
   }
 
   // --- Depósito (prefixo deposito_ ou transação pendente com referência) ---
-  const transacao = await prisma.transacao.findFirst({
+  let transacao = await prisma.transacao.findFirst({
     where: {
       OR: refs.map((r) => ({ referenciaExterna: r })),
       tipo: 'deposito',
     },
   })
+
+  // Fallback: provider ID gravado na descricao como "id=XXXX" (SelectBanking não envia externalId)
+  if (!transacao && id) {
+    transacao = await prisma.transacao.findFirst({
+      where: {
+        tipo: 'deposito',
+        descricao: { contains: `id=${id}` },
+      },
+    })
+    if (transacao) {
+      console.log(`SelectBanking webhook: transação encontrada via descricao (id=${id}), considere salvar o provider ID em referenciaExterna`)
+    }
+  }
 
   if (!transacao && !externalId?.startsWith('deposito_')) {
     console.log('SelectBanking webhook: sem transação/saque', { status, typeRaw, refs })
